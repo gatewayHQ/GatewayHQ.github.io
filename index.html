@@ -32,6 +32,81 @@ body {
 }
 h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
 
+/* ========== LOGIN GATE ========== */
+#login-gate {
+  position: fixed;
+  inset: 0;
+  background: var(--brand-navy-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+}
+#login-gate.hidden { display: none; }
+.login-card {
+  background: var(--card-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 20px;
+  padding: 48px 40px 40px;
+  width: 360px;
+  max-width: calc(100vw - 48px);
+  text-align: center;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+}
+.login-card img { height: 56px; margin-bottom: 20px; }
+.login-card h2 {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 26px;
+  font-weight: 400;
+  color: var(--brand-white);
+  margin-bottom: 6px;
+}
+.login-card p {
+  font-size: 13px;
+  color: var(--brand-gray);
+  margin-bottom: 28px;
+  letter-spacing: 0.5px;
+}
+.login-card input[type="password"] {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 10px;
+  color: var(--brand-white);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  outline: none;
+  margin-bottom: 14px;
+  transition: border-color 0.2s;
+  text-align: center;
+  letter-spacing: 2px;
+}
+.login-card input[type="password"]:focus { border-color: #C8A84B; }
+.login-btn {
+  width: 100%;
+  padding: 13px;
+  background: #C8A84B;
+  color: #152229;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.login-btn:hover { background: #d4b55e; }
+.login-error {
+  margin-top: 14px;
+  font-size: 12px;
+  color: #e74c3c;
+  display: none;
+}
+.login-error.visible { display: block; }
+
 /* ========== TOP NAV BAR ========== */
 .top-nav {
   background: var(--brand-navy);
@@ -784,6 +859,19 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
 </head>
 <body>
 
+<!-- ========== LOGIN GATE ========== -->
+<div id="login-gate">
+  <div class="login-card">
+    <img src="https://res.cloudinary.com/dnmrgpubz/image/upload/v1748440952/GWlogo_circle_o4vvuv.png" alt="Gateway Logo" onerror="this.style.display='none'">
+    <h2>Gateway Agent Toolkit</h2>
+    <p>Enter your password to continue</p>
+    <input type="password" id="login-pw" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">Login</button>
+    <div class="login-error" id="login-error">Incorrect password. Please try again.</div>
+  </div>
+</div>
+
+
 <!-- ========== TOP NAVIGATION ========== -->
 <nav class="top-nav">
   <img class="nav-logo" src="data:image/png;base64,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" alt="Gateway">
@@ -832,7 +920,7 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
     </div>
   </div>
   <div class="landing-footer">
-    GATEWAY REAL ESTATE ADVISORS &nbsp;·&nbsp; POWERED BY VIKTOR AI
+    GATEWAY REAL ESTATE ADVISORS
   </div>
 </div>
 
@@ -845,11 +933,21 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
         <h4>Listing Details</h4>
         <div class="form-row">
           <label>Heading</label>
-          <select id="sm-heading" onchange="updateSocialPreview()">
-            <option value="Just Listed">Just Listed</option>
-            <option value="Just Sold">Just Sold</option>
-            <option value="Under Contract">Under Contract</option>
-            <option value="For Sale">For Sale</option>
+          <select id="sm-heading" onchange="onTemplateChange()">
+            <optgroup label="── Commercial ──">
+              <option value="Just Listed">Just Listed</option>
+              <option value="Just Sold">Just Sold</option>
+              <option value="Under Contract">Under Contract</option>
+              <option value="For Sale">For Sale</option>
+              <option value="For Lease">For Lease</option>
+              <option value="Just Leased">Just Leased</option>
+              <option value="Price Reduced">Price Reduced</option>
+              <option value="Investment Opportunity">Investment Opportunity</option>
+            </optgroup>
+            <optgroup label="── Residential ──">
+              <option value="res-new-listing">Residential — New Listing</option>
+              <option value="res-just-sold">Residential — Just Sold</option>
+            </optgroup>
           </select>
         </div>
         <div class="form-row">
@@ -857,8 +955,31 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
           <input type="text" id="sm-address" placeholder="e.g. Siouxland Mini Storage Portfolio" oninput="updateSocialPreview()">
         </div>
         <div class="form-row">
-          <label>Price</label>
+          <label>Price / Asking Price</label>
           <input type="text" id="sm-price" placeholder="e.g. $3,800,000" oninput="updateSocialPreview()">
+        </div>
+      </div>
+
+      <!-- RESIDENTIAL-ONLY FIELDS -->
+      <div class="form-section" id="sm-residential-fields" style="display:none">
+        <h4>Residential Details</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="form-row"><label>Bedrooms</label><input type="text" id="sm-res-beds" placeholder="e.g. 4" oninput="updateSocialPreview()"></div>
+          <div class="form-row"><label>Bathrooms</label><input type="text" id="sm-res-baths" placeholder="e.g. 2.5" oninput="updateSocialPreview()"></div>
+          <div class="form-row"><label>Sq Footage</label><input type="text" id="sm-res-sqft" placeholder="e.g. 2,400 SF" oninput="updateSocialPreview()"></div>
+          <div class="form-row"><label>Lot Size</label><input type="text" id="sm-res-lot" placeholder="e.g. 0.35 Acres" oninput="updateSocialPreview()"></div>
+          <div class="form-row"><label>Garage Stalls</label><input type="text" id="sm-res-garage" placeholder="e.g. 2-Car" oninput="updateSocialPreview()"></div>
+          <div class="form-row"><label>Year Built</label><input type="text" id="sm-res-year" placeholder="e.g. 2018" oninput="updateSocialPreview()"></div>
+        </div>
+      </div>
+
+      <!-- COMMERCIAL-ONLY DETAIL LINE -->
+      <div class="form-section" id="sm-commercial-fields" style="display:none">
+        <h4>Commercial Details</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="form-row"><label>Square Footage</label><input type="text" id="sm-comm-sf" placeholder="e.g. 12,500 SF" oninput="updateSocialPreview()"></div>
+          <div class="form-row"><label>Price or Rate</label><input type="text" id="sm-comm-rate" placeholder="e.g. $12/SF NNN" oninput="updateSocialPreview()"></div>
+          <div class="form-row" style="grid-column:1/-1"><label>Custom Detail Line</label><input type="text" id="sm-comm-detail" placeholder="e.g. Prime Corner Location" oninput="updateSocialPreview()"></div>
         </div>
       </div>
 
@@ -1570,6 +1691,25 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
       <div class="form-row"><label>Notes</label><textarea id="invNotes" rows="2" placeholder="Payment instructions, thank you message, etc."></textarea></div>
     </div>
 
+    <!-- WIRING INSTRUCTIONS TOGGLE -->
+    <div class="form-section" style="margin-bottom:16px">
+      <div class="toggle-row" style="margin-bottom:0">
+        <input type="checkbox" id="invWiringToggle" onchange="toggleWiringSection()">
+        <label for="invWiringToggle" style="font-size:13px;color:var(--brand-cream);font-weight:600;cursor:pointer">Include Wiring Instructions</label>
+      </div>
+      <div id="wiring-section" style="display:none;margin-top:16px;padding:16px;border:1px solid var(--input-border);border-radius:10px;background:var(--input-bg)">
+        <h4 style="font-family:Montserrat,sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--brand-blue);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--input-border)">Wiring Instructions</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-row"><label>Bank Name</label><input type="text" id="invWireBank" placeholder="e.g. First National Bank"></div>
+          <div class="form-row"><label>Bank Address</label><input type="text" id="invWireBankAddr" placeholder="e.g. 123 Main St, City, IA"></div>
+          <div class="form-row"><label>Account Name</label><input type="text" id="invWireAcctName" placeholder="e.g. Gateway Real Estate Advisors"></div>
+          <div class="form-row"><label>Account Number</label><input type="text" id="invWireAcctNum" placeholder="Account number"></div>
+          <div class="form-row"><label>Routing Number</label><input type="text" id="invWireRouting" placeholder="Routing number"></div>
+          <div class="form-row"><label>Notes</label><input type="text" id="invWireNotes" placeholder="e.g. Include invoice # in memo"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- SAVED INVOICES LIBRARY -->
     <div style="margin-top:24px;padding:16px;background:rgba(162,182,192,0.06);border-radius:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -1650,6 +1790,51 @@ var BRAND = {
   white: '#FFFFFF',
   black: '#282828'
 };
+
+// ==== LOGIN GATE ====
+(function() {
+  var VALID_PASSWORDS = ['Gateway2026$', 'AdminGateway2026$'];
+  var SESSION_KEY = 'gw_auth_session';
+
+  function checkSession() {
+    return localStorage.getItem(SESSION_KEY) === 'authenticated';
+  }
+
+  function showGate() {
+    var gate = document.getElementById('login-gate');
+    if (gate) gate.classList.remove('hidden');
+  }
+
+  function hideGate() {
+    var gate = document.getElementById('login-gate');
+    if (gate) gate.classList.add('hidden');
+  }
+
+  window.doLogin = function() {
+    var pw = document.getElementById('login-pw').value;
+    var err = document.getElementById('login-error');
+    if (VALID_PASSWORDS.indexOf(pw) !== -1) {
+      localStorage.setItem(SESSION_KEY, 'authenticated');
+      err.classList.remove('visible');
+      hideGate();
+    } else {
+      err.classList.add('visible');
+      document.getElementById('login-pw').value = '';
+      document.getElementById('login-pw').focus();
+    }
+  };
+
+  // On page load, check session
+  if (checkSession()) {
+    hideGate();
+  } else {
+    showGate();
+    setTimeout(function() {
+      var pw = document.getElementById('login-pw');
+      if (pw) pw.focus();
+    }, 100);
+  }
+})();
 
 // ==== NAVIGATION ====
 var currentPage = 'landing';
@@ -1827,12 +2012,340 @@ function setSocialPalette(name) {
   updateSocialPreview();
 }
 
+function onTemplateChange() {
+  var val = document.getElementById('sm-heading').value;
+  var isResidential = val.startsWith('res-');
+  var isNewCommercial = ['For Lease','Just Leased','Price Reduced','Investment Opportunity'].indexOf(val) !== -1;
+  var resFields = document.getElementById('sm-residential-fields');
+  var commFields = document.getElementById('sm-commercial-fields');
+  var metricsSection = document.getElementById('sm-metrics-grid');
+  var metricsValues = document.getElementById('sm-metrics-values');
+  if (resFields) resFields.style.display = isResidential ? 'block' : 'none';
+  if (commFields) commFields.style.display = isNewCommercial ? 'block' : 'none';
+  if (metricsSection) metricsSection.style.display = isResidential ? 'none' : '';
+  if (metricsValues) metricsValues.style.display = isResidential ? 'none' : '';
+  updateSocialPreview();
+}
+
+async function drawResidentialNewListing(canvas, ctx) {
+  var W = canvas.width, H = canvas.height;
+  // Light gray/white background
+  ctx.fillStyle = '#f4f4f0';
+  ctx.fillRect(0, 0, W, H);
+
+  var address = document.getElementById('sm-address').value || '1234 Maple Street';
+  var price = document.getElementById('sm-price').value || '';
+  var beds = document.getElementById('sm-res-beds').value || '';
+  var baths = document.getElementById('sm-res-baths').value || '';
+  var sqft = document.getElementById('sm-res-sqft').value || '';
+  var lot = document.getElementById('sm-res-lot').value || '';
+  var garage = document.getElementById('sm-res-garage').value || '';
+  var year = document.getElementById('sm-res-year').value || '';
+
+  // "NEW LISTING" bold dark serif at top
+  ctx.fillStyle = '#1E2F39';
+  ctx.font = 'bold 110px "EB Garamond", Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('NEW LISTING', W/2, 150);
+
+  // Address in spaced uppercase
+  ctx.font = '600 30px "Montserrat", sans-serif';
+  ctx.letterSpacing = '4px';
+  ctx.fillStyle = '#3a4e5a';
+  ctx.fillText(address.toUpperCase(), W/2, 210);
+  ctx.letterSpacing = '0px';
+
+  // Price
+  if (price) {
+    ctx.font = '500 36px "Montserrat", sans-serif';
+    ctx.fillStyle = '#C8A84B';
+    ctx.fillText(price, W/2, 265);
+  }
+
+  // Large centered property photo
+  var photoY = 300, photoH = 650;
+  var photoSrc = smPhotos[0];
+  if (photoSrc) {
+    try {
+      var img = await loadImageAsync(photoSrc);
+      var margin = 60;
+      ctx.save();
+      roundRect(ctx, margin, photoY, W - margin*2, photoH, 12);
+      ctx.clip();
+      var scale = Math.max((W - margin*2)/img.width, photoH/img.height);
+      var dw = img.width * scale, dh = img.height * scale;
+      ctx.drawImage(img, margin + (W - margin*2 - dw)/2, photoY + (photoH - dh)/2, dw, dh);
+      ctx.restore();
+    } catch(e) {}
+  } else {
+    ctx.fillStyle = '#ddddd8';
+    roundRect(ctx, 60, photoY, W - 120, photoH, 12);
+    ctx.fill();
+    ctx.fillStyle = '#999';
+    ctx.font = '28px Montserrat';
+    ctx.fillText('Property Photo', W/2, photoY + photoH/2);
+  }
+
+  // Gateway circular logo badge bottom right
+  try {
+    var logoSrc = LOGO_CIRCLE_LIGHT || 'https://res.cloudinary.com/dnmrgpubz/image/upload/v1748440952/GWlogo_circle_o4vvuv.png';
+    var logoImg = await loadImageAsync(logoSrc);
+    var sz = 120;
+    ctx.drawImage(logoImg, W - 60 - sz, photoY + photoH - sz/2 - 10, sz, sz);
+  } catch(e) {}
+
+  // Dark teal banner at bottom
+  var bannerY = photoY + photoH + 60;
+  ctx.fillStyle = '#2a3e48';
+  ctx.fillRect(0, bannerY, W, H - bannerY);
+
+  // Property details icon row
+  var details = [];
+  if (beds) details.push('🛏 ' + beds + ' Bed');
+  if (baths) details.push('🚿 ' + baths + ' Bath');
+  if (sqft) details.push('📐 ' + sqft);
+  if (garage) details.push('🚗 ' + garage);
+  if (lot) details.push('📍 ' + lot);
+  if (year) details.push('🏗 ' + year);
+  if (details.length > 0) {
+    ctx.font = '500 26px "Montserrat", sans-serif';
+    ctx.fillStyle = '#E4E3D4';
+    ctx.textAlign = 'center';
+    var spacing = W / (details.length + 1);
+    details.forEach(function(d, i) {
+      ctx.fillText(d, spacing * (i + 1), bannerY + 52);
+    });
+  }
+
+  // Website and phone in banner
+  ctx.font = '400 24px "Montserrat", sans-serif';
+  ctx.fillStyle = '#A2B6C0';
+  ctx.textAlign = 'center';
+  ctx.fillText('www.gatewayreadvisors.com  |  712-226-8000', W/2, H - 30);
+}
+
+async function drawResidentialJustSold(canvas, ctx) {
+  var W = canvas.width, H = canvas.height;
+  // Dark navy background
+  ctx.fillStyle = '#1E2F39';
+  ctx.fillRect(0, 0, W, H);
+
+  var address = document.getElementById('sm-address').value || '1234 Maple Street';
+  var beds = document.getElementById('sm-res-beds').value || '';
+  var baths = document.getElementById('sm-res-baths').value || '';
+  var sqft = document.getElementById('sm-res-sqft').value || '';
+  var lot = document.getElementById('sm-res-lot').value || '';
+  var garage = document.getElementById('sm-res-garage').value || '';
+  var year = document.getElementById('sm-res-year').value || '';
+
+  // Property photo at top with white border
+  var photoY = 60, photoH = 680;
+  var photoSrc = smPhotos[0];
+  if (photoSrc) {
+    try {
+      var img = await loadImageAsync(photoSrc);
+      var border = 10, margin = 60;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(margin - border, photoY - border, W - (margin - border)*2, photoH + border*2);
+      ctx.save();
+      roundRect(ctx, margin, photoY, W - margin*2, photoH, 4);
+      ctx.clip();
+      var scale = Math.max((W - margin*2)/img.width, photoH/img.height);
+      var dw = img.width * scale, dh = img.height * scale;
+      ctx.drawImage(img, margin + (W - margin*2 - dw)/2, photoY + (photoH - dh)/2, dw, dh);
+      ctx.restore();
+    } catch(e) {}
+  } else {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(50, photoY - 10, W - 100, photoH + 20);
+    ctx.fillStyle = '#2a3e48';
+    ctx.fillRect(60, photoY, W - 120, photoH);
+    ctx.fillStyle = '#5a6a72';
+    ctx.font = '28px Montserrat';
+    ctx.textAlign = 'center';
+    ctx.fillText('Property Photo', W/2, photoY + photoH/2);
+  }
+
+  // Address below photo
+  ctx.textAlign = 'left';
+  ctx.font = '500 28px "Montserrat", sans-serif';
+  ctx.fillStyle = '#A2B6C0';
+  ctx.fillText(address, 60, photoY + photoH + 60);
+
+  // Details icon row
+  var details = [];
+  if (beds) details.push('🛏 ' + beds);
+  if (baths) details.push('🚿 ' + baths);
+  if (sqft) details.push('📐 ' + sqft);
+  if (garage) details.push('🚗 ' + garage);
+  if (lot) details.push('📍 ' + lot);
+  if (year) details.push('🏗 ' + year);
+  if (details.length) {
+    ctx.font = '400 24px "Montserrat", sans-serif';
+    ctx.fillStyle = '#E4E3D4';
+    ctx.fillText(details.join('  ·  '), 60, photoY + photoH + 100);
+  }
+
+  // Gateway circular logo bottom left
+  try {
+    var logoSrc = LOGO_CIRCLE_LIGHT || 'https://res.cloudinary.com/dnmrgpubz/image/upload/v1748440952/GWlogo_circle_o4vvuv.png';
+    var logoImg = await loadImageAsync(logoSrc);
+    var sz = 130;
+    ctx.drawImage(logoImg, 60, H - sz - 40, sz, sz);
+  } catch(e) {}
+
+  // "JUST SOLD!" bold large bottom right
+  ctx.textAlign = 'right';
+  ctx.font = 'bold 90px "EB Garamond", Georgia, serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('JUST SOLD!', W - 60, H - 140);
+
+  // Script subtitle
+  ctx.font = 'italic 32px "EB Garamond", Georgia, serif';
+  ctx.fillStyle = '#A2B6C0';
+  ctx.fillText('A huge congrats to our happy clients!', W - 60, H - 95);
+
+  // Website and phone
+  ctx.font = '400 22px "Montserrat", sans-serif';
+  ctx.fillStyle = '#6a7e88';
+  ctx.fillText('www.gatewayreadvisors.com  |  712-226-8000', W - 60, H - 45);
+}
+
+async function drawCommercialTemplate(canvas, ctx, templateName) {
+  var W = canvas.width, H = canvas.height;
+  var pal = PALETTES[smPalette] || PALETTES.navy;
+
+  // Base dark navy background
+  ctx.fillStyle = '#1E2F39';
+  ctx.fillRect(0, 0, W, H);
+
+  var address = document.getElementById('sm-address').value || 'Property Address';
+  var price = document.getElementById('sm-price').value || '';
+  var commSF = document.getElementById('sm-comm-sf')?.value || '';
+  var commRate = document.getElementById('sm-comm-rate')?.value || '';
+  var commDetail = document.getElementById('sm-comm-detail')?.value || '';
+
+  // Template-specific accent colors
+  var accentMap = {
+    'For Lease': '#5BA4CF',
+    'Just Leased': '#4CAF50',
+    'Price Reduced': '#e74c3c',
+    'Investment Opportunity': '#C8A84B'
+  };
+  var accent = accentMap[templateName] || '#C8A84B';
+
+  // Top accent bar
+  ctx.fillStyle = accent;
+  ctx.fillRect(0, 0, W, 8);
+
+  // Template heading
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 96px "EB Garamond", Georgia, serif';
+  ctx.fillStyle = '#ffffff';
+  var headingText = templateName.toUpperCase();
+  if (templateName === 'Investment Opportunity') { headingText = 'INVESTMENT'; }
+  ctx.fillText(headingText, 60, 140);
+  if (templateName === 'Investment Opportunity') {
+    ctx.fillText('OPPORTUNITY', 60, 240);
+  }
+
+  // Accent underline
+  ctx.fillStyle = accent;
+  ctx.fillRect(60, templateName === 'Investment Opportunity' ? 260 : 160, 200, 5);
+
+  // Property photo
+  var photoY = templateName === 'Investment Opportunity' ? 300 : 210;
+  var photoH = 560;
+  var photoSrc = smPhotos[0];
+  if (photoSrc) {
+    try {
+      var img = await loadImageAsync(photoSrc);
+      var margin = 60;
+      ctx.save();
+      roundRect(ctx, margin, photoY, W - margin*2, photoH, 8);
+      ctx.clip();
+      var scale = Math.max((W - margin*2)/img.width, photoH/img.height);
+      var dw = img.width * scale, dh = img.height * scale;
+      ctx.drawImage(img, margin + (W - margin*2 - dw)/2, photoY + (photoH - dh)/2, dw, dh);
+      ctx.restore();
+    } catch(e) {}
+  } else {
+    ctx.fillStyle = '#162028';
+    ctx.save();
+    roundRect(ctx, 60, photoY, W - 120, photoH, 8);
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#3a4e5a';
+    ctx.textAlign = 'center';
+    ctx.font = '28px Montserrat';
+    ctx.fillText('Property Photo', W/2, photoY + photoH/2);
+  }
+
+  // Property details section
+  var detY = photoY + photoH + 50;
+  ctx.textAlign = 'left';
+  ctx.font = '600 34px "Montserrat", sans-serif';
+  ctx.fillStyle = accent;
+  ctx.fillText(address, 60, detY);
+
+  if (commRate || price) {
+    ctx.font = '500 28px "Montserrat", sans-serif';
+    ctx.fillStyle = '#E4E3D4';
+    ctx.fillText(commRate || price, 60, detY + 50);
+  }
+
+  if (commSF) {
+    ctx.font = '400 24px "Montserrat", sans-serif';
+    ctx.fillStyle = '#A2B6C0';
+    ctx.fillText(commSF, 60, detY + 95);
+  }
+
+  if (commDetail) {
+    ctx.font = 'italic 24px "EB Garamond", Georgia, serif';
+    ctx.fillStyle = '#6a8a96';
+    ctx.fillText(commDetail, 60, detY + 140);
+  }
+
+  // Gateway circular logo bottom right
+  try {
+    var logoSrc = LOGO_CIRCLE_LIGHT || 'https://res.cloudinary.com/dnmrgpubz/image/upload/v1748440952/GWlogo_circle_o4vvuv.png';
+    var logoImg = await loadImageAsync(logoSrc);
+    var sz = 110;
+    ctx.drawImage(logoImg, W - 60 - sz, H - sz - 30, sz, sz);
+  } catch(e) {}
+
+  // Website bottom center
+  ctx.textAlign = 'center';
+  ctx.font = '400 22px "Montserrat", sans-serif';
+  ctx.fillStyle = '#5a6a72';
+  ctx.fillText('www.gatewayreadvisors.com  |  712-226-8000', W/2, H - 28);
+}
+
 async function updateSocialPreview() {
   var canvas = document.getElementById('sm-canvas');
   var ctx = canvas.getContext('2d');
   var W = 1080, H = 1350;
   canvas.width = W;
   canvas.height = H;
+
+  var heading = document.getElementById('sm-heading').value;
+
+  // Residential templates
+  if (heading === 'res-new-listing') {
+    await drawResidentialNewListing(canvas, ctx);
+    return;
+  }
+  if (heading === 'res-just-sold') {
+    await drawResidentialJustSold(canvas, ctx);
+    return;
+  }
+  // New commercial templates
+  if (['For Lease','Just Leased','Price Reduced','Investment Opportunity'].indexOf(heading) !== -1) {
+    await drawCommercialTemplate(canvas, ctx, heading);
+    return;
+  }
+
+  // --- Original commercial rendering below ---
 
   var pal = PALETTES[smPalette] || PALETTES.navy;
 
@@ -2655,8 +3168,45 @@ function generateValReport() {
   }
   addLeasingFooter(s3);
 
-  pptx.writeFile({ fileName: propName.replace(/\s+/g, '_') + '_Valuation.pptx' });
-  showGlobalStatus('✅ Valuation report generated!');
+  try {
+    var fileName = (propName.replace(/[^a-zA-Z0-9_\-]/g, '_') || 'Valuation') + '_Valuation.pptx';
+    var result = pptx.writeFile({ fileName: fileName });
+    if (result && typeof result.then === 'function') {
+      result.then(function() {
+        showGlobalStatus('✅ Valuation report downloaded!');
+      }).catch(function(err) {
+        // Fallback: generate as blob and trigger manual download
+        pptx.write({ outputType: 'blob' }).then(function(blob) {
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
+          showGlobalStatus('✅ Valuation report downloaded!');
+        }).catch(function(e2) {
+          showGlobalStatus('⚠️ Download failed: ' + e2.message);
+        });
+      });
+    } else {
+      showGlobalStatus('✅ Valuation report generated!');
+    }
+  } catch(err) {
+    // Fallback blob download
+    try {
+      pptx.write({ outputType: 'blob' }).then(function(blob) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = (propName.replace(/[^a-zA-Z0-9_\-]/g, '_') || 'Valuation') + '_Valuation.pptx';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
+        showGlobalStatus('✅ Valuation report downloaded!');
+      }).catch(function(e2) { showGlobalStatus('⚠️ Download failed: ' + e2.message); });
+    } catch(e3) { showGlobalStatus('⚠️ Error generating PPTX: ' + err.message); }
+  }
 }
 
 
@@ -4071,7 +4621,7 @@ renderPastOMs();
       '<p style="font-size:12px;color:var(--brand-gray);margin-top:2px">Upload a saved OM (.json) or existing PPTX to auto-populate fields</p></div></div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
       '<button class="btn-sm" onclick="document.getElementById(\'omUploadInput\').click()">\u{1F4E4} Upload OM File</button>' +
-      '<input type="file" id="omUploadInput" accept=".json,.pptx" style="display:none" onchange="handleOMUpload(this)">' +
+      '<input type="file" id="omUploadInput" accept=".json,.pptx,.pdf" style="display:none" onchange="handleOMUpload(this)">' +
       '<button class="btn-sm" onclick="exportOMData()">\u{1F4BE} Export as JSON</button></div>';
     tab0.insertBefore(div, tab0.firstChild);
   }
@@ -4082,10 +4632,11 @@ renderPastOMs();
     if (!tab2) return;
     var div = document.createElement('div');
     div.style.cssText = 'margin:12px 0;padding:12px;background:rgba(162,182,192,0.08);border-radius:8px';
-    div.innerHTML = '<strong style="font-size:13px">\u{1F4CB} Rent Roll Upload</strong>' +
-      '<p style="color:var(--brand-gray);font-size:12px;margin:4px 0 8px">Upload CSV or XLSX with columns: Type, Units, SqFt, Rent</p>' +
-      '<button class="btn-sm" onclick="document.getElementById(\'rentRollInput\').click()">Upload Rent Roll</button>' +
-      '<input type="file" id="rentRollInput" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleRentRollUpload(this)">';
+    div.innerHTML = '<strong style="font-size:13px">📋 Rent Roll Upload</strong>' +
+      '<p style="color:var(--brand-gray);font-size:12px;margin:4px 0 8px">Upload PDF, XLSX, or CSV. Expected columns: Unit#, Tenant, Lease Start, Lease End, Rent, SqFt, Vacancy</p>' +
+      '<button class="btn-sm" onclick="document.getElementById(\'rentRollInput\').click()">📂 Upload Rent Roll</button>' +
+      '<input type="file" id="rentRollInput" accept=".csv,.xlsx,.xls,.pdf" style="display:none" onchange="handleRentRollUpload(this)">' +
+      '<div id="rentRollStatus" style="margin-top:8px;font-size:12px;display:none"></div>';
     tab2.insertBefore(div, tab2.firstChild);
   }
 
@@ -4463,8 +5014,22 @@ renderPastOMs();
       reader.readAsText(file);
     } else if (ext === 'pptx') {
       parsePptxUpload(file);
+    } else if (ext === 'pdf') {
+      // PDF text extraction via FileReader (text-based PDFs only)
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          var text = e.target.result;
+          if (!text || text.length < 100) throw new Error('PDF appears to be scanned/image-only and cannot be parsed as text');
+          autoPopulateFromText(text);
+        } catch(err) {
+          showGlobalStatus('⚠️ PDF parse error: ' + err.message + '. Try uploading PPTX or JSON format instead.');
+        }
+      };
+      reader.onerror = function() { showGlobalStatus('⚠️ Could not read PDF file.'); };
+      reader.readAsText(file);
     } else {
-      showGlobalStatus('Unsupported format. Please upload .json or .pptx');
+      showGlobalStatus('Unsupported format. Please upload .pdf, .pptx, or .json');
     }
     input.value = '';
   };
@@ -4499,19 +5064,80 @@ renderPastOMs();
   }
 
   function autoPopulateFromText(text) {
-    var addrMatch = text.match(/(\d+\s+[A-Z][a-zA-Z\s]+(?:St|Ave|Blvd|Dr|Rd|Ln|Way|Ct|Pl|Circle)[.,]?\s*(?:[A-Z][a-zA-Z\s]+,?\s*[A-Z]{2}\s*\d{5})?)/);
-    if (addrMatch) { var el = document.getElementById('address'); if (el && !el.value) el.value = addrMatch[1].trim(); }
-    var unitMatch = text.match(/(\d+)\s*[\-\u2013]?\s*(?:unit|units)/i);
-    if (unitMatch) { var el = document.getElementById('totalUnits'); if (el && !el.value) el.value = unitMatch[1]; }
-    var yrMatch = text.match(/(?:built|constructed|year built)[:\s]*(\d{4})/i);
-    if (yrMatch) { var el = document.getElementById('yearBuilt'); if (el && !el.value) el.value = yrMatch[1]; }
-    var priceMatch = text.match(/\$\s*([\d,]+(?:\.\d{2})?)\s*(?:asking|list|offering|price)?/i);
-    if (priceMatch) { var el = document.getElementById('askingPrice'); if (el && !el.value) el.value = priceMatch[1].replace(/[,]/g, ''); }
-    var capMatch = text.match(/([\d.]+)\s*%?\s*cap\s*rate/i);
-    if (capMatch) { var el = document.getElementById('capRate'); if (el && !el.value) el.value = capMatch[1]; }
-    var occMatch = text.match(/([\d.]+)\s*%?\s*(?:occupied|occupancy)/i);
-    if (occMatch) { var el = document.getElementById('occupancy'); if (el && !el.value) el.value = occMatch[1] + '%'; }
+    var populated = [];
+
+    function trySet(id, value, label) {
+      if (!value) return;
+      var el = document.getElementById(id);
+      if (el) { el.value = value; populated.push(label); }
+    }
+
+    // Property name (first substantial line or heading)
+    var nameMatch = text.match(/^([A-Z][A-Za-z0-9\s\-&',\.]{4,60})(?:\n|\r)/m);
+    if (nameMatch) {
+      trySet('propName1', nameMatch[1].trim(), 'Property Name');
+      trySet('propName2', nameMatch[1].trim(), '');
+    }
+
+    // Address
+    var addrMatch = text.match(/(\d+\s+[A-Z][a-zA-Z\s]+(?:St(?:reet)?|Ave(?:nue)?|Blvd|Boulevard|Dr(?:ive)?|Rd|Road|Ln|Lane|Way|Ct|Court|Pl(?:ace)?|Circle|Pkwy|Highway|Hwy)[.,]?\s*(?:[A-Za-z\s]+,?\s*[A-Z]{2}\s*\d{5})?)/);
+    if (addrMatch) trySet('address', addrMatch[1].trim(), 'Address');
+
+    // Asking price
+    var pricePatterns = [
+      /asking\s*price[:\s]*\$?\s*([\d,]+(?:\.\d{0,2})?)/i,
+      /list(?:ing)?\s*price[:\s]*\$?\s*([\d,]+(?:\.\d{0,2})?)/i,
+      /offering\s*price[:\s]*\$?\s*([\d,]+(?:\.\d{0,2})?)/i,
+      /sale\s*price[:\s]*\$?\s*([\d,]+(?:\.\d{0,2})?)/i,
+      /\$\s*([\d,]+(?:\.\d{0,2})?)\s*(?:million|MM|M)\b/i
+    ];
+    for (var pi = 0; pi < pricePatterns.length; pi++) {
+      var pm = text.match(pricePatterns[pi]);
+      if (pm) {
+        var priceVal = pm[1].replace(/,/g,'');
+        if (/million|MM|M/i.test(pm[0])) priceVal = (parseFloat(priceVal) * 1000000).toString();
+        trySet('askingPrice', priceVal, 'Asking Price');
+        break;
+      }
+    }
+
+    // Cap rate
+    var capMatch = text.match(/([\d.]+)\s*%\s*cap\s*rate|(cap\s*rate|cap)[:\s]*([\d.]+)\s*%?/i);
+    if (capMatch) trySet('capRate', (capMatch[1]||capMatch[3]||''), 'Cap Rate');
+
+    // NOI
+    var noiMatch = text.match(/NOI[:\s]*\$?\s*([\d,]+(?:\.\d{0,2})?)|net\s*operating\s*income[:\s]*\$?\s*([\d,]+)/i);
+    if (noiMatch) trySet('noi', (noiMatch[1]||noiMatch[2]||'').replace(/,/g,''), 'NOI');
+
+    // Total units
+    var unitMatch = text.match(/(\d+)\s*(?:total\s*)?units?(?:\s*total)?|total\s*units?[:\s]*(\d+)/i);
+    if (unitMatch) trySet('totalUnits', unitMatch[1]||unitMatch[2], 'Total Units');
+
+    // Year built
+    var yrMatch = text.match(/(?:year\s*built|built\s*in|constructed)[:\s]*(\d{4})|(\d{4})\s*(?:year\s*built|construction)/i);
+    if (yrMatch) trySet('yearBuilt', yrMatch[1]||yrMatch[2], 'Year Built');
+
+    // Total SF / Square Footage
+    var sfMatch = text.match(/([\d,]+)\s*(?:sq\.?\s*ft\.?|SF|square\s*feet)/i);
+    if (sfMatch) trySet('totalSF', sfMatch[1].replace(/,/g,''), 'Square Footage');
+
+    // Occupancy
+    var occMatch = text.match(/([\d.]+)\s*%\s*(?:occupied|occupancy|leased)|(occupancy|occupi(?:ed|ancy))[:\s]*([\d.]+)\s*%?/i);
+    if (occMatch) trySet('occupancy', (occMatch[1]||occMatch[3]||'')+'%', 'Occupancy');
+
+    // Property description — grab substantial paragraph
+    var descMatch = text.match(/(?:overview|description|executive\s*summary|property\s*overview|about\s*the\s*property)[:\s\n]*([A-Za-z][\s\S]{80,600}?)(?:\n\n|\r\n\r\n|$)/i);
+    if (descMatch) trySet('executiveSummary', descMatch[1].trim().replace(/\s+/g,' '), 'Property Description');
+
     if (typeof window.recalcMetrics === 'function') window.recalcMetrics();
+
+    // Show confirmation
+    var confirmed = populated.filter(function(v) { return v; });
+    if (confirmed.length > 0) {
+      showGlobalStatus('✓ Extracted: ' + confirmed.join(', ') + '. Review and fill in any missing fields.');
+    } else {
+      showGlobalStatus('⚠️ Could not extract structured data. Please fill in fields manually.');
+    }
   }
 
   window.exportOMData = function() {
@@ -4550,35 +5176,132 @@ renderPastOMs();
   window.parseCSVRows = parseCSVRows;
 
   // ---- RENT ROLL UPLOAD ----
+  function rrStatus(msg, isError) {
+    var el = document.getElementById('rentRollStatus');
+    if (!el) return;
+    el.style.display = 'block';
+    el.style.color = isError ? '#e74c3c' : '#4CAF50';
+    el.textContent = msg;
+  }
+
   window.handleRentRollUpload = function(input) {
     if (!input.files || !input.files[0]) return;
     var file = input.files[0];
     var ext = file.name.split('.').pop().toLowerCase();
-    if (ext === 'xlsx' || ext === 'xls') {
-      readXlsxFile(file, function(rows) { parseRentRollRows(rows); });
-    } else {
+    if (ext === 'pdf') {
+      // Best-effort PDF text extraction via FileReader
       var reader = new FileReader();
-      reader.onload = function(e) { parseRentRollRows(parseCSVRows(e.target.result)); };
+      reader.onload = function(e) {
+        try {
+          var text = e.target.result;
+          // Check if readable text content exists
+          if (!text || text.length < 50) throw new Error('No readable text');
+          var rows = parseFlatTextRentRoll(text);
+          if (!rows || rows.length < 2) throw new Error('Could not detect tabular data in PDF');
+          parseRentRollRows(rows);
+        } catch(err) {
+          rrStatus('⚠️ PDF could not be parsed: ' + err.message + '. Try exporting as CSV or XLSX instead.', true);
+        }
+      };
+      reader.onerror = function() { rrStatus('⚠️ Could not read PDF file. Try CSV or XLSX.', true); };
       reader.readAsText(file);
+    } else if (ext === 'xlsx' || ext === 'xls') {
+      readXlsxFile(file, function(rows) {
+        if (!rows || rows.length < 2) { rrStatus('⚠️ Could not read file or file is empty. Check the format and try again.', true); return; }
+        parseRentRollRows(rows);
+      });
+    } else if (ext === 'csv') {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var rows = parseCSVRows(e.target.result);
+        if (!rows || rows.length < 2) { rrStatus('⚠️ CSV appears empty or unreadable. Check the file and try again.', true); return; }
+        parseRentRollRows(rows);
+      };
+      reader.onerror = function() { rrStatus('⚠️ Could not read CSV file.', true); };
+      reader.readAsText(file);
+    } else {
+      rrStatus('⚠️ Unsupported file format ".' + ext + '". Please upload a PDF, XLSX, or CSV file.', true);
     }
     input.value = '';
   };
 
+  function parseFlatTextRentRoll(text) {
+    // Try to detect lines with rent-like patterns
+    var lines = text.split(/\r?\n/).filter(function(l) { return l.trim().length > 3; });
+    var rows = [['Unit #', 'Tenant', 'Lease Start', 'Lease End', 'Rent', 'SqFt', 'Vacancy']];
+    lines.forEach(function(line) {
+      var parts = line.trim().split(/\s{2,}|\t/);
+      if (parts.length >= 3) rows.push(parts);
+    });
+    return rows;
+  }
+
   function parseRentRollRows(rows) {
-    if (rows.length < 2) return;
-    var data = rows.slice(1);
+    if (!rows || rows.length < 2) {
+      rrStatus('⚠️ No data rows found. Ensure the file has a header row plus data rows.', true);
+      return;
+    }
     var tbody = document.getElementById('unitRows');
     if (!tbody) return;
-    data.forEach(function(cols) {
-      if (cols.length < 3) return;
+
+    // Detect column indices from header row
+    var headers = rows[0].map(function(h) { return (h||'').toString().toLowerCase().trim(); });
+    function findCol() {
+      var keywords = Array.prototype.slice.call(arguments);
+      for (var i = 0; i < headers.length; i++) {
+        for (var k = 0; k < keywords.length; k++) {
+          if (headers[i].indexOf(keywords[k]) !== -1) return i;
+        }
+      }
+      return -1;
+    }
+    var colUnit = findCol('unit', '#', 'type');
+    var colTenant = findCol('tenant', 'resident', 'name', 'lessee');
+    var colStart = findCol('start', 'begin', 'from', 'commence');
+    var colEnd = findCol('end', 'expire', 'expir', 'to', 'thru');
+    var colRent = findCol('rent', 'monthly', 'amount');
+    var colSqft = findCol('sqft', 'sf', 'sq ft', 'square');
+    var colVacancy = findCol('vacant', 'vacancy', 'status', 'occupied');
+
+    // Fallback positional mapping if headers unrecognized
+    if (colUnit === -1) colUnit = 0;
+    if (colRent === -1) colRent = Math.min(3, headers.length - 1);
+    if (colSqft === -1) colSqft = Math.min(2, headers.length - 1);
+
+    var parsed = [];
+    tbody.innerHTML = '';
+    rows.slice(1).forEach(function(cols) {
+      if (!cols || cols.length < 2) return;
+      var unit = colUnit >= 0 ? (cols[colUnit]||'').toString().trim() : '';
+      var tenant = colTenant >= 0 ? (cols[colTenant]||'').toString().trim() : '';
+      var leaseStart = colStart >= 0 ? (cols[colStart]||'').toString().trim() : '';
+      var leaseEnd = colEnd >= 0 ? (cols[colEnd]||'').toString().trim() : '';
+      var rent = colRent >= 0 ? (cols[colRent]||'').toString().replace(/[^0-9.]/g,'') : '';
+      var sqft = colSqft >= 0 ? (cols[colSqft]||'').toString().replace(/[^0-9.]/g,'') : '';
+      var vacancy = colVacancy >= 0 ? (cols[colVacancy]||'').toString().trim() : '';
+      if (!unit && !rent) return;
+
       var tr = document.createElement('tr');
-      tr.innerHTML = '<td><input value="' + ((cols[0]||'').toString().trim()) + '" class="unit-type"></td>' +
-        '<td><input type="number" value="' + ((cols[1]||'').toString().replace(/[^0-9]/g,'')) + '" class="unit-count" oninput="recalcMetrics()"></td>' +
-        '<td><input type="number" value="' + ((cols[2]||'').toString().replace(/[^0-9]/g,'')) + '" class="unit-sqft"></td>' +
-        '<td><input type="number" value="' + (cols.length > 3 ? (cols[3]||'').toString().replace(/[^0-9.]/g,'') : '') + '" class="unit-rent" oninput="recalcMetrics()"></td>';
+      // Use unit type + tenant info as unit-type label; map rent and sqft to table columns
+      var displayLabel = unit + (tenant ? ' – ' + tenant : '');
+      tr.innerHTML = '<td><input value="' + displayLabel.replace(/"/g,'') + '" class="unit-type" title="' + (leaseStart ? 'Lease: '+leaseStart+' – '+leaseEnd : '') + (vacancy ? ' | '+vacancy : '') + '"></td>' +
+        '<td><input type="number" value="1" class="unit-count" oninput="recalcMetrics()"></td>' +
+        '<td><input type="number" value="' + (sqft||'') + '" class="unit-sqft"></td>' +
+        '<td><input type="number" value="' + (rent||'') + '" class="unit-rent" oninput="recalcMetrics()"></td>';
       tbody.appendChild(tr);
+      parsed.push({ unit, tenant, leaseStart, leaseEnd, rent, sqft, vacancy });
     });
-    showGlobalStatus('Rent roll imported: ' + data.length + ' unit types');
+
+    if (parsed.length === 0) {
+      rrStatus('⚠️ Data was found but no rows could be parsed. Check column headers match expected format.', true);
+      return;
+    }
+
+    var vacantCount = parsed.filter(function(r) { return /vacant|empty|v$/i.test(r.vacancy); }).length;
+    var summary = '✓ Imported ' + parsed.length + ' unit' + (parsed.length !== 1 ? 's' : '') +
+      (vacantCount ? ' (' + vacantCount + ' vacant)' : '') + '. Review and adjust values as needed.';
+    rrStatus(summary, false);
+    showGlobalStatus('Rent roll imported: ' + parsed.length + ' units');
     if (typeof window.recalcMetrics === 'function') window.recalcMetrics();
   }
 
@@ -4746,6 +5469,14 @@ renderPastOMs();
   }
 
   // ---- INIT ----
+  window.toggleWiringSection = function() {
+    var toggle = document.getElementById('invWiringToggle');
+    var section = document.getElementById('wiring-section');
+    if (toggle && section) {
+      section.style.display = toggle.checked ? 'block' : 'none';
+    }
+  };
+
   window.initInvoice = function() {
     autoInvoiceNumber();
     updateInvoiceDueDate();
@@ -4829,6 +5560,7 @@ renderPastOMs();
   };
 
   function gatherInvoiceData() {
+    var wiringEnabled = document.getElementById('invWiringToggle')?.checked || false;
     return {
       number: document.getElementById('invNumber')?.value || '',
       property: document.getElementById('invProperty')?.value || '',
@@ -4844,7 +5576,15 @@ renderPastOMs();
       status: document.getElementById('invStatus')?.value || 'draft',
       items: JSON.parse(JSON.stringify(invoiceItems)),
       total: invoiceItems.reduce(function(s, i) { return s + ((parseFloat(i.qty)||0) * (parseFloat(i.rate)||0)); }, 0),
-      savedAt: new Date().toISOString()
+      savedAt: new Date().toISOString(),
+      wiring: wiringEnabled ? {
+        bank: document.getElementById('invWireBank')?.value || '',
+        bankAddr: document.getElementById('invWireBankAddr')?.value || '',
+        acctName: document.getElementById('invWireAcctName')?.value || '',
+        acctNum: document.getElementById('invWireAcctNum')?.value || '',
+        routing: document.getElementById('invWireRouting')?.value || '',
+        notes: document.getElementById('invWireNotes')?.value || ''
+      } : null
     };
   }
 
@@ -5003,6 +5743,16 @@ renderPastOMs();
       itemsHtml +
       '<tr class="total-row"><td colspan="3" style="padding:16px 12px;text-align:right;border-top:3px solid ' + brandNavy + '">TOTAL</td><td style="padding:16px 12px;text-align:right;border-top:3px solid ' + brandNavy + ';color:' + brandNavy + '">$' + inv.total.toFixed(2) + '</td></tr></tbody></table>' +
       (inv.notes ? '<div style="margin-top:30px;padding:16px;background:#f5f5f0;border-radius:8px;font-size:13px"><div class="label" style="margin-bottom:4px">Notes</div>' + inv.notes + '</div>' : '') +
+      (inv.wiring ? '<div style="margin-top:24px;padding:20px;border:2px solid ' + brandNavy + ';border-radius:8px;font-size:13px">' +
+        '<div style="font-family:Georgia,serif;font-size:16px;font-weight:700;color:' + brandNavy + ';letter-spacing:1px;margin-bottom:14px;text-align:center;border-bottom:1px solid #ccc;padding-bottom:10px">WIRING INSTRUCTIONS</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;line-height:2">' +
+        '<div><span class="label">Bank Name: </span>' + (inv.wiring.bank||'') + '</div>' +
+        '<div><span class="label">Bank Address: </span>' + (inv.wiring.bankAddr||'') + '</div>' +
+        '<div><span class="label">Account Name: </span>' + (inv.wiring.acctName||'') + '</div>' +
+        '<div><span class="label">Account Number: </span>' + (inv.wiring.acctNum||'') + '</div>' +
+        '<div><span class="label">Routing Number: </span>' + (inv.wiring.routing||'') + '</div>' +
+        (inv.wiring.notes ? '<div><span class="label">Notes: </span>' + inv.wiring.notes + '</div>' : '') +
+        '</div></div>' : '') +
       '<div style="margin-top:40px;text-align:center;color:#999;font-size:11px;border-top:1px solid #eee;padding-top:16px">Gateway Real Estate Advisors \u2022 Sioux City, IA</div>' +
       '</body></html>';
 
