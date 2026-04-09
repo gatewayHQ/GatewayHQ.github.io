@@ -1044,11 +1044,11 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
         <div class="photo-upload-grid" style="grid-template-columns:1fr">
           <div class="photo-slot" onclick="document.getElementById('sm-photo1-input').click()" style="height:180px">
             <div id="sm-photo1-preview" class="placeholder"><span>📷</span>Click to upload hero image</div>
-            <input type="file" id="sm-photo1-input" accept="image/*" style="display:none" onchange="handleSocialPhoto(1, this)">
+            <input type="file" id="sm-photo1-input" accept="image/*,.heic,.HEIC" style="display:none" onchange="handleSocialPhoto(1, this)">
             <input type="text" class="photo-label-input" id="sm-photo1-label" placeholder="Location label (optional)" oninput="updateSocialPreview()" style="display:none">
           </div>
           <!-- Hidden photo2 for compatibility -->
-          <input type="file" id="sm-photo2-input" accept="image/*" style="display:none">
+          <input type="file" id="sm-photo2-input" accept="image/*,.heic,.HEIC" style="display:none">
           <input type="text" id="sm-photo2-label" style="display:none">
           <div id="sm-photo2-preview" style="display:none"></div>
         </div>
@@ -2101,7 +2101,7 @@ function renderSocialAgents() {
       <div style="display:flex; gap:12px; align-items:flex-start;">
         <div class="agent-photo-upload" onclick="document.getElementById('sm-agent-photo-${i}').click()">
           ${a.photo ? '<img src="'+a.photo+'">' : '<span style="color:var(--brand-gray);font-size:20px">👤</span>'}
-          <input type="file" id="sm-agent-photo-${i}" accept="image/*" style="display:none" onchange="handleSocialAgentPhoto(${i}, this)">
+          <input type="file" id="sm-agent-photo-${i}" accept="image/*,.heic,.HEIC" style="display:none" onchange="handleSocialAgentPhoto(${i}, this)">
         </div>
         <div class="agent-fields" style="flex:1">
           <input type="text" placeholder="Name" value="${a.name}" oninput="smAgents[${i}].name=this.value; updateSocialPreview()">
@@ -2129,16 +2129,26 @@ function handleSocialAgentPhoto(index, input) {
 }
 
 function handleSocialPhoto(num, input) {
-  if (input.files && input.files[0]) {
+  if (!(input.files && input.files[0])) return;
+  var file = input.files[0];
+  var isHeic = /\.heic$/i.test(file.name) || file.type === 'image/heic' || file.type === 'image/heif';
+  function readAndSet(blob) {
     var reader = new FileReader();
     reader.onload = function(e) {
       smPhotos[num - 1] = e.target.result;
       var preview = document.getElementById('sm-photo' + num + '-preview');
-      preview.innerHTML = '<img src="' + e.target.result + '">';
+      preview.innerHTML = '<img src="' + e.target.result + '">' ;
       document.getElementById('sm-photo' + num + '-label').style.display = 'block';
       updateSocialPreview();
     };
-    reader.readAsDataURL(input.files[0]);
+    reader.readAsDataURL(blob);
+  }
+  if (isHeic && typeof heic2any !== 'undefined') {
+    heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 })
+      .then(function(jpegBlob) { readAndSet(jpegBlob); })
+      .catch(function() { readAndSet(file); }); // fallback: try anyway
+  } else {
+    readAndSet(file);
   }
 }
 
@@ -3019,6 +3029,7 @@ async function drawCommercialTemplate(canvas, ctx, templateName) {
 
     // Dark semi-transparent background
     ctx.save();
+    ctx.beginPath();  // must clear path — roundRect() does not call beginPath()
     roundRect(ctx, 60, overlayY, W - 120, totalOverlayH, 0);
     ctx.fillStyle = 'rgba(0, 0, 0, 0.72)';
     ctx.fill();
@@ -3560,7 +3571,7 @@ function renderLeasingPhotos() {
     slot.onclick = function() { document.getElementById('ls-photo-input-' + i).click(); };
     slot.innerHTML = `
       ${p ? '<img src="'+p+'">' : '<div class="placeholder"><span>📷</span>Photo '+(i+1)+'</div>'}
-      <input type="file" id="ls-photo-input-${i}" accept="image/*" style="display:none" onchange="handleLeasingPhoto(${i}, this)">
+      <input type="file" id="ls-photo-input-${i}" accept="image/*,.heic,.HEIC" style="display:none" onchange="handleLeasingPhoto(${i}, this)">
     `;
     c.appendChild(slot);
   });
@@ -4253,7 +4264,7 @@ function renderPhotos() {
       (p ? '<img src="'+p+'">' : '') +
       '<div class="placeholder">\ud83d\udcf7<br>Click to upload<br>Photo '+(i+1)+'</div>' +
       '<button class="remove-btn" onclick="event.stopPropagation();photos['+i+']=null;renderPhotos()">\u2715</button>' +
-      '<input type="file" accept="image/*" onchange="handlePhoto('+i+', this)">';
+      '<input type="file" accept="image/*,.heic,.HEIC" onchange="handlePhoto('+i+', this)">';
     grid.appendChild(slot);
   });
 }
@@ -6891,6 +6902,7 @@ renderPastOMs();
 
 <!-- ========== HOME VALUATION GENERATOR JS ========== -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 <script>
 // ========== RENTCAST API KEY ==========
 // Replace with your actual key before deploying
