@@ -953,6 +953,10 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
             <optgroup label="── Residential ──">
               <option value="res-new-listing">Residential — New Listing</option>
               <option value="res-just-sold">Residential — Just Sold</option>
+              <option value="res-under-contract">Residential — Under Contract</option>
+              <option value="res-open-house">Residential — Open House</option>
+              <option value="res-price-reduced">Residential — Price Reduced</option>
+              <option value="res-coming-soon">Residential — Coming Soon</option>
             </optgroup>
           </select>
         </div>
@@ -1974,7 +1978,7 @@ var BRAND = {
 
 // ==== LOGIN GATE ====
 (function() {
-  var VALID_PASSWORDS = ['Gateway2026$', 'AdminGateway2026$'];
+  var VALID_PASSWORDS = ['700Gateway$'];
   var SESSION_KEY = 'gw_auth_session';
 
   function checkSession() {
@@ -2273,14 +2277,6 @@ async function drawResidentialNewListing(canvas, ctx) {
     ctx.fillText('Property Photo', W/2, photoY + photoH/2);
   }
 
-  // Gateway logo badge overlapping photo bottom-right — large and prominent
-  try {
-    var logoSrc = (pal && pal.logoKey === 'dark') ? (LOGO_ROUND_SUBMARK || 'https://res.cloudinary.com/dnmrgpubz/image/upload/v1748440952/GWlogo_circle_o4vvuv.png') : (LOGO_CIRCLE_LIGHT || 'https://res.cloudinary.com/dnmrgpubz/image/upload/v1748440952/GWlogo_circle_o4vvuv.png');
-    var logoImg = await loadImageAsync(logoSrc);
-    var sz = 160;
-    ctx.drawImage(logoImg, W - 60 - sz, photoY + photoH - sz/2, sz, sz);
-  } catch(e) {}
-
   // Banner — uses palette bg
   var bannerY = photoY + photoH + 14;
   ctx.fillStyle = pal.bg1;
@@ -2350,20 +2346,30 @@ async function drawResidentialNewListing(canvas, ctx) {
       ctx.font = '700 26px "Montserrat", sans-serif';
       ctx.fillStyle = pal.text;
       ctx.fillText(ag.name, tX, agentY + 26);
-      ctx.font = '400 20px "Montserrat", sans-serif';
+      ctx.font = '400 19px "Montserrat", sans-serif';
       ctx.fillStyle = pal.accent;
-      if (ag.title) ctx.fillText(ag.title, tX, agentY + 52);
-      if (ag.phone) ctx.fillText(ag.phone, tX, agentY + 76);
-      if (ag.license) { ctx.font = '400 17px "Montserrat"'; ctx.fillStyle = pal.label; ctx.fillText('Lic. ' + ag.license, tX, agentY + 98); }
+      if (ag.title) ctx.fillText(ag.title, tX, agentY + 50);
+      if (ag.phone) ctx.fillText(ag.phone, tX, agentY + 72);
+      if (ag.email) { ctx.font = '400 17px "Montserrat"'; ctx.fillStyle = pal.accent; ctx.fillText(ag.email, tX, agentY + 93); }
+      if (ag.license) { ctx.font = '400 15px "Montserrat"'; ctx.fillStyle = pal.label; ctx.fillText('Lic. ' + ag.license, tX, agentY + 112); }
     }
-    agentY += 105;
+    agentY += 118;
   }
+
+  // Gateway logo — below agent info, centered
+  try {
+    var logoSrc = (pal && pal.logoKey === 'dark') ? (LOGO_ROUND_SUBMARK || 'https://res.cloudinary.com/dnmrgpubz/image/upload/v1748440952/GWlogo_circle_o4vvuv.png') : (LOGO_CIRCLE_LIGHT || 'https://res.cloudinary.com/dnmrgpubz/image/upload/v1748440952/GWlogo_circle_o4vvuv.png');
+    var logoImg = await loadImageAsync(logoSrc);
+    var sz = 130;
+    var logoY = agentY + 8;
+    if (logoY + sz < H - 40) ctx.drawImage(logoImg, W/2 - sz/2, logoY, sz, sz);
+  } catch(e) {}
 
   // Website and phone
   ctx.textAlign = 'center';
-  ctx.font = '500 22px "Montserrat", sans-serif';
+  ctx.font = '500 20px "Montserrat", sans-serif';
   ctx.fillStyle = pal.label;
-  ctx.fillText('www.gatewayrealtyadvisors.com  |  712-226-8000', W/2, H - 28);
+  ctx.fillText('www.gatewayrealtyadvisors.com  |  712-226-8000', W/2, H - 22);
 }
 
 async function drawResidentialJustSold(canvas, ctx) {
@@ -2468,13 +2474,14 @@ async function drawResidentialJustSold(canvas, ctx) {
       ctx.fillStyle = pal.text;
       ctx.textAlign = 'left';
       ctx.fillText(ag.name, tX, agentY + 24);
-      ctx.font = '400 19px "Montserrat", sans-serif';
+      ctx.font = '400 18px "Montserrat", sans-serif';
       ctx.fillStyle = pal.accent;
-      if (ag.title) ctx.fillText(ag.title, tX, agentY + 48);
-      if (ag.phone) ctx.fillText(ag.phone, tX, agentY + 70);
-      if (ag.license) { ctx.font = '400 16px Montserrat'; ctx.fillStyle = pal.label; ctx.fillText('Lic. ' + ag.license, tX, agentY + 90); }
+      if (ag.title) ctx.fillText(ag.title, tX, agentY + 47);
+      if (ag.phone) ctx.fillText(ag.phone, tX, agentY + 68);
+      if (ag.email) { ctx.font = '400 16px Montserrat'; ctx.fillStyle = pal.accent; ctx.fillText(ag.email, tX, agentY + 88); }
+      if (ag.license) { ctx.font = '400 14px Montserrat'; ctx.fillStyle = pal.label; ctx.fillText('Lic. ' + ag.license, tX, agentY + 106); }
     }
-    agentY += 98;
+    agentY += 112;
   }
 
   // Gateway circular logo — large, bottom left
@@ -2500,6 +2507,395 @@ async function drawResidentialJustSold(canvas, ctx) {
   ctx.font = '400 20px "Montserrat", sans-serif';
   ctx.fillStyle = pal.label;
   ctx.fillText('www.gatewayrealtyadvisors.com  |  712-226-8000', W - 55, H - 50);
+}
+
+// ---- Shared helper: draw the residential agent strip + logo + footer ----
+async function drawResAgentStrip(ctx, pal, startY, W, H) {
+  var agentY = startY;
+  var hasAgent = smAgents.length > 0 && smAgents[0].name;
+  if (hasAgent) {
+    ctx.textAlign = 'left';
+    for (var ai = 0; ai < Math.min(smAgents.length, 2); ai++) {
+      var ag = smAgents[ai];
+      if (!ag.name) continue;
+      var agX = 70 + ai * 490;
+      if (ag.photo) {
+        try {
+          var agImg = await loadImageAsync(ag.photo);
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(agX + 38, agentY + 38, 38, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.drawImage(agImg, agX, agentY, 76, 76);
+          ctx.restore();
+          ctx.strokeStyle = '#C8A84B';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(agX + 38, agentY + 38, 38, 0, Math.PI * 2);
+          ctx.stroke();
+        } catch(e) {}
+      }
+      var tX = ag.photo ? agX + 88 : agX;
+      ctx.font = '700 24px "Montserrat", sans-serif';
+      ctx.fillStyle = pal.text;
+      ctx.fillText(ag.name, tX, agentY + 24);
+      ctx.font = '400 18px "Montserrat", sans-serif';
+      ctx.fillStyle = pal.accent;
+      if (ag.title) ctx.fillText(ag.title, tX, agentY + 47);
+      if (ag.phone) ctx.fillText(ag.phone, tX, agentY + 68);
+      if (ag.email) { ctx.font = '400 16px Montserrat'; ctx.fillText(ag.email, tX, agentY + 88); }
+      if (ag.license) { ctx.font = '400 14px Montserrat'; ctx.fillStyle = pal.label; ctx.fillText('Lic. ' + ag.license, tX, agentY + 106); }
+    }
+    agentY += 114;
+  }
+  // Logo centered below agents
+  try {
+    var logoSrc2 = (pal.logoKey === 'dark') ? (LOGO_ROUND_SUBMARK || 'https://res.cloudinary.com/dnmrgpubz/image/upload/v1748440952/GWlogo_circle_o4vvuv.png') : (LOGO_CIRCLE_LIGHT || 'https://res.cloudinary.com/dnmrgpubz/image/upload/v1748440952/GWlogo_circle_o4vvuv.png');
+    var li = await loadImageAsync(logoSrc2);
+    var lsz = 115;
+    var lY = agentY + 6;
+    if (lY + lsz < H - 36) ctx.drawImage(li, W/2 - lsz/2, lY, lsz, lsz);
+  } catch(e) {}
+  // Website footer
+  ctx.textAlign = 'center';
+  ctx.font = '500 19px "Montserrat", sans-serif';
+  ctx.fillStyle = pal.label;
+  ctx.fillText('www.gatewayrealtyadvisors.com  |  712-226-8000', W/2, H - 18);
+}
+
+async function drawResidentialUnderContract(canvas, ctx) {
+  var W = canvas.width, H = canvas.height;
+  var pal = PALETTES[smPalette] || PALETTES.navy;
+  var grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, pal.bg1);
+  grad.addColorStop(1, pal.bg2);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  var address = document.getElementById('sm-address').value || '1234 Maple Street';
+  var price = document.getElementById('sm-price').value || '';
+  var beds = document.getElementById('sm-res-beds').value || '';
+  var baths = document.getElementById('sm-res-baths').value || '';
+  var sqft = document.getElementById('sm-res-sqft').value || '';
+  var garage = document.getElementById('sm-res-garage').value || '';
+
+  // Accent bar
+  ctx.fillStyle = '#F0A500';
+  ctx.fillRect(0, 0, W, 8);
+
+  // "UNDER CONTRACT" heading
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 82px "EB Garamond", Georgia, serif';
+  ctx.fillStyle = '#F0A500';
+  ctx.fillText('UNDER CONTRACT', W/2, 100);
+  ctx.font = '500 26px "Montserrat", sans-serif';
+  ctx.fillStyle = pal.accent;
+  ctx.fillText(address.toUpperCase(), W/2, 140);
+  if (price) {
+    ctx.font = '400 28px "Montserrat", sans-serif';
+    ctx.fillStyle = pal.text;
+    ctx.fillText(price, W/2, 176);
+  }
+
+  // Photo with diagonal "PENDING" stamp overlay
+  var photoY = price ? 200 : 170, photoH = 590;
+  var photoSrc = smPhotos[0];
+  if (photoSrc) {
+    try {
+      var img = await loadImageAsync(photoSrc);
+      var margin = 60;
+      ctx.save();
+      ctx.beginPath(); roundRect(ctx, margin, photoY, W - margin*2, photoH, 10); ctx.clip();
+      var scale = Math.max((W-margin*2)/img.width, photoH/img.height);
+      var dw = img.width*scale, dh = img.height*scale;
+      ctx.drawImage(img, margin+(W-margin*2-dw)/2, photoY+(photoH-dh)/2, dw, dh);
+      ctx.restore();
+    } catch(e) {}
+  } else {
+    ctx.fillStyle = pal.photoBg;
+    ctx.save(); roundRect(ctx, 60, photoY, W-120, photoH, 10); ctx.fill(); ctx.restore();
+    ctx.fillStyle = pal.label; ctx.textAlign='center'; ctx.font='28px Montserrat';
+    ctx.fillText('Property Photo', W/2, photoY+photoH/2);
+  }
+
+  // "PENDING" diagonal stamp
+  ctx.save();
+  ctx.translate(W/2, photoY + photoH/2);
+  ctx.rotate(-Math.PI/8);
+  ctx.font = 'bold 120px "Montserrat", sans-serif';
+  ctx.strokeStyle = '#F0A500';
+  ctx.lineWidth = 6;
+  ctx.globalAlpha = 0.55;
+  ctx.strokeText('PENDING', -280, 40);
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  // Separator + details
+  var sepY = photoY + photoH + 22;
+  ctx.strokeStyle = pal.accent + '44'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(60, sepY); ctx.lineTo(W-60, sepY); ctx.stroke();
+  var details = [];
+  if (beds) details.push('🛏 ' + beds + ' Bed');
+  if (baths) details.push('🚿 ' + baths + ' Bath');
+  if (sqft) details.push('📐 ' + sqft + ' SF');
+  if (garage) details.push('🚗 ' + garage);
+  if (details.length) {
+    ctx.textAlign = 'center'; ctx.font = '500 21px "Montserrat", sans-serif'; ctx.fillStyle = pal.text;
+    ctx.fillText(details.join('   ·   '), W/2, sepY + 36);
+  }
+  var stripY = sepY + (details.length ? 62 : 28);
+  ctx.strokeStyle = pal.accent + '33'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(60, stripY); ctx.lineTo(W-60, stripY); ctx.stroke();
+  await drawResAgentStrip(ctx, pal, stripY + 18, W, H);
+}
+
+async function drawResidentialOpenHouse(canvas, ctx) {
+  var W = canvas.width, H = canvas.height;
+  var pal = PALETTES[smPalette] || PALETTES.navy;
+  var grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, pal.bg1);
+  grad.addColorStop(1, pal.bg2);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  var address = document.getElementById('sm-address').value || '1234 Maple Street';
+  var price = document.getElementById('sm-price').value || '';
+  var beds = document.getElementById('sm-res-beds').value || '';
+  var baths = document.getElementById('sm-res-baths').value || '';
+  var sqft = document.getElementById('sm-res-sqft').value || '';
+  var year = document.getElementById('sm-res-year').value || '';
+
+  // Gold top bar
+  ctx.fillStyle = '#C8A84B';
+  ctx.fillRect(0, 0, W, 8);
+
+  // "OPEN HOUSE" heading
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 96px "EB Garamond", Georgia, serif';
+  ctx.fillStyle = '#C8A84B';
+  ctx.fillText('OPEN HOUSE', W/2, 108);
+  ctx.font = '500 26px "Montserrat", sans-serif';
+  ctx.fillStyle = pal.text;
+  ctx.fillText(address.toUpperCase(), W/2, 148);
+  if (price) {
+    ctx.font = '500 30px "Montserrat", sans-serif';
+    ctx.fillStyle = pal.accent;
+    ctx.fillText(price, W/2, 186);
+  }
+
+  // Photo
+  var photoY = price ? 210 : 178, photoH = 590;
+  var photoSrc = smPhotos[0];
+  if (photoSrc) {
+    try {
+      var img = await loadImageAsync(photoSrc);
+      var margin = 60;
+      ctx.save();
+      ctx.beginPath(); roundRect(ctx, margin, photoY, W-margin*2, photoH, 12); ctx.clip();
+      var scale = Math.max((W-margin*2)/img.width, photoH/img.height);
+      var dw = img.width*scale, dh = img.height*scale;
+      ctx.drawImage(img, margin+(W-margin*2-dw)/2, photoY+(photoH-dh)/2, dw, dh);
+      ctx.restore();
+    } catch(e) {}
+  } else {
+    ctx.fillStyle = pal.photoBg;
+    ctx.save(); roundRect(ctx, 60, photoY, W-120, photoH, 12); ctx.fill(); ctx.restore();
+    ctx.fillStyle = pal.label; ctx.textAlign='center'; ctx.font='28px Montserrat';
+    ctx.fillText('Property Photo', W/2, photoY+photoH/2);
+  }
+
+  // "COME SEE US!" call to action badge on photo
+  ctx.save();
+  ctx.fillStyle = '#C8A84B';
+  var bW = 360, bH = 64, bX = (W-bW)/2, bY = photoY + photoH - 80;
+  ctx.beginPath(); roundRect(ctx, bX, bY, bW, bH, 32); ctx.fill();
+  ctx.font = 'bold 26px "Montserrat", sans-serif';
+  ctx.fillStyle = '#152229';
+  ctx.textAlign = 'center';
+  ctx.fillText('YOU ARE INVITED!', W/2, bY + 42);
+  ctx.restore();
+
+  // Details strip
+  var sepY = photoY + photoH + 22;
+  ctx.strokeStyle = pal.accent + '44'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(60, sepY); ctx.lineTo(W-60, sepY); ctx.stroke();
+  var details = [];
+  if (beds) details.push('🛏 ' + beds); if (baths) details.push('🚿 ' + baths);
+  if (sqft) details.push('📐 ' + sqft); if (year) details.push('🏗 ' + year);
+  if (details.length) {
+    ctx.textAlign = 'center'; ctx.font = '500 21px "Montserrat", sans-serif'; ctx.fillStyle = pal.text;
+    ctx.fillText(details.join('   ·   '), W/2, sepY + 36);
+  }
+  var stripY = sepY + (details.length ? 58 : 24);
+  ctx.strokeStyle = pal.accent + '33'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(60, stripY); ctx.lineTo(W-60, stripY); ctx.stroke();
+  await drawResAgentStrip(ctx, pal, stripY + 18, W, H);
+}
+
+async function drawResidentialPriceReduced(canvas, ctx) {
+  var W = canvas.width, H = canvas.height;
+  var pal = PALETTES[smPalette] || PALETTES.navy;
+  var grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, pal.bg1);
+  grad.addColorStop(1, pal.bg2);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  var address = document.getElementById('sm-address').value || '1234 Maple Street';
+  var price = document.getElementById('sm-price').value || '';
+  var beds = document.getElementById('sm-res-beds').value || '';
+  var baths = document.getElementById('sm-res-baths').value || '';
+  var sqft = document.getElementById('sm-res-sqft').value || '';
+  var lot = document.getElementById('sm-res-lot').value || '';
+
+  // Red accent top bar
+  ctx.fillStyle = '#e74c3c';
+  ctx.fillRect(0, 0, W, 8);
+
+  // "PRICE REDUCED" heading
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 90px "EB Garamond", Georgia, serif';
+  ctx.fillStyle = '#e74c3c';
+  ctx.fillText('PRICE REDUCED', W/2, 100);
+  ctx.font = '600 28px "Montserrat", sans-serif';
+  ctx.fillStyle = pal.accent;
+  ctx.fillText(address.toUpperCase(), W/2, 142);
+  if (price) {
+    ctx.font = '700 38px "Montserrat", sans-serif';
+    ctx.fillStyle = pal.text;
+    ctx.fillText(price, W/2, 186);
+  }
+
+  // Photo
+  var photoY = price ? 210 : 172, photoH = 592;
+  var photoSrc = smPhotos[0];
+  if (photoSrc) {
+    try {
+      var img = await loadImageAsync(photoSrc);
+      var margin = 60;
+      ctx.save();
+      ctx.beginPath(); roundRect(ctx, margin, photoY, W-margin*2, photoH, 10); ctx.clip();
+      var scale = Math.max((W-margin*2)/img.width, photoH/img.height);
+      var dw = img.width*scale, dh = img.height*scale;
+      ctx.drawImage(img, margin+(W-margin*2-dw)/2, photoY+(photoH-dh)/2, dw, dh);
+      ctx.restore();
+    } catch(e) {}
+  } else {
+    ctx.fillStyle = pal.photoBg;
+    ctx.save(); roundRect(ctx, 60, photoY, W-120, photoH, 10); ctx.fill(); ctx.restore();
+    ctx.fillStyle = pal.label; ctx.font='28px Montserrat';
+    ctx.fillText('Property Photo', W/2, photoY+photoH/2);
+  }
+
+  // Red "ACT NOW" badge bottom-left of photo
+  ctx.save();
+  ctx.fillStyle = '#e74c3c';
+  ctx.beginPath(); roundRect(ctx, 70, photoY+photoH-72, 220, 54, 6); ctx.fill();
+  ctx.font = 'bold 22px "Montserrat", sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.fillText('ACT NOW!', 180, photoY+photoH-38);
+  ctx.restore();
+
+  // Details strip
+  var sepY = photoY + photoH + 22;
+  ctx.strokeStyle = '#e74c3c44'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(60, sepY); ctx.lineTo(W-60, sepY); ctx.stroke();
+  var details = [];
+  if (beds) details.push('🛏 ' + beds); if (baths) details.push('🚿 ' + baths);
+  if (sqft) details.push('📐 ' + sqft); if (lot) details.push('🌿 ' + lot);
+  if (details.length) {
+    ctx.textAlign = 'center'; ctx.font = '500 21px "Montserrat", sans-serif'; ctx.fillStyle = pal.text;
+    ctx.fillText(details.join('   ·   '), W/2, sepY + 36);
+  }
+  var stripY = sepY + (details.length ? 58 : 24);
+  ctx.strokeStyle = pal.accent + '33'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(60, stripY); ctx.lineTo(W-60, stripY); ctx.stroke();
+  await drawResAgentStrip(ctx, pal, stripY + 18, W, H);
+}
+
+async function drawResidentialComingSoon(canvas, ctx) {
+  var W = canvas.width, H = canvas.height;
+  var pal = PALETTES[smPalette] || PALETTES.navy;
+  // Dark overlay background
+  var grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, pal.bg1);
+  grad.addColorStop(1, pal.bg2);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  var address = document.getElementById('sm-address').value || '1234 Maple Street';
+  var beds = document.getElementById('sm-res-beds').value || '';
+  var baths = document.getElementById('sm-res-baths').value || '';
+  var sqft = document.getElementById('sm-res-sqft').value || '';
+  var year = document.getElementById('sm-res-year').value || '';
+  var lot = document.getElementById('sm-res-lot').value || '';
+
+  // Gold top accent
+  ctx.fillStyle = '#C8A84B';
+  ctx.fillRect(0, 0, W, 8);
+
+  // "COMING SOON" large heading
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 100px "EB Garamond", Georgia, serif';
+  ctx.fillStyle = pal.text;
+  ctx.fillText('COMING', W/2, 116);
+  ctx.fillText('SOON', W/2, 210);
+  ctx.font = '500 28px "Montserrat", sans-serif';
+  ctx.fillStyle = '#C8A84B';
+  ctx.fillText(address.toUpperCase(), W/2, 256);
+
+  // Photo (dimmed/blurred effect via low alpha)
+  var photoY = 280, photoH = 580;
+  var photoSrc = smPhotos[0];
+  if (photoSrc) {
+    try {
+      var img = await loadImageAsync(photoSrc);
+      var margin = 60;
+      ctx.save();
+      ctx.beginPath(); roundRect(ctx, margin, photoY, W-margin*2, photoH, 12); ctx.clip();
+      ctx.globalAlpha = 0.65;
+      var scale = Math.max((W-margin*2)/img.width, photoH/img.height);
+      var dw = img.width*scale, dh = img.height*scale;
+      ctx.drawImage(img, margin+(W-margin*2-dw)/2, photoY+(photoH-dh)/2, dw, dh);
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    } catch(e) {}
+  } else {
+    ctx.fillStyle = pal.photoBg;
+    ctx.save(); roundRect(ctx, 60, photoY, W-120, photoH, 12); ctx.fill(); ctx.restore();
+    ctx.fillStyle = pal.label; ctx.font='28px Montserrat';
+    ctx.fillText('Property Photo', W/2, photoY+photoH/2);
+  }
+
+  // Gold clock/teaser overlay on photo
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = '#C8A84B';
+  var badW = 380, badH = 72, badX = (W-badW)/2, badY = photoY + photoH/2 - 36;
+  ctx.beginPath(); roundRect(ctx, badX, badY, badW, badH, 8); ctx.fill();
+  ctx.font = 'bold 28px "Montserrat", sans-serif';
+  ctx.fillStyle = '#152229';
+  ctx.textAlign = 'center';
+  ctx.fillText('STAY TUNED!', W/2, badY + 48);
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  // Details
+  var sepY = photoY + photoH + 22;
+  ctx.strokeStyle = pal.accent + '44'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(60, sepY); ctx.lineTo(W-60, sepY); ctx.stroke();
+  var details = [];
+  if (beds) details.push('🛏 ' + beds); if (baths) details.push('🚿 ' + baths);
+  if (sqft) details.push('📐 ' + sqft); if (lot) details.push('🌿 ' + lot); if (year) details.push('🏗 ' + year);
+  if (details.length) {
+    ctx.textAlign = 'center'; ctx.font = '500 21px "Montserrat", sans-serif'; ctx.fillStyle = pal.text;
+    ctx.fillText(details.join('   ·   '), W/2, sepY + 36);
+  }
+  var stripY = sepY + (details.length ? 58 : 24);
+  ctx.strokeStyle = pal.accent + '33'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(60, stripY); ctx.lineTo(W-60, stripY); ctx.stroke();
+  await drawResAgentStrip(ctx, pal, stripY + 18, W, H);
 }
 
 async function drawCommercialTemplate(canvas, ctx, templateName) {
@@ -2631,16 +3027,17 @@ async function drawCommercialTemplate(canvas, ctx, templateName) {
         } catch(e2) {}
       }
       var tX2 = ag2.photo ? agX2 + 84 : agX2;
-      ctx.font = '700 23px "Montserrat", sans-serif';
+      ctx.font = '700 22px "Montserrat", sans-serif';
       ctx.fillStyle = pal.text;
       ctx.textAlign = 'left';
-      ctx.fillText(ag2.name, tX2, agentY + 23);
-      ctx.font = '400 18px "Montserrat", sans-serif';
+      ctx.fillText(ag2.name, tX2, agentY + 22);
+      ctx.font = '400 17px "Montserrat", sans-serif';
       ctx.fillStyle = accent;
-      if (ag2.title) ctx.fillText(ag2.title, tX2, agentY + 46);
+      if (ag2.title) ctx.fillText(ag2.title, tX2, agentY + 43);
       ctx.fillStyle = pal.accent;
-      if (ag2.phone) ctx.fillText(ag2.phone, tX2, agentY + 68);
-      if (ag2.license) { ctx.font = '400 15px Montserrat'; ctx.fillStyle = pal.label; ctx.fillText('Lic. ' + ag2.license, tX2, agentY + 88); }
+      if (ag2.phone) ctx.fillText(ag2.phone, tX2, agentY + 63);
+      if (ag2.email) { ctx.font = '400 15px Montserrat'; ctx.fillStyle = pal.accent; ctx.fillText(ag2.email, tX2, agentY + 82); }
+      if (ag2.license) { ctx.font = '400 13px Montserrat'; ctx.fillStyle = pal.label; ctx.fillText('Lic. ' + ag2.license, tX2, agentY + 99); }
     }
   }
 
@@ -2669,14 +3066,12 @@ async function updateSocialPreview() {
   var heading = document.getElementById('sm-heading').value;
 
   // Residential templates
-  if (heading === 'res-new-listing') {
-    await drawResidentialNewListing(canvas, ctx);
-    return;
-  }
-  if (heading === 'res-just-sold') {
-    await drawResidentialJustSold(canvas, ctx);
-    return;
-  }
+  if (heading === 'res-new-listing') { await drawResidentialNewListing(canvas, ctx); return; }
+  if (heading === 'res-just-sold') { await drawResidentialJustSold(canvas, ctx); return; }
+  if (heading === 'res-under-contract') { await drawResidentialUnderContract(canvas, ctx); return; }
+  if (heading === 'res-open-house') { await drawResidentialOpenHouse(canvas, ctx); return; }
+  if (heading === 'res-price-reduced') { await drawResidentialPriceReduced(canvas, ctx); return; }
+  if (heading === 'res-coming-soon') { await drawResidentialComingSoon(canvas, ctx); return; }
   // New commercial templates
   if (['For Lease','Just Leased','Price Reduced','Investment Opportunity'].indexOf(heading) !== -1) {
     await drawCommercialTemplate(canvas, ctx, heading);
