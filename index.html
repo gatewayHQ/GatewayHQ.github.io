@@ -2183,8 +2183,20 @@ function loadAgentPreset(i, sel) {
   if (!sel.value) return;
   var p = JSON.parse(decodeURIComponent(sel.value));
   smAgents[i] = Object.assign(smAgents[i], p);
-  renderSocialAgents();
+  // Update input fields in-place — do NOT call renderSocialAgents() here
+  // because that would destroy and recreate the dropdown, resetting its
+  // value to empty and breaking the Delete button.
+  var container = document.getElementById('sm-agents-container');
+  var card = container && container.children[i];
+  if (card) {
+    var fieldMap = { 'Name': p.name, 'Title': p.title, 'Phone': p.phone, 'Email': p.email, 'License #': p.license };
+    Object.keys(fieldMap).forEach(function(ph) {
+      var inp = card.querySelector('input[placeholder="' + ph + '"]');
+      if (inp) inp.value = fieldMap[ph] || '';
+    });
+  }
   updateSocialPreview();
+  // sel.value is now preserved — Delete button will find it
 }
 
 function handleSocialAgentPhoto(index, input) {
