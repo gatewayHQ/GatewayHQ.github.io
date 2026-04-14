@@ -2431,18 +2431,20 @@ async function drawResidentialNewListing(canvas, ctx) {
           var agImg = await loadImageAsync(ag.photo);
           ctx.save();
           ctx.beginPath();
-          ctx.arc(agX + 54, agentY + 54, 54, 0, Math.PI * 2);
+          roundRect(ctx, agX, agentY, 150, 190, 10);
           ctx.clip();
-          ctx.drawImage(agImg, agX, agentY, 108, 108);
+          var _scagImg = Math.max(150/agImg.width, 190/agImg.height);
+          var _dwagImg = agImg.width * _scagImg, _dhagImg = agImg.height * _scagImg;
+          ctx.drawImage(agImg, agX + (150 - _dwagImg)/2, agentY + (190 - _dhagImg)/2, _dwagImg, _dhagImg);
           ctx.restore();
           ctx.strokeStyle = '#C8A84B';
-          ctx.lineWidth = 3;
+          ctx.lineWidth = 2.5;
           ctx.beginPath();
-          ctx.arc(agX + 54, agentY + 54, 54, 0, Math.PI * 2);
+          roundRect(ctx, agX, agentY, 150, 190, 10);
           ctx.stroke();
         } catch(e) {}
       }
-      var tX = ag.photo ? agX + 122 : agX;
+      var tX = ag.photo ? agX + 166 : agX;
       ctx.font = '700 29px "Montserrat", sans-serif';
       ctx.fillStyle = pal.text;
       ctx.fillText(ag.name, tX, agentY + 29);
@@ -2558,18 +2560,20 @@ async function drawResidentialJustSold(canvas, ctx) {
           var agImg = await loadImageAsync(ag.photo);
           ctx.save();
           ctx.beginPath();
-          ctx.arc(agX + 52, agentY + 52, 52, 0, Math.PI * 2);
+          roundRect(ctx, agX, agentY, 150, 190, 10);
           ctx.clip();
-          ctx.drawImage(agImg, agX, agentY, 104, 104);
+          var _scagImg = Math.max(150/agImg.width, 190/agImg.height);
+          var _dwagImg = agImg.width * _scagImg, _dhagImg = agImg.height * _scagImg;
+          ctx.drawImage(agImg, agX + (150 - _dwagImg)/2, agentY + (190 - _dhagImg)/2, _dwagImg, _dhagImg);
           ctx.restore();
           ctx.strokeStyle = '#A2B6C0';
           ctx.lineWidth = 2.5;
           ctx.beginPath();
-          ctx.arc(agX + 52, agentY + 52, 52, 0, Math.PI * 2);
+          roundRect(ctx, agX, agentY, 150, 190, 10);
           ctx.stroke();
         } catch(e) {}
       }
-      var tX = ag.photo ? agX + 118 : agX;
+      var tX = ag.photo ? agX + 166 : agX;
       ctx.font = '700 27px "Montserrat", sans-serif';
       ctx.fillStyle = pal.text;
       ctx.textAlign = 'left';
@@ -2624,18 +2628,20 @@ async function drawResAgentStrip(ctx, pal, startY, W, H) {
           var agImg = await loadImageAsync(ag.photo);
           ctx.save();
           ctx.beginPath();
-          ctx.arc(agX + 52, agentY + 52, 52, 0, Math.PI * 2);
+          roundRect(ctx, agX, agentY, 150, 190, 10);
           ctx.clip();
-          ctx.drawImage(agImg, agX, agentY, 104, 104);
+          var _scagImg = Math.max(150/agImg.width, 190/agImg.height);
+          var _dwagImg = agImg.width * _scagImg, _dhagImg = agImg.height * _scagImg;
+          ctx.drawImage(agImg, agX + (150 - _dwagImg)/2, agentY + (190 - _dhagImg)/2, _dwagImg, _dhagImg);
           ctx.restore();
           ctx.strokeStyle = '#C8A84B';
-          ctx.lineWidth = 3;
+          ctx.lineWidth = 2.5;
           ctx.beginPath();
-          ctx.arc(agX + 52, agentY + 52, 52, 0, Math.PI * 2);
+          roundRect(ctx, agX, agentY, 150, 190, 10);
           ctx.stroke();
         } catch(e) {}
       }
-      var tX = ag.photo ? agX + 118 : agX;
+      var tX = ag.photo ? agX + 166 : agX;
       ctx.font = '700 27px "Montserrat", sans-serif';
       ctx.fillStyle = pal.text;
       ctx.fillText(ag.name, tX, agentY + 27);
@@ -2646,7 +2652,7 @@ async function drawResAgentStrip(ctx, pal, startY, W, H) {
       if (ag.email) { ctx.font = '400 19px Montserrat'; ctx.fillText(ag.email, tX, agentY + 101); }
       if (ag.license) { ctx.font = '400 17px Montserrat'; ctx.fillStyle = pal.logoKey === 'dark' ? '#5a4832' : '#B8CED8'; ctx.fillText('Lic. ' + ag.license, tX, agentY + 122); }
     }
-    agentY += 142;
+    agentY += 210;
   }
   // Logo centered below agents
   try {
@@ -3285,16 +3291,18 @@ async function drawJustSoldTemplate(canvas, ctx) {
         var agImg3 = await loadImageAsync(ag3.photo);
         ctx.save();
         ctx.beginPath();
-        ctx.arc(60 + 46, fY + 46, 46, 0, Math.PI * 2);
+        roundRect(ctx, 60, fY, 120, 152, 10);
         ctx.clip();
-        ctx.drawImage(agImg3, 60, fY, 92, 92);
+        var _scagImg3 = Math.max(120/agImg3.width, 152/agImg3.height);
+        var _dwagImg3 = agImg3.width * _scagImg3, _dhagImg3 = agImg3.height * _scagImg3;
+        ctx.drawImage(agImg3, 60 + (120 - _dwagImg3)/2, fY + (152 - _dhagImg3)/2, _dwagImg3, _dhagImg3);
         ctx.restore();
         ctx.strokeStyle = GOLD;
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(60 + 46, fY + 46, 46, 0, Math.PI * 2);
+        roundRect(ctx, 60, fY, 120, 152, 10);
         ctx.stroke();
-        photoOffsetX = 106;
+        photoOffsetX = 136;
       } catch(e3) {}
     }
     var ftX = 60 + photoOffsetX;
@@ -3550,18 +3558,20 @@ async function drawCommercialTemplate(canvas, ctx, templateName) {
           var agImg2 = await loadImageAsync(ag2.photo);
           ctx.save();
           ctx.beginPath();
-          ctx.arc(agX2 + 46, agentY + 46, 46, 0, Math.PI * 2);
+          roundRect(ctx, agX2, agentY, 130, 165, 10);
           ctx.clip();
-          ctx.drawImage(agImg2, agX2, agentY, 92, 92);
+          var _scagImg2 = Math.max(130/agImg2.width, 165/agImg2.height);
+          var _dwagImg2 = agImg2.width * _scagImg2, _dhagImg2 = agImg2.height * _scagImg2;
+          ctx.drawImage(agImg2, agX2 + (130 - _dwagImg2)/2, agentY + (165 - _dhagImg2)/2, _dwagImg2, _dhagImg2);
           ctx.restore();
           ctx.strokeStyle = accent;
-          ctx.lineWidth = 2.5;
+          ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.arc(agX2 + 46, agentY + 46, 46, 0, Math.PI * 2);
+          roundRect(ctx, agX2, agentY, 130, 165, 10);
           ctx.stroke();
         } catch(e2) {}
       }
-      var tX2 = ag2.photo ? agX2 + 106 : agX2;
+      var tX2 = ag2.photo ? agX2 + 146 : agX2;
       ctx.font = '700 23px "Montserrat", sans-serif';
       ctx.fillStyle = pal.text;
       ctx.textAlign = 'left';
