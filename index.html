@@ -935,6 +935,15 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
   <div class="sm-container">
     <!-- LEFT: Form -->
     <div class="sm-form" id="sm-form">
+      <!-- TEMPLATE PRESET BAR -->
+      <div style="display:flex;gap:7px;align-items:center;margin-bottom:12px;padding:10px 12px;background:#0e1e28;border-radius:8px;border:1px solid #2a4050">
+        <span style="font-size:11px;color:#7a9aaa;font-weight:700;white-space:nowrap;letter-spacing:.5px">PRESETS</span>
+        <select id="sm-preset-sel" style="flex:1;font-size:12px;padding:5px 8px;background:#1a2e3b;color:#E4E3D4;border:1px solid #2a4050;border-radius:4px"><option value="">Load saved template…</option></select>
+        <button class="btn-sm" style="font-size:12px;padding:4px 9px;background:#1a2e3b;border:1px solid #2a4a5a;color:#C8D8E0;white-space:nowrap" onclick="loadTemplatePreset()">📂 Load</button>
+        <button class="btn-sm" style="font-size:12px;padding:4px 9px;background:#1a2e3b;border:1px solid #C8A84B;color:#C8A84B;white-space:nowrap" onclick="saveTemplatePreset()">💾 Save</button>
+        <button class="btn-sm" title="Delete selected preset" style="font-size:12px;padding:4px 8px;background:#1a2e3b;border:1px solid #7a3030;color:#e07070" onclick="deleteTemplatePreset()">🗑️</button>
+      </div>
+
       <div class="form-section">
         <h4>Listing Details</h4>
         <div class="form-row">
@@ -2100,11 +2109,125 @@ var invoiceInitialized = false;
 var smAgents = [];
 var smPhotos = [null, null];
 
+
+// ── Template Preset Save / Load / Delete ─────────────────────────────────
+var SM_PRESET_KEY = 'gw_template_presets';
+var SM_METRIC_KEYS = ['price-unit','price-sf','units','cap','noi','year-built',
+  'occupancy','lot-size','bldg-sf','zoning','market-badge','dom','submarket',
+  'prop-class','financing','sf'];
+var SM_FIELD_IDS = [
+  'sm-heading','sm-prop-name','sm-address','sm-price',
+  'sm-comm-sf','sm-comm-rate','sm-comm-detail',
+  'sm-res-beds','sm-res-baths','sm-res-sqft','sm-res-lot','sm-res-garage','sm-res-year',
+  'sm-js-bldg-type','sm-js-buildings','sm-js-sqft','sm-js-occupancy',
+  'sm-js-close-escrow','sm-js-price-sf','sm-js-off-market',
+  'sm-js-unit1-label','sm-js-unit1-units','sm-js-unit1-pct',
+  'sm-js-unit2-label','sm-js-unit2-units','sm-js-unit2-pct',
+  'sm-js-unit3-label','sm-js-unit3-units','sm-js-unit3-pct',
+  'sm-broker-record','sm-photo1-label'
+];
+
+function renderTemplatePresetSelect() {
+  var sel = document.getElementById('sm-preset-sel');
+  if (!sel) return;
+  var saved = JSON.parse(localStorage.getItem(SM_PRESET_KEY) || '[]');
+  sel.innerHTML = '<option value="">Load saved template\u2026</option>' +
+    saved.map(function(p) {
+      return '<option value="' + encodeURIComponent(p.name) + '">' + p.name + '</option>';
+    }).join('');
+}
+
+function saveTemplatePreset() {
+  var name = prompt('Name this template:');
+  if (!name || !name.trim()) return;
+  name = name.trim();
+  var data = { name: name, palette: smPalette, fields: {}, metrics: {},
+               agents: smAgents.map(function(a) {
+                 return { name: a.name, title: a.title, phone: a.phone,
+                          email: a.email, license: a.license };
+               }) };
+  SM_FIELD_IDS.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) data.fields[id] = el.value;
+  });
+  SM_METRIC_KEYS.forEach(function(key) {
+    var tog = document.getElementById('sm-show-' + key);
+    var inp = document.getElementById('sm-' + key);
+    data.metrics[key] = { show: tog ? tog.checked : false, value: inp ? inp.value : '' };
+  });
+  var saved = JSON.parse(localStorage.getItem(SM_PRESET_KEY) || '[]');
+  var idx = saved.findIndex(function(p) { return p.name === name; });
+  if (idx >= 0) { if (!confirm('Overwrite "' + name + '"?')) return; saved[idx] = data; }
+  else saved.push(data);
+  localStorage.setItem(SM_PRESET_KEY, JSON.stringify(saved));
+  renderTemplatePresetSelect();
+  // Select the just-saved item
+  var sel = document.getElementById('sm-preset-sel');
+  if (sel) sel.value = encodeURIComponent(name);
+  alert('Template "' + name + '" saved! Load it any time to restore all settings.');
+}
+
+function loadTemplatePreset() {
+  var sel = document.getElementById('sm-preset-sel');
+  if (!sel || !sel.value) { alert('Select a saved template from the dropdown first.'); return; }
+  var saved = JSON.parse(localStorage.getItem(SM_PRESET_KEY) || '[]');
+  var preset = saved.find(function(p) { return encodeURIComponent(p.name) === sel.value; });
+  if (!preset) { alert('Preset not found.'); return; }
+
+  // Restore palette
+  if (preset.palette) setSocialPalette(preset.palette);
+
+  // Restore all simple fields
+  if (preset.fields) {
+    Object.keys(preset.fields).forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.value = preset.fields[id] || '';
+    });
+  }
+
+  // Restore metrics
+  if (preset.metrics) {
+    SM_METRIC_KEYS.forEach(function(key) {
+      var tog = document.getElementById('sm-show-' + key);
+      var inp = document.getElementById('sm-' + key);
+      if (tog) tog.checked = !!(preset.metrics[key] && preset.metrics[key].show);
+      if (inp) inp.value = (preset.metrics[key] && preset.metrics[key].value) || '';
+    });
+    smMetricToggle();
+  }
+
+  // Restore agents (no photos — too large to store)
+  if (preset.agents && preset.agents.length) {
+    smAgents = preset.agents.map(function(a) {
+      return { name: a.name||'', title: a.title||'', phone: a.phone||'',
+               email: a.email||'', license: a.license||'', photo: null };
+    });
+    renderSocialAgents();
+  }
+
+  onTemplateChange();
+  updateSocialPreview();
+  alert('Template "' + preset.name + '" loaded!\nNote: Photos are not stored \u2014 upload a new one or the previous one.');
+}
+
+function deleteTemplatePreset() {
+  var sel = document.getElementById('sm-preset-sel');
+  if (!sel || !sel.value) { alert('Select a preset to delete.'); return; }
+  var saved = JSON.parse(localStorage.getItem(SM_PRESET_KEY) || '[]');
+  var preset = saved.find(function(p) { return encodeURIComponent(p.name) === sel.value; });
+  if (!preset) return;
+  if (!confirm('Delete template "' + preset.name + '"?')) return;
+  saved = saved.filter(function(p) { return p.name !== preset.name; });
+  localStorage.setItem(SM_PRESET_KEY, JSON.stringify(saved));
+  renderTemplatePresetSelect();
+}
+
 function initSocialBuilder() {
   socialInitialized = true;
   smAgents = [{ name: '', title: '', phone: '', email: '', license: '', photo: null }];
   renderSocialAgents();
   smMetricToggle();
+  renderTemplatePresetSelect();
   updateSocialPreview();
 }
 
