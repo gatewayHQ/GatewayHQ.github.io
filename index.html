@@ -1050,6 +1050,12 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
 
       <div class="form-section">
         <h4>Hero Photo</h4>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#C8D8E0">
+            <input type="checkbox" id="sm-enhance-photo" checked onchange="updateSocialPreview()" style="accent-color:#C8A84B;width:15px;height:15px">
+            ✨ Enhance photo (brighter &amp; more vivid)
+          </label>
+        </div>
         <div class="photo-upload-grid" style="grid-template-columns:1fr">
           <div class="photo-slot" onclick="document.getElementById('sm-photo1-input').click()" style="height:180px">
             <div id="sm-photo1-preview" class="placeholder"><span>📷</span>Click to upload hero image</div>
@@ -2127,6 +2133,11 @@ var SM_FIELD_IDS = [
   'sm-broker-record','sm-photo1-label'
 ];
 
+function smPhotoFilter() {
+  var el = document.getElementById('sm-enhance-photo');
+  return (el && el.checked) ? 'brightness(1.12) contrast(1.08) saturate(1.22)' : 'none';
+}
+
 function renderTemplatePresetSelect() {
   var sel = document.getElementById('sm-preset-sel');
   if (!sel) return;
@@ -2487,6 +2498,7 @@ async function drawResidentialNewListing(canvas, ctx) {
       ctx.clip();
       var scale = Math.max((W - margin*2)/img.width, photoH/img.height);
       var dw = img.width * scale, dh = img.height * scale;
+      ctx.filter = smPhotoFilter();
       ctx.drawImage(img, margin + (W - margin*2 - dw)/2, photoY + (photoH - dh)/2, dw, dh);
       ctx.restore();
     } catch(e) {}
@@ -2629,6 +2641,7 @@ async function drawResidentialJustSold(canvas, ctx) {
       ctx.clip();
       var scale = Math.max((W - margin*2)/img.width, photoH/img.height);
       var dw = img.width * scale, dh = img.height * scale;
+      ctx.filter = smPhotoFilter();
       ctx.drawImage(img, margin + (W - margin*2 - dw)/2, photoY + (photoH - dh)/2, dw, dh);
       ctx.restore();
     } catch(e) {}
@@ -2837,7 +2850,8 @@ async function drawResidentialUnderContract(canvas, ctx) {
       ctx.beginPath(); roundRect(ctx, margin, photoY, W - margin*2, photoH, 10); ctx.clip();
       var scale = Math.max((W-margin*2)/img.width, photoH/img.height);
       var dw = img.width*scale, dh = img.height*scale;
-      ctx.drawImage(img, margin+(W-margin*2-dw)/2, photoY+(photoH-dh)/2, dw, dh);
+      ctx.filter = smPhotoFilter();
+    ctx.drawImage(img, margin+(W-margin*2-dw)/2, photoY+(photoH-dh)/2, dw, dh);
       ctx.restore();
     } catch(e) {}
   } else {
@@ -2923,7 +2937,8 @@ async function drawResidentialOpenHouse(canvas, ctx) {
       ctx.beginPath(); roundRect(ctx, margin, photoY, W-margin*2, photoH, 12); ctx.clip();
       var scale = Math.max((W-margin*2)/img.width, photoH/img.height);
       var dw = img.width*scale, dh = img.height*scale;
-      ctx.drawImage(img, margin+(W-margin*2-dw)/2, photoY+(photoH-dh)/2, dw, dh);
+      ctx.filter = smPhotoFilter();
+    ctx.drawImage(img, margin+(W-margin*2-dw)/2, photoY+(photoH-dh)/2, dw, dh);
       ctx.restore();
     } catch(e) {}
   } else {
@@ -3006,7 +3021,8 @@ async function drawResidentialPriceReduced(canvas, ctx) {
       ctx.beginPath(); roundRect(ctx, margin, photoY, W-margin*2, photoH, 10); ctx.clip();
       var scale = Math.max((W-margin*2)/img.width, photoH/img.height);
       var dw = img.width*scale, dh = img.height*scale;
-      ctx.drawImage(img, margin+(W-margin*2-dw)/2, photoY+(photoH-dh)/2, dw, dh);
+      ctx.filter = smPhotoFilter();
+    ctx.drawImage(img, margin+(W-margin*2-dw)/2, photoY+(photoH-dh)/2, dw, dh);
       ctx.restore();
     } catch(e) {}
   } else {
@@ -3086,7 +3102,8 @@ async function drawResidentialComingSoon(canvas, ctx) {
       ctx.globalAlpha = 0.65;
       var scale = Math.max((W-margin*2)/img.width, photoH/img.height);
       var dw = img.width*scale, dh = img.height*scale;
-      ctx.drawImage(img, margin+(W-margin*2-dw)/2, photoY+(photoH-dh)/2, dw, dh);
+      ctx.filter = smPhotoFilter();
+    ctx.drawImage(img, margin+(W-margin*2-dw)/2, photoY+(photoH-dh)/2, dw, dh);
       ctx.globalAlpha = 1;
       ctx.restore();
     } catch(e) {}
@@ -3276,6 +3293,7 @@ async function drawJustSoldTemplate(canvas, ctx) {
       ctx.clip();
       var scale = Math.max(W / img.width, photoH / img.height);
       var dw = img.width * scale, dh = img.height * scale;
+      ctx.filter = smPhotoFilter();
       ctx.drawImage(img, (W - dw) / 2, photoY + (photoH - dh) / 2, dw, dh);
       ctx.restore();
     } catch(e) {}
@@ -3526,6 +3544,7 @@ async function drawCommercialTemplate(canvas, ctx, templateName) {
       ctx.clip();
       var scale = Math.max((W - margin*2)/img.width, photoH/img.height);
       var dw = img.width * scale, dh = img.height * scale;
+      ctx.filter = smPhotoFilter();
       ctx.drawImage(img, margin + (W - margin*2 - dw)/2, photoY + (photoH - dh)/2, dw, dh);
       ctx.restore();
     } catch(e) {}
@@ -3582,11 +3601,15 @@ async function drawCommercialTemplate(canvas, ctx, templateName) {
     var totalOverlayH = rows.length * (rowH + rowGap) + 14;
     var overlayY = photoY + photoH - totalOverlayH;
 
-    // Dark semi-transparent background
+    // Gradient overlay — transparent at top, dark at bottom (keeps photo visible)
     ctx.save();
     ctx.beginPath();  // must clear path — roundRect() does not call beginPath()
     roundRect(ctx, 60, overlayY, W - 120, totalOverlayH, 0);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+    var metGrad = ctx.createLinearGradient(0, overlayY, 0, overlayY + totalOverlayH);
+    metGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    metGrad.addColorStop(0.3, 'rgba(0,0,0,0.55)');
+    metGrad.addColorStop(1, 'rgba(0,0,0,0.80)');
+    ctx.fillStyle = metGrad;
     ctx.fill();
     ctx.restore();
 
