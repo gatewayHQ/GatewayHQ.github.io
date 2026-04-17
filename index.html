@@ -878,6 +878,206 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
   .tools-grid { grid-template-columns: 1fr; }
   .val-grid { grid-template-columns: 1fr; }
   .input-grid { grid-template-columns: 1fr; }
+  .vid-layout { grid-template-columns: 1fr; }
+}
+
+/* ========== LISTING VIDEO GENERATOR ========== */
+.vid-layout {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 24px;
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.vid-form-panel {
+  background: var(--card-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: fit-content;
+}
+.vid-preview-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.vid-type-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--input-bg);
+  border-radius: 10px;
+  padding: 4px;
+}
+.vid-type-tab {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--brand-gray);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.vid-type-tab.active {
+  background: var(--card-bg);
+  color: #C8A84B;
+  border: 1px solid rgba(200,168,75,0.3);
+}
+.vid-photo-drop {
+  border: 2px dashed var(--input-border);
+  border-radius: 12px;
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--input-bg);
+  position: relative;
+}
+.vid-photo-drop:hover, .vid-photo-drop.drag-over {
+  border-color: #C8A84B;
+  background: rgba(200,168,75,0.05);
+}
+.vid-photo-drop input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.vid-photo-drop p { font-size: 12px; color: var(--brand-gray); margin: 0; }
+.vid-photo-drop .drop-icon { font-size: 28px; margin-bottom: 8px; }
+.vid-photo-thumbs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+}
+.vid-thumb {
+  position: relative;
+  aspect-ratio: 16/9;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--input-border);
+}
+.vid-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.vid-thumb .thumb-remove {
+  position: absolute; top: 3px; right: 3px;
+  background: rgba(0,0,0,0.7); color: #fff;
+  border: none; border-radius: 50%;
+  width: 18px; height: 18px; font-size: 10px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.vid-generate-btn {
+  width: 100%;
+  padding: 14px;
+  background: #C8A84B;
+  color: #152229;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.vid-generate-btn:hover { background: #d4b55e; }
+.vid-generate-btn:disabled { background: #3a4a50; color: #7a8a90; cursor: not-allowed; }
+.vid-scenes-preview {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+.vid-scene-card {
+  background: var(--card-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.vid-scene-label {
+  padding: 8px 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--brand-gray);
+  border-bottom: 1px solid var(--input-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.vid-scene-label span { color: #C8A84B; }
+.vid-scene-preview {
+  aspect-ratio: 16/9;
+  background: #1E2F39;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  padding: 12px;
+}
+.vid-scene-preview.has-photo { padding: 0; }
+.vid-scene-preview img.scene-photo {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover;
+  opacity: 0.4;
+}
+.vid-scene-content { position: relative; z-index: 1; text-align: center; }
+.vid-scene-addr { font-family: 'EB Garamond', serif; font-size: 13px; font-weight: 600; color: #fff; }
+.vid-scene-price { font-size: 11px; color: #C8A84B; margin-top: 2px; }
+.vid-scene-badge { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--brand-gray); }
+.vid-feature-tag { font-size: 11px; color: #E4E3D4; margin: 2px 0; }
+.vid-stat { text-align: center; }
+.vid-stat-val { font-family: 'EB Garamond', serif; font-size: 20px; font-weight: 600; color: #fff; }
+.vid-stat-lbl { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--brand-gray); }
+.vid-output-card {
+  background: var(--card-bg);
+  border: 1px solid rgba(200,168,75,0.3);
+  border-radius: 16px;
+  padding: 24px;
+}
+.vid-output-card h4 { font-size: 16px; margin-bottom: 12px; }
+.vid-output-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.vid-dl-btn {
+  padding: 11px 20px;
+  background: #C8A84B;
+  color: #152229;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+.vid-dl-btn:hover { background: #d4b55e; }
+.vid-instructions {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: var(--input-bg);
+  border-radius: 10px;
+  border: 1px solid var(--input-border);
+}
+.vid-instructions p { font-size: 12px; color: var(--brand-gray); margin-bottom: 8px; }
+.vid-instructions code {
+  display: block;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: #C8A84B;
+  background: #0e1e28;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin: 4px 0;
+  white-space: pre;
 }
 </style>
 </head>
@@ -946,6 +1146,12 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
       <div class="tool-icon">🏡</div>
       <h3>Home Valuation Generator</h3>
       <p>Pull Rentcast comps, apply condition/upgrade adjustments, and export branded PDF & PPTX valuation reports</p>
+      <span class="tool-tag new">NEW</span>
+    </div>
+    <div class="tool-card" onclick="navigateTo('video')">
+      <div class="tool-icon">🎬</div>
+      <h3>Listing Video Generator</h3>
+      <p>Upload photos, enter property details, and generate a branded 30-second promo video for residential, multifamily, or commercial listings</p>
       <span class="tool-tag new">NEW</span>
     </div>
   </div>
@@ -1984,6 +2190,173 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
   </div>
 </div>
 
+<!-- ========== LISTING VIDEO GENERATOR ========== -->
+<div id="page-video" class="page">
+  <div class="vid-layout">
+
+    <!-- LEFT: Form -->
+    <div class="vid-form-panel">
+      <h3 style="font-size:20px;margin-bottom:4px">Listing Video</h3>
+      <p style="font-size:12px;color:var(--brand-gray);margin-bottom:4px">Generate a branded 30-second property promo video</p>
+
+      <!-- Property Type -->
+      <div class="vid-type-tabs">
+        <button class="vid-type-tab active" onclick="vidSetType('residential',this)">Residential</button>
+        <button class="vid-type-tab" onclick="vidSetType('multifamily',this)">Multifamily</button>
+        <button class="vid-type-tab" onclick="vidSetType('commercial',this)">Commercial</button>
+      </div>
+
+      <!-- Photos -->
+      <div>
+        <label style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--brand-gray);text-transform:uppercase;display:block;margin-bottom:8px">Property Photos <span style="color:var(--brand-gray);font-weight:400">(up to 6)</span></label>
+        <div class="vid-photo-drop" id="vid-drop-zone">
+          <input type="file" id="vid-photo-input" accept="image/*" multiple onchange="vidHandleFiles(this.files)">
+          <div class="drop-icon">📷</div>
+          <p>Drop photos here or click to upload</p>
+          <p style="font-size:11px;margin-top:4px;color:#5a7a8a">First photo = hero scene · Second = closing scene</p>
+        </div>
+        <div class="vid-photo-thumbs" id="vid-thumbs"></div>
+      </div>
+
+      <!-- Core Details -->
+      <div class="form-section" style="margin:0">
+        <h4 style="font-size:13px;margin-bottom:10px">Property Details</h4>
+        <div class="form-row"><label>Street Address</label><input type="text" id="vid-address" placeholder="e.g. 3100 Nebraska Street" oninput="vidUpdatePreview()"></div>
+        <div class="form-row"><label>City, State</label><input type="text" id="vid-city" placeholder="e.g. Sioux City, IA" oninput="vidUpdatePreview()"></div>
+        <div class="form-row"><label>Price / Ask</label><input type="text" id="vid-price" placeholder="e.g. $229,500" oninput="vidUpdatePreview()"></div>
+        <div class="form-row"><label>Agent Name(s)</label><input type="text" id="vid-agents" placeholder="e.g. Daniel Stillson &amp; Steph Dattolico" oninput="vidUpdatePreview()"></div>
+      </div>
+
+      <!-- Residential Fields -->
+      <div class="form-section" id="vid-res-fields" style="margin:0">
+        <h4 style="font-size:13px;margin-bottom:10px">Residential Stats</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="form-row"><label>Bedrooms</label><input type="text" id="vid-beds" placeholder="3" oninput="vidUpdatePreview()"></div>
+          <div class="form-row"><label>Bathrooms</label><input type="text" id="vid-baths" placeholder="1.5" oninput="vidUpdatePreview()"></div>
+          <div class="form-row"><label>Sq Footage</label><input type="text" id="vid-sqft" placeholder="1,400 SF" oninput="vidUpdatePreview()"></div>
+          <div class="form-row"><label>Year Built</label><input type="text" id="vid-year" placeholder="1978" oninput="vidUpdatePreview()"></div>
+        </div>
+      </div>
+
+      <!-- Multifamily Fields -->
+      <div class="form-section" id="vid-mf-fields" style="margin:0;display:none">
+        <h4 style="font-size:13px;margin-bottom:10px">Multifamily Stats</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="form-row"><label>Units</label><input type="text" id="vid-units" placeholder="24" oninput="vidUpdatePreview()"></div>
+          <div class="form-row"><label>Cap Rate</label><input type="text" id="vid-cap" placeholder="6.5%" oninput="vidUpdatePreview()"></div>
+          <div class="form-row"><label>NOI</label><input type="text" id="vid-noi" placeholder="$148,000" oninput="vidUpdatePreview()"></div>
+          <div class="form-row"><label>Occupancy</label><input type="text" id="vid-occ" placeholder="94%" oninput="vidUpdatePreview()"></div>
+          <div class="form-row"><label>Price/Unit</label><input type="text" id="vid-ppu" placeholder="$75,000" oninput="vidUpdatePreview()"></div>
+          <div class="form-row"><label>Sq Footage</label><input type="text" id="vid-mf-sqft" placeholder="18,500 SF" oninput="vidUpdatePreview()"></div>
+        </div>
+      </div>
+
+      <!-- Commercial Fields -->
+      <div class="form-section" id="vid-comm-fields" style="margin:0;display:none">
+        <h4 style="font-size:13px;margin-bottom:10px">Commercial Stats</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="form-row"><label>Building SF</label><input type="text" id="vid-bldg-sf" placeholder="12,500 SF" oninput="vidUpdatePreview()"></div>
+          <div class="form-row"><label>Zoning</label><input type="text" id="vid-zoning" placeholder="C-2" oninput="vidUpdatePreview()"></div>
+          <div class="form-row"><label>Cap Rate</label><input type="text" id="vid-comm-cap" placeholder="7.2%" oninput="vidUpdatePreview()"></div>
+          <div class="form-row"><label>Lease Rate</label><input type="text" id="vid-lease-rate" placeholder="$14/SF NNN" oninput="vidUpdatePreview()"></div>
+          <div class="form-row" style="grid-column:1/-1"><label>Property Type</label><input type="text" id="vid-prop-type" placeholder="e.g. Retail Strip Center" oninput="vidUpdatePreview()"></div>
+        </div>
+      </div>
+
+      <!-- Key Features -->
+      <div class="form-section" style="margin:0">
+        <h4 style="font-size:13px;margin-bottom:10px">Key Features <span style="font-size:11px;color:var(--brand-gray);font-weight:400">(up to 4)</span></h4>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <input type="text" id="vid-feat1" placeholder="e.g. Fully Renovated — Move-in ready" oninput="vidUpdatePreview()" style="font-size:12px">
+          <input type="text" id="vid-feat2" placeholder="e.g. Fully Furnished — Everything stays" oninput="vidUpdatePreview()" style="font-size:12px">
+          <input type="text" id="vid-feat3" placeholder="e.g. Proven Airbnb Income — Up to $4K/mo" oninput="vidUpdatePreview()" style="font-size:12px">
+          <input type="text" id="vid-feat4" placeholder="e.g. Turnkey Investment" oninput="vidUpdatePreview()" style="font-size:12px">
+        </div>
+      </div>
+
+      <button class="vid-generate-btn" id="vid-gen-btn" onclick="vidGenerate()">⬇ Download Composition</button>
+      <p style="font-size:10px;color:var(--brand-gray);text-align:center;margin-top:-8px">Downloads a ready-to-render HTML file</p>
+    </div>
+
+    <!-- RIGHT: Preview + Output -->
+    <div class="vid-preview-panel">
+
+      <!-- Scene Previews -->
+      <div style="background:var(--card-bg);border:1px solid var(--input-border);border-radius:16px;padding:20px">
+        <p style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--brand-gray);margin-bottom:14px">Video Preview</p>
+        <div class="vid-scenes-preview">
+
+          <!-- Scene 1 -->
+          <div class="vid-scene-card">
+            <div class="vid-scene-label">Scene 1 · 0–8s <span>Hero</span></div>
+            <div class="vid-scene-preview has-photo" id="vid-prev-s1">
+              <img class="scene-photo" id="vid-prev-photo1" src="" alt="" style="display:none">
+              <div class="vid-scene-content">
+                <div class="vid-scene-badge">Gateway Real Estate Advisors</div>
+                <div class="vid-scene-addr" id="vid-prev-addr">3100 Nebraska Street</div>
+                <div class="vid-scene-price" id="vid-prev-price">$229,500</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Scene 2 -->
+          <div class="vid-scene-card">
+            <div class="vid-scene-label">Scene 2 · 8–16s <span>Features</span></div>
+            <div class="vid-scene-preview" id="vid-prev-s2" style="flex-direction:column;align-items:flex-start;padding:14px;gap:5px">
+              <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#C8A84B;margin-bottom:4px">Key Features</div>
+              <div class="vid-feature-tag" id="vid-prev-f1">Fully Renovated</div>
+              <div class="vid-feature-tag" id="vid-prev-f2">Fully Furnished</div>
+              <div class="vid-feature-tag" id="vid-prev-f3">Proven Airbnb Income</div>
+              <div class="vid-feature-tag" id="vid-prev-f4">Turnkey Investment</div>
+            </div>
+          </div>
+
+          <!-- Scene 3 -->
+          <div class="vid-scene-card">
+            <div class="vid-scene-label">Scene 3 · 16–23s <span>Stats</span></div>
+            <div class="vid-scene-preview" id="vid-prev-s3" style="gap:12px">
+              <div class="vid-stat"><div class="vid-stat-val" id="vid-prev-stat1">3</div><div class="vid-stat-lbl" id="vid-prev-lbl1">Bedrooms</div></div>
+              <div class="vid-stat"><div class="vid-stat-val" id="vid-prev-stat2">1.5</div><div class="vid-stat-lbl" id="vid-prev-lbl2">Bathrooms</div></div>
+              <div class="vid-stat"><div class="vid-stat-val" id="vid-prev-stat3">$4K</div><div class="vid-stat-lbl" id="vid-prev-lbl3">Airbnb / Mo</div></div>
+            </div>
+          </div>
+
+          <!-- Scene 4 -->
+          <div class="vid-scene-card">
+            <div class="vid-scene-label">Scene 4 · 23–30s <span>CTA</span></div>
+            <div class="vid-scene-preview has-photo" id="vid-prev-s4">
+              <img class="scene-photo" id="vid-prev-photo2" src="" alt="" style="display:none">
+              <div class="vid-scene-content">
+                <div style="font-size:13px;font-family:'EB Garamond',serif;font-weight:600;color:#fff">Schedule a Tour Today</div>
+                <div class="vid-scene-price" id="vid-prev-agents" style="margin-top:4px">Daniel Stillson &amp; Steph Dattolico</div>
+                <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#C8A84B;margin-top:4px">Opening Doors to Your Future</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- How to Render -->
+      <div class="vid-output-card" id="vid-output-section">
+        <h4>How to Render Your Video</h4>
+        <p style="font-size:12px;color:var(--brand-gray);line-height:1.6">Download the composition file above, then follow these steps in Claude Code or your terminal:</p>
+        <div class="vid-instructions">
+          <p>1. Move the downloaded file into your HyperFrames project:</p>
+          <code>mv ~/Downloads/listing-video.html /home/user/nebraska-promo/index.html</code>
+          <p style="margin-top:10px">2. Copy your photos to the project folder as photo1.jpg, photo2.jpg, etc.</p>
+          <p style="margin-top:10px">3. Render to MP4:</p>
+          <code>npx hyperframes render /home/user/nebraska-promo --quality high --fps 30</code>
+          <p style="margin-top:10px">4. Your video will be at:</p>
+          <code>GatewayHQ.github.io/renders/&lt;name&gt;.mp4</code>
+        </div>
+        <p style="font-size:11px;color:var(--brand-gray);margin-top:12px">💡 Or just tell Claude Code: "Render the composition at /home/user/nebraska-promo" and it will handle everything.</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <!-- ========== STATUS BAR ========== -->
 <div class="status-bar" id="global-status"></div>
 
@@ -2105,7 +2478,8 @@ var pageNames = {
   leasing: 'Leasing OM Builder',
   valuation: 'Valuation Tool',
   invoice: 'Invoice Generator',
-  'home-valuation': 'Home Valuation Generator'
+  'home-valuation': 'Home Valuation Generator',
+  'video': 'Listing Video Generator'
 };
 
 function navigateTo(page) {
@@ -8178,6 +8552,335 @@ window.hvDownloadPPTX = hvDownloadPPTX;
 window.resetHomeValuation = resetHomeValuation;
 window.initHomeValuation = initHomeValuation;
 
+</script>
+
+<!-- ========== LISTING VIDEO GENERATOR JS ========== -->
+<script>
+(function() {
+  var vidPhotos = []; // [{dataUrl, name}]
+  var vidType = 'residential';
+
+  window.vidSetType = function(type, btn) {
+    vidType = type;
+    document.querySelectorAll('.vid-type-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('vid-res-fields').style.display  = type === 'residential'  ? '' : 'none';
+    document.getElementById('vid-mf-fields').style.display   = type === 'multifamily'  ? '' : 'none';
+    document.getElementById('vid-comm-fields').style.display = type === 'commercial'   ? '' : 'none';
+    vidUpdatePreview();
+  };
+
+  window.vidHandleFiles = function(files) {
+    Array.from(files).forEach(function(file) {
+      if (vidPhotos.length >= 6) return;
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        vidPhotos.push({ dataUrl: e.target.result, name: file.name });
+        vidRenderThumbs();
+        vidUpdatePreview();
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  function vidRenderThumbs() {
+    var container = document.getElementById('vid-thumbs');
+    container.innerHTML = '';
+    vidPhotos.forEach(function(p, i) {
+      var div = document.createElement('div');
+      div.className = 'vid-thumb';
+      div.innerHTML = '<img src="' + p.dataUrl + '" alt=""><button class="thumb-remove" onclick="vidRemovePhoto(' + i + ')">✕</button>';
+      container.appendChild(div);
+    });
+    // Update hero previews
+    var p1 = document.getElementById('vid-prev-photo1');
+    var p2 = document.getElementById('vid-prev-photo2');
+    if (vidPhotos[0]) { p1.src = vidPhotos[0].dataUrl; p1.style.display = ''; } else { p1.style.display = 'none'; }
+    if (vidPhotos[1]) { p2.src = vidPhotos[1].dataUrl; p2.style.display = ''; } else { p2.style.display = 'none'; }
+  }
+
+  window.vidRemovePhoto = function(i) {
+    vidPhotos.splice(i, 1);
+    vidRenderThumbs();
+    vidUpdatePreview();
+  };
+
+  // Drag & drop
+  var dz = document.getElementById('vid-drop-zone');
+  dz.addEventListener('dragover', function(e) { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', function() { dz.classList.remove('drag-over'); });
+  dz.addEventListener('drop', function(e) {
+    e.preventDefault(); dz.classList.remove('drag-over');
+    vidHandleFiles(e.dataTransfer.files);
+  });
+
+  window.vidUpdatePreview = function() {
+    var addr   = document.getElementById('vid-address').value || '—';
+    var price  = document.getElementById('vid-price').value   || '—';
+    var agents = document.getElementById('vid-agents').value  || '—';
+
+    document.getElementById('vid-prev-addr').textContent   = addr;
+    document.getElementById('vid-prev-price').textContent  = price;
+    document.getElementById('vid-prev-agents').textContent = agents;
+
+    // Features
+    ['f1','f2','f3','f4'].forEach(function(k, i) {
+      var val = document.getElementById('vid-feat' + (i+1)).value;
+      var el  = document.getElementById('vid-prev-' + k);
+      var short = val ? val.split('—')[0].split('–')[0].trim() : '';
+      el.textContent = short;
+      el.style.display = short ? '' : 'none';
+    });
+
+    // Stats by type
+    if (vidType === 'residential') {
+      document.getElementById('vid-prev-stat1').textContent = document.getElementById('vid-beds').value  || '—';
+      document.getElementById('vid-prev-lbl1').textContent  = 'Bedrooms';
+      document.getElementById('vid-prev-stat2').textContent = document.getElementById('vid-baths').value || '—';
+      document.getElementById('vid-prev-lbl2').textContent  = 'Bathrooms';
+      document.getElementById('vid-prev-stat3').textContent = document.getElementById('vid-sqft').value  || '—';
+      document.getElementById('vid-prev-lbl3').textContent  = 'Sq Footage';
+    } else if (vidType === 'multifamily') {
+      document.getElementById('vid-prev-stat1').textContent = document.getElementById('vid-units').value || '—';
+      document.getElementById('vid-prev-lbl1').textContent  = 'Units';
+      document.getElementById('vid-prev-stat2').textContent = document.getElementById('vid-cap').value   || '—';
+      document.getElementById('vid-prev-lbl2').textContent  = 'Cap Rate';
+      document.getElementById('vid-prev-stat3').textContent = document.getElementById('vid-noi').value   || '—';
+      document.getElementById('vid-prev-lbl3').textContent  = 'NOI';
+    } else {
+      document.getElementById('vid-prev-stat1').textContent = document.getElementById('vid-bldg-sf').value    || '—';
+      document.getElementById('vid-prev-lbl1').textContent  = 'Building SF';
+      document.getElementById('vid-prev-stat2').textContent = document.getElementById('vid-comm-cap').value   || '—';
+      document.getElementById('vid-prev-lbl2').textContent  = 'Cap Rate';
+      document.getElementById('vid-prev-stat3').textContent = document.getElementById('vid-lease-rate').value || '—';
+      document.getElementById('vid-prev-lbl3').textContent  = 'Lease Rate';
+    }
+  };
+
+  function vidGetStats() {
+    if (vidType === 'residential') {
+      return [
+        { val: document.getElementById('vid-beds').value  || '—', lbl: 'Bedrooms' },
+        { val: document.getElementById('vid-baths').value || '—', lbl: 'Bathrooms' },
+        { val: document.getElementById('vid-sqft').value  || '—', lbl: 'Sq Footage' }
+      ];
+    } else if (vidType === 'multifamily') {
+      return [
+        { val: document.getElementById('vid-units').value || '—', lbl: 'Units' },
+        { val: document.getElementById('vid-cap').value   || '—', lbl: 'Cap Rate' },
+        { val: document.getElementById('vid-noi').value   || '—', lbl: 'NOI' },
+        { val: document.getElementById('vid-occ').value,          lbl: 'Occupancy' },
+        { val: document.getElementById('vid-ppu').value,          lbl: 'Price / Unit' },
+        { val: document.getElementById('vid-mf-sqft').value,      lbl: 'Sq Footage' }
+      ].filter(function(s) { return s.val; });
+    } else {
+      return [
+        { val: document.getElementById('vid-bldg-sf').value    || '—', lbl: 'Building SF' },
+        { val: document.getElementById('vid-comm-cap').value   || '—', lbl: 'Cap Rate' },
+        { val: document.getElementById('vid-lease-rate').value || '—', lbl: 'Lease Rate' },
+        { val: document.getElementById('vid-zoning').value,             lbl: 'Zoning' },
+        { val: document.getElementById('vid-prop-type').value,          lbl: 'Property Type' }
+      ].filter(function(s) { return s.val; });
+    }
+  }
+
+  function vidStatCards(stats) {
+    var show = stats.slice(0, 3);
+    return show.map(function(s, i) {
+      var r0 = i === 0 ? 'border-radius:16px 0 0 16px;' : '';
+      var r2 = i === show.length - 1 ? 'border-radius:0 16px 16px 0;' : '';
+      return '<div class="stat-card" style="' + r0 + r2 + '">'
+        + '<div class="stat-value">' + escHtml(s.val) + '</div>'
+        + '<div class="stat-label">' + escHtml(s.lbl) + '</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  function escHtml(s) {
+    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function vidFeatureItems() {
+    var html = '';
+    for (var i = 1; i <= 4; i++) {
+      var v = document.getElementById('vid-feat' + i).value.trim();
+      if (!v) continue;
+      var parts = v.split(/—|–/);
+      var title  = parts[0].trim();
+      var detail = parts[1] ? parts[1].trim() : '';
+      var num    = String(i).padStart(2,'0');
+      html += '<li class="feature-item">'
+            + '<span class="feature-num">' + num + '</span>'
+            + '<span class="feature-text"><strong>' + escHtml(title) + '</strong>'
+            + (detail ? ' — ' + escHtml(detail) : '')
+            + '</span></li>';
+    }
+    return html;
+  }
+
+  window.vidGenerate = function() {
+    var addr   = document.getElementById('vid-address').value.trim();
+    var city   = document.getElementById('vid-city').value.trim();
+    var price  = document.getElementById('vid-price').value.trim();
+    var agents = document.getElementById('vid-agents').value.trim();
+
+    if (!addr || !price) { alert('Please enter at least an address and price.'); return; }
+    if (vidPhotos.length === 0) { alert('Please upload at least one property photo.'); return; }
+
+    var fullAddr = city ? addr + ', ' + city : addr;
+    var photo1   = vidPhotos[0] ? vidPhotos[0].dataUrl : '';
+    var photo2   = vidPhotos[1] ? vidPhotos[1].dataUrl : (vidPhotos[0] ? vidPhotos[0].dataUrl : '');
+    var stats    = vidGetStats();
+
+    // Gateway logo as inline SVG data URI
+    var logoH = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 110" fill="none"><g transform="translate(4,6)"><path d="M4,96 L4,44 C4,17 19,4 50,4 C81,4 96,17 96,44 L96,96" stroke="white" stroke-width="3.5" stroke-linecap="round"/><path d="M17,96 L17,47 C17,27 29,16 50,16 C71,16 83,27 83,47 L83,96" stroke="white" stroke-width="2.5" stroke-linecap="round"/><line x1="31" y1="22" x2="31" y2="96" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="41" y1="10" x2="41" y2="96" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="50" y1="5" x2="50" y2="96" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="59" y1="10" x2="59" y2="96" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="69" y1="22" x2="69" y2="96" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="0" y1="96" x2="100" y2="96" stroke="white" stroke-width="3.5" stroke-linecap="round"/><line x1="0" y1="78" x2="17" y2="78" stroke="white" stroke-width="2.5" stroke-linecap="round"/><line x1="83" y1="78" x2="100" y2="78" stroke="white" stroke-width="2.5" stroke-linecap="round"/><circle cx="50" cy="52" r="11.5" stroke="white" stroke-width="2"/><text x="50" y="57.5" text-anchor="middle" fill="white" font-family="Georgia,serif" font-size="13" font-weight="700">G</text></g><text x="118" y="66" fill="white" font-family="\'EB Garamond\',Georgia,serif" font-size="54" font-weight="600" letter-spacing="3">GATEWAY</text><text x="120" y="88" fill="white" font-family="\'Inter\',Arial,sans-serif" font-size="13.5" font-weight="500" letter-spacing="7">REAL ESTATE ADVISORS</text></svg>');
+
+    var logoS = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 280" fill="none"><g transform="translate(75,10)"><path d="M5,118 L5,54 C5,20 22,4 75,4 C128,4 145,20 145,54 L145,118" stroke="white" stroke-width="4.5" stroke-linecap="round"/><path d="M22,118 L22,58 C22,34 38,20 75,20 C112,20 128,34 128,58 L128,118" stroke="white" stroke-width="3.5" stroke-linecap="round"/><line x1="44" y1="27" x2="44" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/><line x1="59" y1="11" x2="59" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/><line x1="75" y1="5" x2="75" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/><line x1="91" y1="11" x2="91" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/><line x1="106" y1="27" x2="106" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/><line x1="0" y1="118" x2="150" y2="118" stroke="white" stroke-width="4.5" stroke-linecap="round"/><line x1="0" y1="96" x2="22" y2="96" stroke="white" stroke-width="3.5" stroke-linecap="round"/><line x1="128" y1="96" x2="150" y2="96" stroke="white" stroke-width="3.5" stroke-linecap="round"/><circle cx="75" cy="64" r="16" stroke="white" stroke-width="2.5"/><text x="75" y="70.5" text-anchor="middle" fill="white" font-family="Georgia,serif" font-size="18" font-weight="700">G</text></g><text x="150" y="196" text-anchor="middle" fill="white" font-family="\'EB Garamond\',Georgia,serif" font-size="58" font-weight="600" letter-spacing="6">GATEWAY</text><text x="150" y="226" text-anchor="middle" fill="white" font-family="\'Inter\',Arial,sans-serif" font-size="15" font-weight="500" letter-spacing="8">REAL ESTATE ADVISORS</text></svg>');
+
+    var html = vidBuildHtml(fullAddr, price, agents, photo1, photo2, stats, logoH, logoS);
+
+    var slug = addr.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    var blob = new Blob([html], { type: 'text/html' });
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'listing-video-' + slug + '.html';
+    a.click();
+    URL.revokeObjectURL(url);
+    showGlobalStatus('✓ Composition downloaded — render with: npx hyperframes render <project-dir>');
+  };
+
+  function vidBuildHtml(addr, price, agents, photo1, photo2, stats, logoH, logoS) {
+    var statsGrid = stats.slice(0,3).map(function(s, i) {
+      var r = i === 0 ? 'border-radius:16px 0 0 16px;' : (i === 2 ? 'border-radius:0 16px 16px 0;' : '');
+      return '<div class="stat-card" style="' + r + '">'
+        + '<div class="stat-value">' + escHtml(s.val) + '</div>'
+        + '<div class="stat-label">' + escHtml(s.lbl) + '</div>'
+        + '</div>';
+    }).join('');
+
+    return '<!doctype html>\n<html lang="en">\n<head>\n'
+      + '<meta charset="UTF-8"/>\n'
+      + '<meta name="viewport" content="width=1920, height=1080"/>\n'
+      + '<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600;700&family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">\n'
+      + '<script src="./node_modules/gsap/dist/gsap.min.js"><\/script>\n'
+      + '<style>\n'
+      + '* { margin:0; padding:0; box-sizing:border-box; }\n'
+      + 'html,body { margin:0; width:1920px; height:1080px; overflow:hidden; background:#1E2F39; font-family:\'Montserrat\',sans-serif; color:#fff; }\n'
+      + '#root { position:relative; width:1920px; height:1080px; overflow:hidden; }\n'
+      + '.scene { position:absolute; inset:0; opacity:0; background:#1E2F39; }\n'
+      + '.logo-mark { position:absolute; top:48px; left:64px; width:300px; opacity:0; z-index:10; }\n'
+      + '.photo-bg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0; }\n'
+      + '.photo-overlay { position:absolute; inset:0; background:linear-gradient(to bottom,rgba(21,34,41,0.1) 0%,rgba(21,34,41,0.55) 55%,rgba(21,34,41,0.95) 100%); }\n'
+      + '.gold-bar { position:absolute; bottom:0; left:0; width:100%; height:4px; background:#C8A84B; opacity:0; }\n'
+      + '.s1-content { position:absolute; bottom:130px; left:120px; right:120px; }\n'
+      + '.eyebrow { display:block; font-size:12px; font-weight:600; letter-spacing:5px; text-transform:uppercase; color:#A2B6C0; margin-bottom:20px; opacity:0; }\n'
+      + '.address { font-family:\'EB Garamond\',Georgia,serif; font-size:96px; font-weight:600; line-height:1; color:#fff; letter-spacing:-1px; opacity:0; transform:translateY(32px); }\n'
+      + '.price { font-size:52px; font-weight:300; color:#E4E3D4; margin-top:20px; opacity:0; transform:translateY(20px); }\n'
+      + '.price span { color:#C8A84B; font-weight:700; }\n'
+      + '#scene-2 { display:flex; flex-direction:column; justify-content:center; padding:0 160px; }\n'
+      + '.section-label { font-size:12px; font-weight:600; letter-spacing:5px; text-transform:uppercase; color:#C8A84B; margin-bottom:52px; opacity:0; }\n'
+      + '.features-list { list-style:none; }\n'
+      + '.feature-item { display:flex; align-items:center; gap:36px; padding:30px 0; border-bottom:1px solid rgba(255,255,255,0.08); opacity:0; transform:translateX(-48px); }\n'
+      + '.features-list li:first-child { border-top:1px solid rgba(255,255,255,0.08); }\n'
+      + '.feature-num { font-size:12px; font-weight:700; color:#C8A84B; width:24px; flex-shrink:0; }\n'
+      + '.feature-text { font-size:40px; font-weight:400; color:#E4E3D4; letter-spacing:-0.3px; }\n'
+      + '.feature-text strong { font-weight:700; color:#fff; }\n'
+      + '#scene-3 { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:64px; }\n'
+      + '.stats-heading { font-size:12px; font-weight:600; letter-spacing:5px; text-transform:uppercase; color:#A2B6C0; opacity:0; }\n'
+      + '.stats-grid { display:grid; grid-template-columns:repeat(3,380px); gap:2px; }\n'
+      + '.stat-card { background:#152229; padding:72px 40px 64px; text-align:center; opacity:0; transform:scale(0.88); }\n'
+      + '.stat-value { font-family:\'EB Garamond\',Georgia,serif; font-size:88px; font-weight:600; color:#fff; line-height:1; }\n'
+      + '.stat-unit { font-size:40px; font-weight:300; color:#C8A84B; }\n'
+      + '.stat-label { font-size:13px; font-weight:500; letter-spacing:3px; text-transform:uppercase; color:#A2B6C0; margin-top:16px; }\n'
+      + '#scene-4 .photo-bg { filter:brightness(0.22) saturate(0.4); }\n'
+      + '.s4-overlay { position:absolute; inset:0; background:rgba(21,34,41,0.55); }\n'
+      + '.s4-content { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:80px; }\n'
+      + '.logo-stacked { width:260px; opacity:0; margin-bottom:52px; }\n'
+      + '.cta-heading { font-family:\'EB Garamond\',Georgia,serif; font-size:88px; font-weight:600; color:#fff; letter-spacing:-1px; line-height:1.02; opacity:0; transform:translateY(32px); }\n'
+      + '.gold-divider { width:60px; height:2px; background:#C8A84B; margin:44px auto; opacity:0; }\n'
+      + '.agent-names { font-size:32px; font-weight:500; color:#E4E3D4; opacity:0; }\n'
+      + '.brokerage { font-size:14px; font-weight:500; letter-spacing:4px; text-transform:uppercase; color:#A2B6C0; margin-top:10px; opacity:0; }\n'
+      + '.tagline { font-size:13px; font-weight:400; letter-spacing:3px; text-transform:uppercase; color:#C8A84B; margin-top:28px; opacity:0; }\n'
+      + '#fade-overlay { position:absolute; inset:0; background:#152229; opacity:0; pointer-events:none; z-index:999; }\n'
+      + '<\/style>\n</head>\n<body>\n'
+      + '<div id="root" data-composition-id="listing-promo" data-start="0" data-duration="30" data-width="1920" data-height="1080">\n'
+      + '  <div id="scene-1" class="scene">\n'
+      + '    <img class="photo-bg" id="photo1" src="' + photo1 + '" alt="">\n'
+      + '    <div class="photo-overlay"></div>\n'
+      + '    <img class="logo-mark" src="' + logoH + '" alt="Gateway">\n'
+      + '    <div class="s1-content">\n'
+      + '      <span class="eyebrow">Gateway Real Estate Advisors</span>\n'
+      + '      <h1 class="address">' + escHtml(addr) + '</h1>\n'
+      + '      <p class="price">Listed at <span>' + escHtml(price) + '</span></p>\n'
+      + '    </div>\n'
+      + '    <div class="gold-bar"></div>\n'
+      + '  </div>\n'
+      + '  <div id="scene-2" class="scene">\n'
+      + '    <img class="logo-mark" src="' + logoH + '" alt="Gateway">\n'
+      + '    <p class="section-label">Key Features</p>\n'
+      + '    <ul class="features-list">' + vidFeatureItems() + '</ul>\n'
+      + '  </div>\n'
+      + '  <div id="scene-3" class="scene">\n'
+      + '    <img class="logo-mark" src="' + logoH + '" alt="Gateway">\n'
+      + '    <p class="stats-heading">Property at a Glance</p>\n'
+      + '    <div class="stats-grid">' + statsGrid + '</div>\n'
+      + '  </div>\n'
+      + '  <div id="scene-4" class="scene">\n'
+      + '    <img class="photo-bg" id="photo2" src="' + photo2 + '" alt="">\n'
+      + '    <div class="s4-overlay"></div>\n'
+      + '    <div class="s4-content">\n'
+      + '      <img class="logo-stacked" src="' + logoS + '" alt="Gateway">\n'
+      + '      <h2 class="cta-heading">Schedule a Tour Today</h2>\n'
+      + '      <div class="gold-divider"></div>\n'
+      + '      <p class="agent-names">' + escHtml(agents) + '</p>\n'
+      + '      <p class="brokerage">Gateway Real Estate Advisors</p>\n'
+      + '      <p class="tagline">Opening Doors to Your Future</p>\n'
+      + '    </div>\n'
+      + '  </div>\n'
+      + '  <div id="fade-overlay"></div>\n'
+      + '</div>\n'
+      + '<script>\n'
+      + 'window.__timelines = window.__timelines || {};\n'
+      + 'var tl = gsap.timeline({ paused: true });\n'
+      + 'var ov = document.getElementById("fade-overlay");\n'
+      + 'var s1 = document.getElementById("scene-1");\n'
+      + 'var s2 = document.getElementById("scene-2");\n'
+      + 'var s3 = document.getElementById("scene-3");\n'
+      + 'var s4 = document.getElementById("scene-4");\n'
+      + 'tl.set(s1,{opacity:1},0)\n'
+      + '  .to("#photo1",{opacity:1,duration:1.8,ease:"power2.out"},0)\n'
+      + '  .to(s1.querySelector(".gold-bar"),{opacity:1,duration:0.6,ease:"power2.out"},0.5)\n'
+      + '  .to(s1.querySelector(".logo-mark"),{opacity:1,duration:0.7,ease:"power2.out"},0.7)\n'
+      + '  .to(s1.querySelector(".eyebrow"),{opacity:1,duration:0.7,ease:"power2.out"},1)\n'
+      + '  .to(s1.querySelector(".address"),{opacity:1,y:0,duration:1,ease:"power3.out"},1.5)\n'
+      + '  .to(s1.querySelector(".price"),{opacity:1,y:0,duration:0.9,ease:"power3.out"},2.3)\n'
+      + '  .to(ov,{opacity:1,duration:0.4,ease:"power2.inOut"},8)\n'
+      + '  .set(s1,{opacity:0},8.35).set(s2,{opacity:1},8.35)\n'
+      + '  .to(ov,{opacity:0,duration:0.4,ease:"power2.inOut"},8.45)\n'
+      + '  .to(s2.querySelector(".logo-mark"),{opacity:1,duration:0.6,ease:"power2.out"},8.8)\n'
+      + '  .to(s2.querySelector(".section-label"),{opacity:1,duration:0.6,ease:"power2.out"},9)\n'
+      + '  .to(s2.querySelectorAll(".feature-item"),{opacity:1,x:0,duration:0.75,ease:"power3.out",stagger:0.45},9.6)\n'
+      + '  .to(ov,{opacity:1,duration:0.4,ease:"power2.inOut"},16)\n'
+      + '  .set(s2,{opacity:0},16.35).set(s3,{opacity:1},16.35)\n'
+      + '  .to(ov,{opacity:0,duration:0.4,ease:"power2.inOut"},16.45)\n'
+      + '  .to(s3.querySelector(".logo-mark"),{opacity:1,duration:0.6,ease:"power2.out"},16.7)\n'
+      + '  .to(s3.querySelector(".stats-heading"),{opacity:1,duration:0.6,ease:"power2.out"},17)\n'
+      + '  .to(s3.querySelectorAll(".stat-card"),{opacity:1,scale:1,duration:0.75,ease:"back.out(1.5)",stagger:0.2},17.6)\n'
+      + '  .to(ov,{opacity:1,duration:0.4,ease:"power2.inOut"},23)\n'
+      + '  .set(s3,{opacity:0},23.35).set(s4,{opacity:1},23.35)\n'
+      + '  .to(ov,{opacity:0,duration:0.4,ease:"power2.inOut"},23.45)\n'
+      + '  .to("#photo2",{opacity:1,duration:1.4,ease:"power2.out"},23.5)\n'
+      + '  .to(s4.querySelector(".logo-stacked"),{opacity:1,duration:0.8,ease:"power2.out"},24)\n'
+      + '  .to(s4.querySelector(".cta-heading"),{opacity:1,y:0,duration:1,ease:"power3.out"},24.8)\n'
+      + '  .to(s4.querySelector(".gold-divider"),{opacity:1,duration:0.5,ease:"power2.out"},25.7)\n'
+      + '  .to(s4.querySelector(".agent-names"),{opacity:1,duration:0.6,ease:"power2.out"},26.1)\n'
+      + '  .to(s4.querySelector(".brokerage"),{opacity:1,duration:0.5,ease:"power2.out"},26.5)\n'
+      + '  .to(s4.querySelector(".tagline"),{opacity:1,duration:0.5,ease:"power2.out"},27);\n'
+      + 'window.__timelines["listing-promo"] = tl;\n'
+      + '<\/script>\n</body>\n</html>';
+  }
+})();
 </script>
 </body>
 </html>
