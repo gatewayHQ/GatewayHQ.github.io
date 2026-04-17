@@ -1,0 +1,20 @@
+{
+  "name": "Gateway Real Estate Advisors",
+  "colors": {
+    "background": "#1E2F39",
+    "backgroundDark": "#152229",
+    "accent": "#C8A84B",
+    "textPrimary": "#FFFFFF",
+    "textSecondary": "#E4E3D4",
+    "textMuted": "#A2B6C0"
+  },
+  "fonts": {
+    "display": "EB Garamond",
+    "body": "Montserrat"
+  },
+  "logos": {
+    "horizontal": "./brand/logo-horizontal.svg",
+    "stacked": "./brand/logo-stacked.svg"
+  },
+  "tagline": "Opening Doors to Your Future"
+}

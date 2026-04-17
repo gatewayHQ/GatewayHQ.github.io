@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 280" fill="none">
+  <!-- Gate icon, centered -->
+  <g transform="translate(75,10)">
+    <!-- Outer arch -->
+    <path d="M5,118 L5,54 C5,20 22,4 75,4 C128,4 145,20 145,54 L145,118" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
+    <!-- Inner arch -->
+    <path d="M22,118 L22,58 C22,34 38,20 75,20 C112,20 128,34 128,58 L128,118" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+    <!-- Vertical bars -->
+    <line x1="44" y1="27" x2="44" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/>
+    <line x1="59" y1="11" x2="59" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/>
+    <line x1="75" y1="5" x2="75" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/>
+    <line x1="91" y1="11" x2="91" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/>
+    <line x1="106" y1="27" x2="106" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/>
+    <!-- Base platform -->
+    <line x1="0" y1="118" x2="150" y2="118" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
+    <!-- Side wings -->
+    <line x1="0" y1="96" x2="22" y2="96" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="128" y1="96" x2="150" y2="96" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+    <!-- G medallion -->
+    <circle cx="75" cy="64" r="16" stroke="white" stroke-width="2.5"/>
+    <text x="75" y="70.5" text-anchor="middle" fill="white" font-family="Georgia,serif" font-size="18" font-weight="700">G</text>
+  </g>
+  <!-- Wordmark -->
+  <text x="150" y="196" text-anchor="middle" fill="white" font-family="'EB Garamond','Cormorant Garamond',Georgia,serif" font-size="58" font-weight="600" letter-spacing="6">GATEWAY</text>
+  <text x="150" y="226" text-anchor="middle" fill="white" font-family="'Inter','Helvetica Neue',Arial,sans-serif" font-size="15" font-weight="500" letter-spacing="8">REAL ESTATE ADVISORS</text>
+</svg>
