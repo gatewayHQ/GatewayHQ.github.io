@@ -9395,16 +9395,16 @@ window.initHomeValuation = initHomeValuation;
     var compId='pr-'+data.slug;
     var annD=4.0,photoD=3.5,agentD=4.0;
     var totalD=+(annD+photos.length*photoD+agentD).toFixed(1);
-    var headSz=isV?'88px':isS?'80px':'120px';
-    var oldSz=isV?'40px':isS?'36px':'54px';
-    var newSz=isV?'72px':isS?'64px':'96px';
-    var side=isV?'70px':isS?'60px':'120px';
+    var headSz=isV?'102px':isS?'94px':'140px';
+    var oldSz=isV?'48px':isS?'42px':'62px';
+    var newSz=isV?'84px':isS?'74px':'112px';
+    var side=isV?'60px':isS?'50px':'100px';
     var css='.prcard{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:#0D1117;text-align:center;padding:0 '+side+'}\n'
       +'.pr-head{font-size:'+headSz+';font-weight:700;color:#F5F5F3;letter-spacing:4px;text-transform:uppercase;opacity:0;transform:translateY(24px)}\n'
       +'.pr-bar{width:60px;height:2px;background:rgba(245,245,243,0.25);margin:28px auto;opacity:0}\n'
       +'.pr-old{font-size:'+oldSz+';font-weight:300;color:rgba(245,245,243,0.45);text-decoration:line-through;opacity:0}\n'
       +'.pr-new{font-size:'+newSz+';font-weight:200;color:#F5F5F3;margin-top:12px;opacity:0;transform:translateY(16px)}\n'
-      +'.pr-save{font-size:'+(isV?'18px':'22px')+';font-weight:300;color:rgba(245,245,243,0.5);margin-top:14px;opacity:0}\n'
+      +'.pr-save{font-size:'+(isV?'22px':'26px')+';font-weight:300;color:rgba(245,245,243,0.5);margin-top:14px;opacity:0}\n'
       +sharedCss(W,H,isV,isS);
     var html='<div class="scene" id="sc-ann"><div class="prcard">'
       +'<div class="pr-head" id="pr-head">Price Improved</div>'
