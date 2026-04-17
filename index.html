@@ -1276,7 +1276,7 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
     </div>
     <div class="tool-card" onclick="navigateTo('video')">
       <div class="tool-icon">🎬</div>
-      <h3>Listing Video Generator</h3>
+      <h3>Video Generator</h3>
       <p>Upload photos, enter property details, and generate a branded 30-second promo video for residential, multifamily, or commercial listings</p>
       <span class="tool-tag new">NEW</span>
     </div>
@@ -2659,7 +2659,7 @@ var pageNames = {
   valuation: 'Valuation Tool',
   invoice: 'Invoice Generator',
   'home-valuation': 'Home Valuation Generator',
-  'video': 'Listing Video Generator'
+  'video': 'Video Generator'
 };
 
 function navigateTo(page) {
@@ -8989,9 +8989,38 @@ window.initHomeValuation = initHomeValuation;
   }
 
   function vidMakeLogos() {
-    var lH='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 110" fill="none"><g transform="translate(4,6)"><path d="M4,96 L4,44 C4,17 19,4 50,4 C81,4 96,17 96,44 L96,96" stroke="white" stroke-width="3.5" stroke-linecap="round"/><path d="M17,96 L17,47 C17,27 29,16 50,16 C71,16 83,27 83,47 L83,96" stroke="white" stroke-width="2.5" stroke-linecap="round"/><line x1="31" y1="22" x2="31" y2="96" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="41" y1="10" x2="41" y2="96" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="50" y1="5" x2="50" y2="96" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="59" y1="10" x2="59" y2="96" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="69" y1="22" x2="69" y2="96" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="0" y1="96" x2="100" y2="96" stroke="white" stroke-width="3.5" stroke-linecap="round"/><line x1="0" y1="78" x2="17" y2="78" stroke="white" stroke-width="2.5" stroke-linecap="round"/><line x1="83" y1="78" x2="100" y2="78" stroke="white" stroke-width="2.5" stroke-linecap="round"/><circle cx="50" cy="52" r="11.5" stroke="white" stroke-width="2"/><text x="50" y="57.5" text-anchor="middle" fill="white" font-family="Georgia,serif" font-size="13" font-weight="700">G</text></g><text x="118" y="66" fill="white" font-family="\'EB Garamond\',\'Cormorant Garamond\',Georgia,serif" font-size="54" font-weight="600" letter-spacing="3">GATEWAY</text><text x="120" y="88" fill="white" font-family="\'Inter\',\'Helvetica Neue\',Arial,sans-serif" font-size="13.5" font-weight="500" letter-spacing="7">REAL ESTATE ADVISORS</text></svg>');
-    var lS='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 280" fill="none"><g transform="translate(75,10)"><path d="M5,118 L5,54 C5,20 22,4 75,4 C128,4 145,20 145,54 L145,118" stroke="white" stroke-width="4.5" stroke-linecap="round"/><path d="M22,118 L22,58 C22,34 38,20 75,20 C112,20 128,34 128,58 L128,118" stroke="white" stroke-width="3.5" stroke-linecap="round"/><line x1="44" y1="27" x2="44" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/><line x1="59" y1="11" x2="59" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/><line x1="75" y1="5" x2="75" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/><line x1="91" y1="11" x2="91" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/><line x1="106" y1="27" x2="106" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/><line x1="0" y1="118" x2="150" y2="118" stroke="white" stroke-width="4.5" stroke-linecap="round"/><line x1="0" y1="96" x2="22" y2="96" stroke="white" stroke-width="3.5" stroke-linecap="round"/><line x1="128" y1="96" x2="150" y2="96" stroke="white" stroke-width="3.5" stroke-linecap="round"/><circle cx="75" cy="64" r="16" stroke="white" stroke-width="2.5"/><text x="75" y="70.5" text-anchor="middle" fill="white" font-family="Georgia,serif" font-size="18" font-weight="700">G</text></g><text x="150" y="196" text-anchor="middle" fill="white" font-family="\'EB Garamond\',\'Cormorant Garamond\',Georgia,serif" font-size="58" font-weight="600" letter-spacing="6">GATEWAY</text><text x="150" y="226" text-anchor="middle" fill="white" font-family="\'Inter\',\'Helvetica Neue\',Arial,sans-serif" font-size="15" font-weight="500" letter-spacing="8">REAL ESTATE ADVISORS</text></svg>');
-    return { logoH:lH, logoS:lS };
+    var badge='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" fill="none">'
+      +'<circle cx="200" cy="200" r="188" stroke="white" stroke-width="3.5"/>'
+      +'<circle cx="200" cy="200" r="158" stroke="white" stroke-width="2"/>'
+      +'<line x1="12" y1="200" x2="42" y2="200" stroke="white" stroke-width="3.5"/>'
+      +'<line x1="358" y1="200" x2="388" y2="200" stroke="white" stroke-width="3.5"/>'
+      +'<defs>'
+      +'<path id="ta" d="M 42,200 A 158,158 0 0,0 358,200"/>'
+      +'<path id="ba" d="M 42,200 A 158,158 0 0,1 358,200"/>'
+      +'</defs>'
+      +'<text font-family="\'Inter\',\'Helvetica Neue\',Arial,sans-serif" font-size="21" font-weight="700" letter-spacing="3" fill="white">'
+      +'<textPath href="#ta" startOffset="50%" text-anchor="middle">GATEWAY REAL ESTATE ADVISORS</textPath>'
+      +'</text>'
+      +'<text font-family="\'Inter\',\'Helvetica Neue\',Arial,sans-serif" font-size="21" font-weight="700" letter-spacing="3" fill="white">'
+      +'<textPath href="#ba" startOffset="50%" text-anchor="middle">OPENING DOORS TO YOUR FUTURE</textPath>'
+      +'</text>'
+      +'<g transform="translate(125,139)">'
+      +'<path d="M5,118 L5,54 C5,20 22,4 75,4 C128,4 145,20 145,54 L145,118" stroke="white" stroke-width="4.5" stroke-linecap="round"/>'
+      +'<path d="M22,118 L22,58 C22,34 38,20 75,20 C112,20 128,34 128,58 L128,118" stroke="white" stroke-width="3.5" stroke-linecap="round"/>'
+      +'<line x1="44" y1="27" x2="44" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/>'
+      +'<line x1="59" y1="11" x2="59" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/>'
+      +'<line x1="75" y1="5" x2="75" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/>'
+      +'<line x1="91" y1="11" x2="91" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/>'
+      +'<line x1="106" y1="27" x2="106" y2="118" stroke="white" stroke-width="3" stroke-linecap="round"/>'
+      +'<line x1="0" y1="118" x2="150" y2="118" stroke="white" stroke-width="4.5" stroke-linecap="round"/>'
+      +'<line x1="0" y1="96" x2="22" y2="96" stroke="white" stroke-width="3.5" stroke-linecap="round"/>'
+      +'<line x1="128" y1="96" x2="150" y2="96" stroke="white" stroke-width="3.5" stroke-linecap="round"/>'
+      +'<circle cx="75" cy="64" r="16" stroke="white" stroke-width="2.5"/>'
+      +'<text x="75" y="70.5" text-anchor="middle" fill="white" font-family="Georgia,serif" font-size="18" font-weight="700">G</text>'
+      +'</g>'
+      +'</svg>';
+    var lBadge='data:image/svg+xml,'+encodeURIComponent(badge);
+    return { logoH:lBadge, logoS:lBadge };
   }
 
 
@@ -9080,25 +9109,25 @@ window.initHomeValuation = initHomeValuation;
 
   // Shared CSS for stats + agent scenes
   function sharedCss(W,H,isV,isS) {
-    var spH=isV?'80px':isS?'70px':'90px';
-    var stV=isV?'80px':isS?'72px':'100px';
-    var ctaS=isV?'46px':isS?'42px':'62px';
-    var logW=isV?'220px':isS?'200px':'280px';
-    var namS=isV?'32px':'40px';
-    var apSz=isV?'120px':isS?'120px':'160px';
+    var spH=isV?'60px':isS?'60px':'80px';
+    var stV=isV?'94px':isS?'84px':'116px';
+    var ctaS=isV?'55px':isS?'50px':'74px';
+    var logW=isV?'170px':isS?'190px':'210px';
+    var namS=isV?'38px':'48px';
+    var apSz=isV?'170px':isS?'190px':'210px';
     return '.sc-stats{background:#0D1117;display:flex;align-items:center;justify-content:center}\n'
       +'.si{display:flex;align-items:center}\n'
       +'.sb{text-align:center;padding:0 '+spH+'}\n'
       +'.sd{width:1px;height:'+(isV?'80px':'60px')+';background:rgba(255,255,255,0.12)}\n'
       +'.sv{font-size:'+stV+';font-weight:200;color:#F5F5F3;opacity:0;transform:translateY(18px)}\n'
-      +'.sl2{font-size:14px;font-weight:400;letter-spacing:4px;text-transform:uppercase;color:rgba(245,245,243,0.45);margin-top:12px;opacity:0}\n'
+      +'.sl2{font-size:17px;font-weight:400;letter-spacing:4px;text-transform:uppercase;color:rgba(245,245,243,0.45);margin-top:12px;opacity:0}\n'
       +'.sc-agent{background:#0D1117;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 80px}\n'
-      +'.alog{width:'+logW+';opacity:0;margin-bottom:36px}\n'
+      +'.alog{width:'+logW+';height:'+logW+';opacity:0;margin-bottom:24px;object-fit:contain}\n'
       +'.acta{font-size:'+ctaS+';font-weight:200;color:#F5F5F3;opacity:0;transform:translateY(18px)}\n'
       +'.aname{font-size:'+namS+';font-weight:300;color:#F5F5F3;margin-top:28px;opacity:0}\n'
-      +'.abrok{font-size:13px;font-weight:400;letter-spacing:4px;text-transform:uppercase;color:rgba(245,245,243,0.45);margin-top:10px;opacity:0}\n'
-      +'.atag{font-size:12px;font-weight:400;letter-spacing:3px;text-transform:uppercase;color:rgba(245,245,243,0.28);margin-top:16px;opacity:0}\n'
-      +'.ap{width:'+apSz+';height:'+apSz+';border-radius:50%;object-fit:cover;border:2px solid rgba(245,245,243,0.2);opacity:0;margin-bottom:28px}\n';
+      +'.abrok{font-size:15px;font-weight:400;letter-spacing:4px;text-transform:uppercase;color:rgba(245,245,243,0.45);margin-top:10px;opacity:0}\n'
+      +'.atag{font-size:13px;font-weight:400;letter-spacing:3px;text-transform:uppercase;color:rgba(245,245,243,0.25);margin-top:14px;opacity:0}\n'
+      +'.ap{width:'+apSz+';height:'+apSz+';border-radius:50%;object-fit:cover;border:3px solid rgba(245,245,243,0.25);opacity:0;margin-bottom:28px}\n';
   }
 
 
@@ -9109,15 +9138,15 @@ window.initHomeValuation = initHomeValuation;
     var feats=[data.feat1,data.feat2,data.feat3,data.feat4].filter(Boolean);
     var heroD=5.0,roomD=3.8,statsD=3.2,agentD=4.5;
     var totalD=+(heroD+(photos.length-1)*roomD+statsD+agentD).toFixed(1);
-    var addrSz=isV?'56px':isS?'52px':'76px';
-    var pricSz=isV?'38px':isS?'34px':'50px';
-    var callSz=isV?'28px':isS?'26px':'36px';
-    var side=isV?'70px':isS?'60px':'110px';
-    var aBott=isV?'280px':isS?'200px':'170px';
-    var pBott=isV?'200px':isS?'140px':'100px';
-    var cBott=isV?'220px':isS?'140px':'130px';
+    var addrSz=isV?'66px':isS?'62px':'90px';
+    var pricSz=isV?'45px':isS?'40px':'60px';
+    var callSz=isV?'34px':isS?'30px':'44px';
+    var side=isV?'60px':isS?'50px':'90px';
+    var aBott=isV?'300px':isS?'220px':'190px';
+    var pBott=isV?'215px':isS?'150px':'112px';
+    var cBott=isV?'235px':isS?'150px':'145px';
     var css='.addr{position:absolute;bottom:'+aBott+';left:'+side+';right:'+side+';font-size:'+addrSz+';font-weight:300;color:#F5F5F3;letter-spacing:-0.5px;opacity:0;transform:translateY(18px)}\n'
-      +'.eyeb{position:absolute;bottom:calc('+aBott+' + '+addrSz+' + 20px);left:'+side+';font-size:11px;font-weight:500;letter-spacing:5px;text-transform:uppercase;color:rgba(245,245,243,0.5);opacity:0}\n'
+      +'.eyeb{position:absolute;bottom:calc('+aBott+' + '+addrSz+' + 20px);left:'+side+';font-size:13px;font-weight:500;letter-spacing:5px;text-transform:uppercase;color:rgba(245,245,243,0.5);opacity:0}\n'
       +'.pric{position:absolute;bottom:'+pBott+';left:'+side+';font-size:'+pricSz+';font-weight:200;color:#F5F5F3;opacity:0}\n'
       +'.call{position:absolute;bottom:'+cBott+';left:'+side+';right:'+side+';font-size:'+callSz+';font-weight:300;color:#F5F5F3;letter-spacing:0.3px;opacity:0;transform:translateY(10px)}\n'
       +sharedCss(W,H,isV,isS);
@@ -9162,16 +9191,16 @@ window.initHomeValuation = initHomeValuation;
     if(!jlStats.length) jlStats=data.stats.slice(0,3);
     var titleD=3.5,heroD=4.5,roomD=3.5,statsD=3.0,agentD=4.0;
     var totalD=+(titleD+heroD+(photos.length-1)*roomD+statsD+agentD).toFixed(1);
-    var headSz=isV?'100px':isS?'88px':'140px';
-    var side=isV?'70px':isS?'60px':'120px';
-    var pricSz=isV?'44px':isS?'38px':'58px';
+    var headSz=isV?'116px':isS?'102px':'162px';
+    var side=isV?'60px':isS?'50px':'100px';
+    var pricSz=isV?'52px':isS?'44px':'68px';
     var statLn=[data.jlBeds&&data.jlBeds+' Beds',data.jlBaths&&data.jlBaths+' Baths',data.jlSqft&&data.jlSqft].filter(Boolean).join('  ·  ');
     var css='.jcard{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;background:#0D1117}\n'
       +'.jt-h{font-size:'+headSz+';font-weight:700;color:#F5F5F3;letter-spacing:4px;text-transform:uppercase;opacity:0;transform:translateY(28px)}\n'
       +'.jt-bar{width:60px;height:2px;background:rgba(245,245,243,0.3);margin:28px auto;opacity:0}\n'
-      +'.jt-a{font-size:'+(isV?'28px':'34px')+';font-weight:300;color:rgba(245,245,243,0.6);opacity:0;transform:translateY(14px)}\n'
-      +'.hpric{position:absolute;bottom:'+(isV?'220px':isS?'150px':'120px')+';left:'+side+';font-size:'+pricSz+';font-weight:200;color:#F5F5F3;opacity:0}\n'
-      +'.hstat{position:absolute;bottom:'+(isV?'168px':isS?'104px':'76px')+';left:'+side+';font-size:'+(isV?'20px':'24px')+';font-weight:300;color:rgba(245,245,243,0.6);opacity:0}\n'
+      +'.jt-a{font-size:'+(isV?'34px':'42px')+';font-weight:300;color:rgba(245,245,243,0.6);opacity:0;transform:translateY(14px)}\n'
+      +'.hpric{position:absolute;bottom:'+(isV?'235px':isS?'162px':'132px')+';left:'+side+';font-size:'+pricSz+';font-weight:200;color:#F5F5F3;opacity:0}\n'
+      +'.hstat{position:absolute;bottom:'+(isV?'178px':isS?'110px':'82px')+';left:'+side+';font-size:'+(isV?'24px':'29px')+';font-weight:300;color:rgba(245,245,243,0.6);opacity:0}\n'
       +sharedCss(W,H,isV,isS);
     var html='<div class="scene" id="sc-t"><div class="jcard">'
       +'<div class="jt-h" id="jt-h">Just Listed</div>'
@@ -9216,21 +9245,21 @@ window.initHomeValuation = initHomeValuation;
     var soldD=3.5,photoD=3.8,statsD=3.0,closeD=4.0;
     var usePhotos=photos.slice(0,Math.max(photos.length,1));
     var totalD=+(soldD+usePhotos.length*photoD+statsD+closeD).toFixed(1);
-    var stampSz=isV?'120px':isS?'110px':'160px';
-    var side=isV?'70px':isS?'60px':'110px';
-    var soldSz=isV?'56px':isS?'48px':'80px';
+    var stampSz=isV?'140px':isS?'128px':'186px';
+    var side=isV?'60px':isS?'50px':'90px';
+    var soldSz=isV?'66px':isS?'56px':'94px';
     var css='.scard{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:#0D1117}\n'
       +'.stamp{font-size:'+stampSz+';font-weight:800;color:#F5F5F3;letter-spacing:8px;text-transform:uppercase;opacity:0;transform:scale(0.85)}\n'
       +'.sbar{width:80px;height:2px;background:rgba(245,245,243,0.3);margin:28px auto;opacity:0}\n'
-      +'.saddr{font-size:'+(isV?'28px':'36px')+';font-weight:300;color:rgba(245,245,243,0.65);opacity:0;transform:translateY(14px)}\n'
-      +'.sold-ov{position:absolute;bottom:'+(isV?'240px':isS?'170px':'150px')+';left:'+side+';right:'+side+';text-align:center}\n'
+      +'.saddr{font-size:'+(isV?'34px':'42px')+';font-weight:300;color:rgba(245,245,243,0.65);opacity:0;transform:translateY(14px)}\n'
+      +'.sold-ov{position:absolute;bottom:'+(isV?'255px':isS?'182px':'162px')+';left:'+side+';right:'+side+';text-align:center}\n'
       +'.sold-p{font-size:'+soldSz+';font-weight:200;color:#F5F5F3;opacity:0}\n'
-      +'.sold-dom{font-size:'+(isV?'20px':'24px')+';font-weight:300;color:rgba(245,245,243,0.55);margin-top:10px;opacity:0}\n'
+      +'.sold-dom{font-size:'+(isV?'24px':'29px')+';font-weight:300;color:rgba(245,245,243,0.55);margin-top:10px;opacity:0}\n'
       +'.sc-close{background:#0D1117;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 80px}\n'
-      +'.cl-q{font-size:'+(isV?'44px':isS?'40px':'60px')+';font-weight:200;color:#F5F5F3;opacity:0;transform:translateY(18px)}\n'
-      +'.cl-sub{font-size:'+(isV?'20px':'24px')+';font-weight:300;color:rgba(245,245,243,0.55);margin-top:20px;opacity:0}\n'
-      +'.cl-name{font-size:'+(isV?'28px':'36px')+';font-weight:300;color:#F5F5F3;margin-top:32px;opacity:0}\n'
-      +'.cl-brok{font-size:13px;font-weight:400;letter-spacing:4px;text-transform:uppercase;color:rgba(245,245,243,0.45);margin-top:10px;opacity:0}\n'
+      +'.cl-q{font-size:'+(isV?'52px':isS?'48px':'72px')+';font-weight:200;color:#F5F5F3;opacity:0;transform:translateY(18px)}\n'
+      +'.cl-sub{font-size:'+(isV?'24px':'29px')+';font-weight:300;color:rgba(245,245,243,0.55);margin-top:20px;opacity:0}\n'
+      +'.cl-name{font-size:'+(isV?'34px':'42px')+';font-weight:300;color:#F5F5F3;margin-top:32px;opacity:0}\n'
+      +'.cl-brok{font-size:15px;font-weight:400;letter-spacing:4px;text-transform:uppercase;color:rgba(245,245,243,0.45);margin-top:10px;opacity:0}\n'
       +sharedCss(W,H,isV,isS);
     var html='<div class="scene" id="sc-sold"><div class="scard">'
       +'<div class="stamp" id="st-stamp">Sold</div>'
@@ -9299,10 +9328,10 @@ window.initHomeValuation = initHomeValuation;
     var compId='oh-'+data.slug;
     var dateD=4.0,photoD=3.5,closeD=4.0;
     var totalD=+(dateD+photos.length*photoD+closeD).toFixed(1);
-    var headSz=isV?'88px':isS?'80px':'120px';
-    var dateSz=isV?'56px':isS?'48px':'72px';
-    var timeSz=isV?'36px':isS?'30px':'46px';
-    var side=isV?'70px':isS?'60px':'120px';
+    var headSz=isV?'102px':isS?'94px':'140px';
+    var dateSz=isV?'66px':isS?'56px':'84px';
+    var timeSz=isV?'42px':isS?'36px':'54px';
+    var side=isV?'60px':isS?'50px':'100px';
     var css='.ohcard{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:#0D1117;text-align:center;padding:0 '+side+'}\n'
       +'.oh-eye{font-size:11px;font-weight:500;letter-spacing:6px;text-transform:uppercase;color:rgba(245,245,243,0.4);opacity:0}\n'
       +'.oh-head{font-size:'+headSz+';font-weight:700;color:#F5F5F3;letter-spacing:4px;text-transform:uppercase;margin-top:20px;opacity:0;transform:translateY(22px)}\n'
@@ -9310,10 +9339,10 @@ window.initHomeValuation = initHomeValuation;
       +'.oh-date{font-size:'+dateSz+';font-weight:200;color:#F5F5F3;opacity:0;transform:translateY(14px)}\n'
       +'.oh-time{font-size:'+timeSz+';font-weight:300;color:rgba(245,245,243,0.6);margin-top:16px;opacity:0}\n'
       +'.close-sc{background:#0D1117;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 '+side+'}\n'
-      +'.cl-addr{font-size:'+(isV?'40px':isS?'36px':'52px')+';font-weight:200;color:#F5F5F3;opacity:0;transform:translateY(18px)}\n'
-      +'.cl-when{font-size:'+(isV?'28px':isS?'24px':'36px')+';font-weight:300;color:rgba(245,245,243,0.55);margin-top:16px;opacity:0}\n'
-      +'.cl-name{font-size:'+(isV?'24px':'30px')+';font-weight:300;color:#F5F5F3;margin-top:36px;opacity:0}\n'
-      +'.cl-brok{font-size:12px;font-weight:400;letter-spacing:4px;text-transform:uppercase;color:rgba(245,245,243,0.4);margin-top:10px;opacity:0}\n'
+      +'.cl-addr{font-size:'+(isV?'48px':isS?'42px':'62px')+';font-weight:200;color:#F5F5F3;opacity:0;transform:translateY(18px)}\n'
+      +'.cl-when{font-size:'+(isV?'34px':isS?'28px':'42px')+';font-weight:300;color:rgba(245,245,243,0.55);margin-top:16px;opacity:0}\n'
+      +'.cl-name{font-size:'+(isV?'28px':'36px')+';font-weight:300;color:#F5F5F3;margin-top:36px;opacity:0}\n'
+      +'.cl-brok{font-size:15px;font-weight:400;letter-spacing:4px;text-transform:uppercase;color:rgba(245,245,243,0.4);margin-top:10px;opacity:0}\n'
       +sharedCss(W,H,isV,isS);
     var timeStr=data.ohStart+(data.ohEnd?' – '+data.ohEnd:'');
     var html='<div class="scene" id="sc-date"><div class="ohcard">'
