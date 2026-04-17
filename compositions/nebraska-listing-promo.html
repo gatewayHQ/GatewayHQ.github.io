@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en" data-composition-id="nebraska-listing-promo" data-duration="30">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3100 Nebraska Street — Listing Promo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background: #0D1117;
+      font-family: 'Inter', -apple-system, sans-serif;
+      color: #FFFFFF;
+    }
+
+    /* ── Scenes ─────────────────────────────────────────────── */
+    .scene {
+      position: absolute;
+      inset: 0;
+      width: 1920px;
+      height: 1080px;
+      opacity: 0;
+    }
+
+    /* ── Scene 1: Hero ──────────────────────────────────────── */
+    #scene-1 { background: #0D1117; }
+
+    .photo-bg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+    }
+
+    .photo-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(13,17,23,0.15) 0%,
+        rgba(13,17,23,0.55) 50%,
+        rgba(13,17,23,0.92) 100%
+      );
+    }
+
+    .s1-content {
+      position: absolute;
+      bottom: 140px;
+      left: 120px;
+      right: 120px;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: #8B949E;
+      margin-bottom: 20px;
+      opacity: 0;
+    }
+
+    .address {
+      font-size: 80px;
+      font-weight: 800;
+      line-height: 1;
+      color: #FFFFFF;
+      letter-spacing: -2px;
+      opacity: 0;
+      transform: translateY(32px);
+    }
+
+    .price {
+      font-size: 48px;
+      font-weight: 300;
+      color: #CDD9E5;
+      margin-top: 20px;
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    .price span {
+      color: #58A6FF;
+      font-weight: 700;
+    }
+
+    /* ── Scene 2: Features ──────────────────────────────────── */
+    #scene-2 {
+      background: #0D1117;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 160px;
+    }
+
+    .section-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      color: #58A6FF;
+      margin-bottom: 52px;
+      opacity: 0;
+    }
+
+    .features-list { list-style: none; }
+
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 36px;
+      padding: 30px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      opacity: 0;
+      transform: translateX(-48px);
+    }
+
+    .features-list li:first-child {
+      border-top: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .feature-num {
+      font-size: 12px;
+      font-weight: 700;
+      color: #58A6FF;
+      letter-spacing: 1px;
+      width: 24px;
+      flex-shrink: 0;
+    }
+
+    .feature-text {
+      font-size: 38px;
+      font-weight: 400;
+      color: #CDD9E5;
+      letter-spacing: -0.5px;
+    }
+
+    .feature-text strong {
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+
+    /* ── Scene 3: Stats ─────────────────────────────────────── */
+    #scene-3 {
+      background: #0D1117;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 64px;
+    }
+
+    .stats-heading {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      color: #8B949E;
+      opacity: 0;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 380px);
+      gap: 2px;
+    }
+
+    .stat-card {
+      background: #161B22;
+      padding: 72px 40px 64px;
+      text-align: center;
+      opacity: 0;
+      transform: scale(0.88);
+    }
+
+    .stat-card:first-child { border-radius: 20px 0 0 20px; }
+    .stat-card:last-child  { border-radius: 0 20px 20px 0; }
+
+    .stat-value {
+      font-size: 88px;
+      font-weight: 800;
+      color: #FFFFFF;
+      line-height: 1;
+      letter-spacing: -3px;
+    }
+
+    .stat-unit {
+      font-size: 40px;
+      font-weight: 300;
+      color: #58A6FF;
+      letter-spacing: 0;
+    }
+
+    .stat-label {
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #8B949E;
+      margin-top: 18px;
+    }
+
+    /* ── Scene 4: Agent / CTA ───────────────────────────────── */
+    #scene-4 { background: #0D1117; }
+
+    #scene-4 .photo-bg {
+      filter: brightness(0.28) saturate(0.5);
+    }
+
+    .s4-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(13,17,23,0.5);
+    }
+
+    .s4-content {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 80px;
+    }
+
+    .cta-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      color: #58A6FF;
+      margin-bottom: 28px;
+      opacity: 0;
+    }
+
+    .cta-heading {
+      font-size: 88px;
+      font-weight: 800;
+      color: #FFFFFF;
+      letter-spacing: -2px;
+      line-height: 1.02;
+      opacity: 0;
+      transform: translateY(32px);
+    }
+
+    .divider {
+      width: 60px;
+      height: 2px;
+      background: #58A6FF;
+      margin: 48px auto;
+      opacity: 0;
+    }
+
+    .agent-names {
+      font-size: 34px;
+      font-weight: 500;
+      color: #E6EDF3;
+      letter-spacing: 0.3px;
+      opacity: 0;
+    }
+
+    .brokerage {
+      font-size: 16px;
+      font-weight: 400;
+      color: #8B949E;
+      margin-top: 12px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      opacity: 0;
+    }
+
+    .logo-placeholder {
+      width: 200px;
+      height: 64px;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 44px auto 0;
+      opacity: 0;
+    }
+
+    .logo-placeholder span {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #6E7681;
+    }
+
+    /* ── Transition overlay ─────────────────────────────────── */
+    #fade-overlay {
+      position: fixed;
+      inset: 0;
+      background: #0D1117;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 999;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Scene 1: Hero ───────────────────────────────────────── -->
+  <div id="scene-1" class="scene">
+    <img class="photo-bg" id="photo1" src="../media/photo1.jpg" alt="3100 Nebraska Street front view">
+    <div class="photo-overlay"></div>
+    <div class="s1-content">
+      <p class="badge">Gateway Real Estate Advisors</p>
+      <h1 class="address">3100 Nebraska Street</h1>
+      <p class="price">Listed at <span>$229,500</span></p>
+    </div>
+  </div>
+
+  <!-- ── Scene 2: Key Features ───────────────────────────────── -->
+  <div id="scene-2" class="scene">
+    <p class="section-label">Key Features</p>
+    <ul class="features-list">
+      <li class="feature-item">
+        <span class="feature-num">01</span>
+        <span class="feature-text"><strong>Fully Renovated</strong> — Move-in ready condition</span>
+      </li>
+      <li class="feature-item">
+        <span class="feature-num">02</span>
+        <span class="feature-text"><strong>Fully Furnished</strong> — Everything stays</span>
+      </li>
+      <li class="feature-item">
+        <span class="feature-num">03</span>
+        <span class="feature-text"><strong>Proven Airbnb Income</strong> — Up to $4,000/month</span>
+      </li>
+      <li class="feature-item">
+        <span class="feature-num">04</span>
+        <span class="feature-text"><strong>Turnkey Investment</strong> — Start earning immediately</span>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ── Scene 3: Stats ──────────────────────────────────────── -->
+  <div id="scene-3" class="scene">
+    <p class="stats-heading">Property at a Glance</p>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value">3<span class="stat-unit"></span></div>
+        <div class="stat-label">Bedrooms</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">1<span class="stat-unit">.5</span></div>
+        <div class="stat-label">Bathrooms</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">$4<span class="stat-unit">K</span></div>
+        <div class="stat-label">Monthly Airbnb Revenue</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Scene 4: Agent / CTA ────────────────────────────────── -->
+  <div id="scene-4" class="scene">
+    <img class="photo-bg" id="photo2" src="../media/photo2.jpg" alt="3100 Nebraska Street side view">
+    <div class="s4-overlay"></div>
+    <div class="s4-content">
+      <p class="cta-label">Gateway Real Estate Advisors</p>
+      <h2 class="cta-heading">Schedule a Tour Today</h2>
+      <div class="divider"></div>
+      <p class="agent-names">Daniel Stillson &amp; Steph Dattolico</p>
+      <p class="brokerage">Gateway Real Estate Advisors</p>
+      <div class="logo-placeholder"><span>Your Logo</span></div>
+    </div>
+  </div>
+
+  <!-- Transition overlay -->
+  <div id="fade-overlay"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script>
+    window.__timelines = window.__timelines || {};
+
+    const overlay = document.getElementById('fade-overlay');
+    const s1 = document.getElementById('scene-1');
+    const s2 = document.getElementById('scene-2');
+    const s3 = document.getElementById('scene-3');
+    const s4 = document.getElementById('scene-4');
+    const photo1 = document.getElementById('photo1');
+    const photo2 = document.getElementById('photo2');
+
+    const tl = gsap.timeline({ paused: true });
+
+    // ── Scene 1: Hero (0 – 8.5s) ────────────────────────────────────────
+    tl
+      .set(s1, { opacity: 1 }, 0)
+      .to(photo1, { opacity: 1, duration: 1.8, ease: 'power2.out' }, 0)
+      .to(s1.querySelector('.badge'), { opacity: 1, duration: 0.8, ease: 'power2.out' }, 0.9)
+      .to(s1.querySelector('.address'), { opacity: 1, y: 0, duration: 1, ease: 'power3.out' }, 1.5)
+      .to(s1.querySelector('.price'), { opacity: 1, y: 0, duration: 0.9, ease: 'power3.out' }, 2.3)
+
+    // ── Transition 1→2: cross-fade at t=8 ───────────────────────────────
+    tl
+      .to(overlay, { opacity: 1, duration: 0.45, ease: 'power2.inOut' }, 8)
+      .set(s1, { opacity: 0 }, 8.4)
+      .set(s2, { opacity: 1 }, 8.4)
+      .to(overlay, { opacity: 0, duration: 0.45, ease: 'power2.inOut' }, 8.5)
+
+    // ── Scene 2: Features (8.5 – 16s) ───────────────────────────────────
+    tl
+      .to(s2.querySelector('.section-label'), { opacity: 1, duration: 0.6, ease: 'power2.out' }, 9)
+      .to(s2.querySelectorAll('.feature-item'), {
+        opacity: 1, x: 0, duration: 0.75, ease: 'power3.out', stagger: 0.45
+      }, 9.6)
+
+    // ── Transition 2→3: cross-fade at t=16 ──────────────────────────────
+    tl
+      .to(overlay, { opacity: 1, duration: 0.45, ease: 'power2.inOut' }, 16)
+      .set(s2, { opacity: 0 }, 16.4)
+      .set(s3, { opacity: 1 }, 16.4)
+      .to(overlay, { opacity: 0, duration: 0.45, ease: 'power2.inOut' }, 16.5)
+
+    // ── Scene 3: Stats (16.5 – 23s) ─────────────────────────────────────
+    tl
+      .to(s3.querySelector('.stats-heading'), { opacity: 1, duration: 0.6, ease: 'power2.out' }, 17)
+      .to(s3.querySelectorAll('.stat-card'), {
+        opacity: 1, scale: 1, duration: 0.75, ease: 'back.out(1.5)', stagger: 0.2
+      }, 17.6)
+
+    // ── Transition 3→4: cross-fade at t=23 ──────────────────────────────
+    tl
+      .to(overlay, { opacity: 1, duration: 0.45, ease: 'power2.inOut' }, 23)
+      .set(s3, { opacity: 0 }, 23.4)
+      .set(s4, { opacity: 1 }, 23.4)
+      .to(overlay, { opacity: 0, duration: 0.45, ease: 'power2.inOut' }, 23.5)
+
+    // ── Scene 4: Agent / CTA (23.5 – 30s) ───────────────────────────────
+    tl
+      .to(photo2, { opacity: 1, duration: 1.4, ease: 'power2.out' }, 23.5)
+      .to(s4.querySelector('.cta-label'), { opacity: 1, duration: 0.6, ease: 'power2.out' }, 24.2)
+      .to(s4.querySelector('.cta-heading'), { opacity: 1, y: 0, duration: 1, ease: 'power3.out' }, 24.7)
+      .to(s4.querySelector('.divider'), { opacity: 1, duration: 0.5, ease: 'power2.out' }, 25.6)
+      .to(s4.querySelector('.agent-names'), { opacity: 1, duration: 0.6, ease: 'power2.out' }, 26)
+      .to(s4.querySelector('.brokerage'), { opacity: 1, duration: 0.6, ease: 'power2.out' }, 26.4)
+      .to(s4.querySelector('.logo-placeholder'), { opacity: 1, duration: 0.6, ease: 'power2.out' }, 27)
+
+    window.__timelines['nebraska-listing-promo'] = tl;
+  </script>
+
+</body>
+</html>
