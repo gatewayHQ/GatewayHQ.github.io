@@ -1219,6 +1219,93 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
 .vid-file-name { font-size: 10px; color: var(--brand-gray); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vid-file-clear { font-size: 10px; color: var(--brand-gray); cursor: pointer; flex-shrink: 0; }
 .vid-file-clear:hover { color: #EF9A9A; }
+
+/* ── Animation Style Picker ── */
+.anim-section-label { font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--brand-gray);margin-bottom:10px;display:block; }
+.anim-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px; }
+@media (max-width:700px) { .anim-grid { grid-template-columns:repeat(2,1fr); } }
+.anim-card { border:1.5px solid var(--input-border);border-radius:9px;padding:10px 8px 8px;cursor:pointer;text-align:center;background:var(--card-bg);transition:border-color .15s,background .15s;user-select:none; }
+.anim-card:hover { border-color:rgba(200,168,75,0.5);background:rgba(200,168,75,0.04); }
+.anim-card.sel { border-color:#C8A84B;background:rgba(200,168,75,0.1); }
+.anim-card-icon { font-size:18px;margin-bottom:5px; }
+.anim-card-name { font-size:10px;font-weight:700;color:var(--text-primary);letter-spacing:0.3px;line-height:1.3; }
+.anim-card-time { font-size:9px;color:var(--brand-gray);margin-top:2px; }
+.anim-preview-wrap { border-radius:9px;overflow:hidden;background:#0e1e28;height:120px;position:relative;margin-bottom:10px;display:none; }
+.anim-preview-wrap.show { display:block; }
+.anim-preview-wrap img { position:absolute;inset:0;width:100%;height:100%;object-fit:cover; }
+.anim-preview-label { position:absolute;bottom:8px;left:10px;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7); }
+.anim-preview-btn { background:transparent;border:1px solid rgba(200,168,75,0.5);border-radius:6px;padding:5px 14px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#C8A84B;cursor:pointer;font-family:'Montserrat',sans-serif;transition:background .15s; }
+.anim-preview-btn:hover { background:rgba(200,168,75,0.1); }
+@keyframes vidKenBurns { 0% { transform:scale(1) translate(0,0); } 100% { transform:scale(1.18) translate(-3%,2%); } }
+@keyframes vidParallax  { 0% { transform:translateX(0) scale(1.08); } 100% { transform:translateX(-6%) scale(1.08); } }
+@keyframes vidSlide     { 0% { transform:translateX(-100%); } 100% { transform:translateX(0); } }
+@keyframes vidFade      { 0% { opacity:0; } 100% { opacity:1; } }
+@keyframes vidZoomOut   { 0% { transform:scale(1.6); } 100% { transform:scale(1); } }
+@keyframes vidSpinZoom  { 0% { transform:scale(0.75) rotate(-5deg); } 100% { transform:scale(1) rotate(0deg); } }
+.anim-kenburns img  { animation:vidKenBurns 2.5s ease-in-out forwards; }
+.anim-parallax img  { animation:vidParallax 2.5s ease-in-out forwards; }
+.anim-slide img     { animation:vidSlide 1.2s cubic-bezier(.22,1,.36,1) forwards; }
+.anim-fade img      { animation:vidFade 1.8s ease-in forwards; }
+.anim-zoomout img   { animation:vidZoomOut 2s ease-out forwards; }
+.anim-spinzoom img  { animation:vidSpinZoom 1.5s cubic-bezier(.34,1.56,.64,1) forwards; }
+
+/* ── Text Overlays ── */
+.overlay-tabs { display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px; }
+.overlay-tab { padding:5px 12px;border:1.5px solid var(--input-border);border-radius:20px;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.5px;color:var(--brand-gray);cursor:pointer;background:transparent;transition:border-color .15s,color .15s; }
+.overlay-tab.act { border-color:#C8A84B;color:#C8A84B;background:rgba(200,168,75,0.08); }
+.overlay-panel { display:none; }
+.overlay-panel.show { display:block; }
+.overlay-row { display:flex;align-items:center;gap:8px;margin-bottom:8px; }
+.overlay-row label { font-size:11px;color:var(--brand-gray);width:90px;flex-shrink:0; }
+.overlay-toggle { width:32px;height:18px;border-radius:9px;background:var(--input-border);border:none;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0; }
+.overlay-toggle::after { content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s; }
+.overlay-toggle.on { background:#C8A84B; }
+.overlay-toggle.on::after { left:16px; }
+.cta-select { background:var(--input-bg);border:1px solid var(--input-border);border-radius:6px;color:var(--text-primary);font-size:12px;padding:6px 8px;width:100%; }
+.font-pick-row { display:flex;gap:6px;flex-wrap:wrap; }
+.font-pick-btn { padding:4px 10px;border:1.5px solid var(--input-border);border-radius:5px;font-size:10px;cursor:pointer;background:transparent;color:var(--brand-gray);transition:border-color .15s; }
+.font-pick-btn.sel { border-color:#C8A84B;color:#C8A84B; }
+
+/* ── Music Library ── */
+.music-section { margin-top:16px; }
+.music-mood-tabs { display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px; }
+.music-mood-tab { padding:4px 12px;border:1.5px solid var(--input-border);border-radius:20px;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.5px;color:var(--brand-gray);cursor:pointer;background:transparent;transition:border-color .15s,color .15s; }
+.music-mood-tab.act { border-color:#C8A84B;color:#C8A84B;background:rgba(200,168,75,0.08); }
+.music-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;max-height:300px;overflow-y:auto; }
+.music-card { border:1.5px solid var(--input-border);border-radius:9px;padding:10px 12px;cursor:pointer;background:var(--card-bg);transition:border-color .15s;position:relative; }
+.music-card:hover { border-color:rgba(200,168,75,0.45); }
+.music-card.sel { border-color:#C8A84B;background:rgba(200,168,75,0.09); }
+.music-card-none { border-style:dashed;text-align:center;color:var(--brand-gray);font-size:11px;padding:14px; }
+.music-card-none.sel { border-color:#C8A84B;color:#C8A84B; }
+.music-title { font-size:11px;font-weight:700;color:var(--text-primary);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.music-mood-tag { font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--brand-gray);margin-bottom:6px; }
+.music-wave { display:flex;align-items:flex-end;gap:2px;height:22px;margin-bottom:6px; }
+.music-wave-bar { background:var(--brand-gray);border-radius:1px;width:3px;transition:background .15s; }
+.music-card.sel .music-wave-bar { background:#C8A84B; }
+.music-actions { display:flex;gap:6px;align-items:center; }
+.music-play-btn { background:transparent;border:1px solid var(--input-border);border-radius:5px;padding:3px 8px;font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--brand-gray);cursor:pointer;font-family:'Montserrat',sans-serif;transition:border-color .15s; }
+.music-play-btn:hover,.music-card.sel .music-play-btn { border-color:#C8A84B;color:#C8A84B; }
+.music-duration { font-size:9px;color:var(--brand-gray);margin-left:auto; }
+.music-vol-row { display:flex;align-items:center;gap:8px;margin-top:8px; }
+.music-vol-row label { font-size:10px;color:var(--brand-gray);white-space:nowrap; }
+.music-vol-row input[type=range] { flex:1; }
+.music-vol-val { font-size:10px;color:#C8A84B;width:30px;text-align:right; }
+
+/* ── Platform Export ── */
+.platform-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px; }
+@media (max-width:600px) { .platform-grid { grid-template-columns:repeat(2,1fr); } }
+.platform-card { border:1.5px solid var(--input-border);border-radius:10px;padding:12px 10px 10px;cursor:pointer;text-align:center;background:var(--card-bg);transition:border-color .15s,background .15s; }
+.platform-card:hover { border-color:rgba(200,168,75,0.5);background:rgba(200,168,75,0.04); }
+.platform-card.sel { border-color:#C8A84B;background:rgba(200,168,75,0.1); }
+.platform-icon { font-size:20px;margin-bottom:5px; }
+.platform-name { font-size:11px;font-weight:700;color:var(--text-primary);margin-bottom:2px; }
+.platform-spec { font-size:9px;color:var(--brand-gray);line-height:1.4; }
+.qual-bar { display:flex;gap:6px;margin-bottom:12px; }
+.qual-btn { flex:1;padding:7px 6px;border:1.5px solid var(--input-border);border-radius:7px;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;color:var(--brand-gray);cursor:pointer;background:transparent;transition:border-color .15s,color .15s;text-align:center; }
+.qual-btn.sel { border-color:#C8A84B;color:#C8A84B;background:rgba(200,168,75,0.08); }
+.export-opts-row { display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px; }
+.export-opts-row label { font-size:11px;color:var(--brand-gray);display:flex;align-items:center;gap:5px;cursor:pointer; }
+.export-opts-row input[type=checkbox] { accent-color:#C8A84B; }
 </style>
 </head>
 <body>
@@ -2382,11 +2469,45 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
     </button>
   </div>
 
-  <!-- Format Picker -->
-  <div class="vid-fmt-bar">
-    <button class="vid-fmt-tab active" onclick="vidSelectFmt('16:9',this)">16:9 &nbsp;Landscape</button>
-    <button class="vid-fmt-tab" onclick="vidSelectFmt('9:16',this)">9:16 &nbsp;Vertical</button>
-    <button class="vid-fmt-tab" onclick="vidSelectFmt('1:1',this)">1:1 &nbsp;Square</button>
+  <!-- Animation Style Picker -->
+  <div style="background:var(--card-bg);border:1px solid var(--input-border);border-radius:14px;padding:16px 18px;margin-bottom:14px">
+    <span class="anim-section-label">Animation Style</span>
+    <div class="anim-grid">
+      <div class="anim-card sel" id="anim-kenburns"  onclick="vidSelectAnim('kenburns',this)"><div class="anim-card-icon">🎞</div><div class="anim-card-name">Ken Burns</div><div class="anim-card-time">Zoom + Pan · 3s</div></div>
+      <div class="anim-card"     id="anim-parallax"  onclick="vidSelectAnim('parallax',this)"><div class="anim-card-icon">🏔</div><div class="anim-card-name">Parallax</div><div class="anim-card-time">Depth · 2.5s</div></div>
+      <div class="anim-card"     id="anim-slide"     onclick="vidSelectAnim('slide',this)"><div class="anim-card-icon">▶</div><div class="anim-card-name">Slide + Reveal</div><div class="anim-card-time">Push · 1.5s</div></div>
+      <div class="anim-card"     id="anim-fade"      onclick="vidSelectAnim('fade',this)"><div class="anim-card-icon">🌫</div><div class="anim-card-name">Fade Dissolve</div><div class="anim-card-time">Classic · 2s</div></div>
+      <div class="anim-card"     id="anim-zoomout"   onclick="vidSelectAnim('zoomout',this)"><div class="anim-card-icon">🔭</div><div class="anim-card-name">Zoom Out</div><div class="anim-card-time">Reveal · 2s</div></div>
+      <div class="anim-card"     id="anim-split"     onclick="vidSelectAnim('split',this)"><div class="anim-card-icon">⊞</div><div class="anim-card-name">Split Screen</div><div class="anim-card-time">Grid · 3.5s</div></div>
+      <div class="anim-card"     id="anim-spinzoom"  onclick="vidSelectAnim('spinzoom',this)"><div class="anim-card-icon">💫</div><div class="anim-card-name">Spin + Zoom</div><div class="anim-card-time">Energy · 1.5s</div></div>
+    </div>
+    <div class="anim-preview-wrap" id="anim-preview-wrap">
+      <img id="anim-preview-img" src="" alt="">
+      <div class="anim-preview-label" id="anim-preview-label">Ken Burns</div>
+    </div>
+    <button class="anim-preview-btn" onclick="vidPreviewAnim()">▶ Preview Animation</button>
+  </div>
+
+  <!-- Platform Export Picker -->
+  <div style="background:var(--card-bg);border:1px solid var(--input-border);border-radius:14px;padding:16px 18px;margin-bottom:14px">
+    <span class="anim-section-label">Export Platform</span>
+    <div class="platform-grid">
+      <div class="platform-card" id="plat-reels"   onclick="vidSelectPlatform('reels',this)"><div class="platform-icon">📱</div><div class="platform-name">Reels / TikTok</div><div class="platform-spec">9:16 · 1080×1920<br>30fps · max 60s</div></div>
+      <div class="platform-card" id="plat-feed"    onclick="vidSelectPlatform('feed',this)"><div class="platform-icon">🟦</div><div class="platform-name">Instagram Feed</div><div class="platform-spec">1:1 · 1080×1080<br>30fps · max 60s</div></div>
+      <div class="platform-card sel" id="plat-landscape" onclick="vidSelectPlatform('landscape',this)"><div class="platform-icon">🖥</div><div class="platform-name">YouTube / FB</div><div class="platform-spec">16:9 · 1920×1080<br>30fps · max 90s</div></div>
+      <div class="platform-card" id="plat-shorts"  onclick="vidSelectPlatform('shorts',this)"><div class="platform-icon">▶️</div><div class="platform-name">YouTube Shorts</div><div class="platform-spec">9:16 · 1080×1920<br>30fps · max 60s</div></div>
+      <div class="platform-card" id="plat-story"   onclick="vidSelectPlatform('story',this)"><div class="platform-icon">⭕</div><div class="platform-name">Story Format</div><div class="platform-spec">9:16 · 1080×1920<br>30fps · max 15s</div></div>
+    </div>
+    <span class="anim-section-label" style="margin-top:4px;margin-bottom:6px">Export Quality</span>
+    <div class="qual-bar">
+      <button class="qual-btn"     id="qual-fast"     onclick="vidSelectQuality('fast',this)">Fast / Compressed</button>
+      <button class="qual-btn sel" id="qual-balanced" onclick="vidSelectQuality('balanced',this)">Balanced</button>
+      <button class="qual-btn"     id="qual-high"     onclick="vidSelectQuality('high',this)">High Quality</button>
+    </div>
+    <div class="export-opts-row">
+      <label><input type="checkbox" id="vid-watermark" checked> Add Gateway watermark</label>
+      <label><input type="checkbox" id="vid-autodl" checked> Auto-download on complete</label>
+    </div>
   </div>
 
   <div class="vid-layout">
@@ -2421,15 +2542,6 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
             <input type="file" id="vid-agent-photo-input" accept="image/*" style="display:none" onchange="vidHandleAgentPhoto(this.files[0])">
             <div class="vid-agent-photo-wrap" id="vid-agent-photo-wrap" style="display:none"><img id="vid-agent-photo-img" src="" alt=""></div>
             <span class="vid-file-clear" id="vid-agent-photo-clear" style="display:none" onclick="vidClearAgentPhoto()">✕ Remove</span>
-          </div>
-        </div>
-        <div class="form-row">
-          <label>Background Music <span style="font-size:10px;font-weight:400;color:var(--brand-gray)">(MP3/M4A)</span></label>
-          <div class="vid-media-row">
-            <button class="vid-upload-btn" onclick="document.getElementById('vid-music-input').click()">+ Upload</button>
-            <input type="file" id="vid-music-input" accept="audio/mpeg,audio/mp3,audio/m4a,audio/*" style="display:none" onchange="vidHandleMusicFile(this.files[0])">
-            <span class="vid-file-name" id="vid-music-name"></span>
-            <span class="vid-file-clear" id="vid-music-clear" style="display:none" onclick="vidClearMusic()">✕ Remove</span>
           </div>
         </div>
       </div>
@@ -2528,6 +2640,139 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
             <div class="form-row"><label>List Price</label><input type="text" id="vjs-list" placeholder="e.g. $229,500" oninput="vidUpdatePreview()"></div>
             <div class="form-row"><label>Days on Market</label><input type="text" id="vjs-dom" placeholder="e.g. 6" oninput="vidUpdatePreview()"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- === TEXT OVERLAYS === -->
+      <div class="form-section" style="margin:0">
+        <h4 style="font-size:13px;margin-bottom:10px">Text Overlays</h4>
+        <div class="overlay-tabs">
+          <button class="overlay-tab act" onclick="vidOverlayTab('hook',this)">Opening Hook</button>
+          <button class="overlay-tab"     onclick="vidOverlayTab('stats',this)">Property Stats</button>
+          <button class="overlay-tab"     onclick="vidOverlayTab('callouts',this)">Feature Callouts</button>
+          <button class="overlay-tab"     onclick="vidOverlayTab('cta',this)">Call to Action</button>
+        </div>
+
+        <!-- Opening Hook -->
+        <div class="overlay-panel show" id="ovl-hook">
+          <div class="form-row"><label>Hook Text</label><input type="text" id="ovl-hook-text" placeholder="e.g. Your Dream Home Awaits..." oninput="vidUpdatePreview()"></div>
+          <div class="overlay-row">
+            <label>Position</label>
+            <select class="cta-select" id="ovl-hook-pos" style="width:auto;flex:1">
+              <option value="center">Centered</option>
+              <option value="lower">Lower Third</option>
+            </select>
+          </div>
+          <div class="overlay-row">
+            <label>Animation</label>
+            <select class="cta-select" id="ovl-hook-anim" style="width:auto;flex:1">
+              <option value="fade-zoom">Fade + Zoom</option>
+              <option value="slide-up">Slide Up</option>
+              <option value="fade">Fade In</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Property Stats -->
+        <div class="overlay-panel" id="ovl-stats">
+          <div class="overlay-row"><label>Show Stats Bar</label><button class="overlay-toggle on" id="ovl-stats-toggle" onclick="vidToggleOverlay(this,'ovl-stats-toggle')"></button><span style="font-size:11px;color:var(--brand-gray)">Auto-display beds/baths/sqft/price</span></div>
+          <div class="overlay-row">
+            <label>Layout</label>
+            <select class="cta-select" id="ovl-stats-layout" style="width:auto;flex:1">
+              <option value="horizontal">Horizontal Bar</option>
+              <option value="vertical">Vertical Stack</option>
+            </select>
+          </div>
+          <div class="overlay-row">
+            <label>Animation</label>
+            <select class="cta-select" id="ovl-stats-anim" style="width:auto;flex:1">
+              <option value="slide-bottom">Slide from Bottom</option>
+              <option value="fade">Fade In</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Feature Callouts -->
+        <div class="overlay-panel" id="ovl-callouts">
+          <p style="font-size:11px;color:var(--brand-gray);margin-bottom:8px">One feature per line — auto-matched to relevant photos by keyword.</p>
+          <textarea id="ovl-callout-text" rows="4" placeholder="GRANITE COUNTERTOPS&#10;FENCED BACKYARD&#10;UPDATED KITCHEN&#10;2-CAR GARAGE" style="width:100%;font-size:12px;resize:vertical;background:var(--input-bg);border:1px solid var(--input-border);border-radius:6px;padding:8px;color:var(--text-primary);font-family:inherit"></textarea>
+          <div class="overlay-row" style="margin-top:8px">
+            <label>Position</label>
+            <select class="cta-select" id="ovl-callout-pos" style="width:auto;flex:1">
+              <option value="lower">Lower Third</option>
+              <option value="upper">Top Third</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Call to Action -->
+        <div class="overlay-panel" id="ovl-cta">
+          <div class="form-row">
+            <label>CTA Text</label>
+            <select class="cta-select" id="ovl-cta-preset" onchange="vidCTAPreset(this)">
+              <option value="dm">DM for Details</option>
+              <option value="link">Link in Bio</option>
+              <option value="call">Call Today</option>
+              <option value="tour">Schedule a Tour</option>
+              <option value="custom">Custom...</option>
+            </select>
+          </div>
+          <div class="form-row" id="ovl-cta-custom-row" style="display:none"><label>Custom CTA</label><input type="text" id="ovl-cta-custom" placeholder="Your custom message"></div>
+          <div class="overlay-row"><label>Show Agent</label><button class="overlay-toggle on" id="ovl-cta-agent" onclick="vidToggleOverlay(this,'ovl-cta-agent')"></button><span style="font-size:11px;color:var(--brand-gray)">Name + phone below CTA</span></div>
+          <div class="overlay-row">
+            <label>Animation</label>
+            <select class="cta-select" id="ovl-cta-anim" style="width:auto;flex:1">
+              <option value="fade">Fade In</option>
+              <option value="slide-up">Slide Up</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Brand colors / Font -->
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--input-border)">
+          <div class="overlay-row" style="margin-bottom:8px">
+            <label>Brand Colors</label>
+            <button class="overlay-toggle" id="ovl-brand-toggle" onclick="vidToggleOverlay(this,'ovl-brand-toggle')"></button>
+            <span style="font-size:10px;color:var(--brand-gray)">Navy #0A2342 + Gold #C9A84C</span>
+          </div>
+          <div style="margin-bottom:4px;font-size:10px;color:var(--brand-gray)">Font Style</div>
+          <div class="font-pick-row">
+            <button class="font-pick-btn sel" id="font-bold" onclick="vidSelectFont('bold',this)">Bold Sans</button>
+            <button class="font-pick-btn"     id="font-serif" onclick="vidSelectFont('serif',this)">Elegant Serif</button>
+            <button class="font-pick-btn"     id="font-modern" onclick="vidSelectFont('modern',this)">Modern Thin</button>
+            <button class="font-pick-btn"     id="font-script" onclick="vidSelectFont('script',this)">Handwritten</button>
+            <button class="font-pick-btn"     id="font-slab" onclick="vidSelectFont('slab',this)">Slab</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- === MUSIC LIBRARY === -->
+      <div class="form-section music-section" style="margin:0">
+        <h4 style="font-size:13px;margin-bottom:10px">Background Music</h4>
+        <div class="music-mood-tabs">
+          <button class="music-mood-tab act" onclick="vidMoodTab('all',this)">All</button>
+          <button class="music-mood-tab"     onclick="vidMoodTab('upbeat',this)">Upbeat</button>
+          <button class="music-mood-tab"     onclick="vidMoodTab('luxury',this)">Luxury</button>
+          <button class="music-mood-tab"     onclick="vidMoodTab('warm',this)">Warm</button>
+          <button class="music-mood-tab"     onclick="vidMoodTab('chill',this)">Chill</button>
+          <button class="music-mood-tab"     onclick="vidMoodTab('inspiring',this)">Inspiring</button>
+        </div>
+        <div class="music-grid" id="music-grid">
+          <!-- populated by vidRenderMusicGrid() -->
+        </div>
+        <div class="music-vol-row">
+          <label>Volume</label>
+          <input type="range" id="music-vol" min="0" max="100" value="40" oninput="document.getElementById('music-vol-val').textContent=this.value+'%'">
+          <span class="music-vol-val" id="music-vol-val">40%</span>
+        </div>
+        <div style="margin-top:8px">
+          <label style="font-size:10px;color:var(--brand-gray);display:block;margin-bottom:4px">Or upload your own track (MP3/M4A)</label>
+          <div class="vid-media-row">
+            <button class="vid-upload-btn" onclick="document.getElementById('vid-music-input').click()">+ Upload Track</button>
+            <input type="file" id="vid-music-input" accept="audio/mpeg,audio/mp3,audio/m4a,audio/*" style="display:none" onchange="vidHandleMusicFile(this.files[0])">
+            <span class="vid-file-name" id="vid-music-name"></span>
+            <span class="vid-file-clear" id="vid-music-clear" style="display:none" onclick="vidClearMusic()">✕ Remove</span>
           </div>
         </div>
       </div>
@@ -7927,12 +8172,7 @@ renderPastOMs();
 
   // ---- CLAUDE API HELPER ----
   function getClaudeKey() {
-    var k = localStorage.getItem('gw_claude_api_key') || '';
-    if (!k) {
-      k = prompt('Enter your Claude API key (stored locally):') || '';
-      if (k) localStorage.setItem('gw_claude_api_key', k.trim());
-    }
-    return k.trim();
+    return (localStorage.getItem('gw_claude_api_key') || '').trim();
   }
 
   function claudeRequest(systemPrompt, userPrompt, onResult, onError) {
@@ -7973,16 +8213,7 @@ renderPastOMs();
       '<div class="section-title">About the Agent(s)</div>' +
       '<p style="color:var(--brand-gray);font-size:13px;margin-bottom:16px">Build detailed agent bio pages for the OM. Profiles save locally by email address.</p>' +
       '<div id="agentBioList"></div>' +
-      '<button class="btn-sm" onclick="addAgentBioCard()" style="margin-top:8px">+ Add Agent Bio</button>' +
-      '<div style="margin-top:16px;padding:12px;background:rgba(162,182,192,0.06);border-radius:8px;border:1px solid rgba(162,182,192,0.15)">' +
-        '<label style="font-size:12px;color:var(--brand-gray)">Claude API Key (for AI Bio Writer)</label>' +
-        '<div style="display:flex;gap:8px;margin-top:4px">' +
-          '<input id="claudeKeyInput" type="password" placeholder="sk-ant-..." style="flex:1;font-size:13px" ' +
-            'value="' + (localStorage.getItem('gw_claude_api_key') || '') + '" ' +
-            'oninput="localStorage.setItem(\'gw_claude_api_key\',this.value.trim())">' +
-          '<button class="btn-sm" onclick="localStorage.removeItem(\'gw_claude_api_key\');document.getElementById(\'claudeKeyInput\').value=\'\';showGlobalStatus(\'API key cleared\')">Clear</button>' +
-        '</div>' +
-      '</div>';
+      '<button class="btn-sm" onclick="addAgentBioCard()" style="margin-top:8px">+ Add Agent Bio</button>';
     container.appendChild(panel);
     // Render one blank card to start
     setTimeout(function() { addAgentBioCard(); }, 50);
@@ -9399,6 +9630,160 @@ window.initHomeValuation = initHomeValuation;
     '1:1':  { w:1080, h:1080 }
   };
 
+  /* ── NEW STATE ────────────────────────────────────────────────── */
+  var vidCurrentAnim    = 'kenburns';
+  var vidCurrentPlatform= 'landscape';
+  var vidCurrentQuality = 'balanced';
+  var vidCurrentMood    = 'all';
+  var vidSelectedTrack  = null; // { id, title, src } or null
+  var vidCurrentFont    = 'bold';
+  var vidOverlayAudioEl = null;
+
+  var PLATFORM_FMT = {
+    'reels':     { aspect:'9:16',  w:1080, h:1920, fps:30, maxSec:60  },
+    'feed':      { aspect:'1:1',   w:1080, h:1080, fps:30, maxSec:60  },
+    'landscape': { aspect:'16:9',  w:1920, h:1080, fps:30, maxSec:90  },
+    'shorts':    { aspect:'9:16',  w:1080, h:1920, fps:30, maxSec:60  },
+    'story':     { aspect:'9:16',  w:1080, h:1920, fps:30, maxSec:15  }
+  };
+
+  var MUSIC_TRACKS = [
+    { id:'t01', title:'Golden Hour',       mood:'luxury',    dur:'2:34', waves:[4,7,5,9,6,8,5,7,4,9,6,8,5,7,10,6,4,8,5,7] },
+    { id:'t02', title:'Sunday Drive',      mood:'warm',      dur:'3:12', waves:[6,4,8,5,10,7,5,8,4,6,9,5,7,4,8,6,10,5,7,4] },
+    { id:'t03', title:'City Pulse',        mood:'upbeat',    dur:'2:48', waves:[8,10,7,9,10,8,7,10,9,8,10,7,9,8,10,7,8,9,10,8] },
+    { id:'t04', title:'Velvet Morning',    mood:'luxury',    dur:'3:05', waves:[3,5,4,6,5,7,4,6,5,3,6,4,7,5,4,6,3,5,4,6] },
+    { id:'t05', title:'Back Porch',        mood:'warm',      dur:'2:56', waves:[5,7,6,8,5,7,9,6,8,5,7,6,8,5,9,7,6,5,8,7] },
+    { id:'t06', title:'Electric Sunrise',  mood:'upbeat',    dur:'2:22', waves:[9,10,8,10,9,10,8,9,10,8,10,9,8,10,9,8,10,9,10,8] },
+    { id:'t07', title:'Still Waters',      mood:'chill',     dur:'3:28', waves:[3,4,3,5,4,3,5,4,3,4,5,3,4,3,5,4,3,4,5,3] },
+    { id:'t08', title:'Rise & Shine',      mood:'inspiring', dur:'2:44', waves:[5,7,8,9,8,10,9,8,10,9,8,7,9,10,8,9,7,8,10,9] },
+    { id:'t09', title:'Loft Sessions',     mood:'chill',     dur:'3:18', waves:[4,5,4,6,5,4,6,5,4,5,6,4,5,4,6,5,4,6,5,4] },
+    { id:'t10', title:'Grand Estate',      mood:'luxury',    dur:'2:58', waves:[4,6,5,7,6,5,8,6,5,7,6,5,7,5,6,8,5,6,7,5] },
+    { id:'t11', title:'New Beginnings',    mood:'inspiring', dur:'3:02', waves:[6,8,7,9,8,10,9,8,9,10,8,9,7,8,10,9,8,7,9,10] },
+    { id:'t12', title:'Coastal Breeze',    mood:'chill',     dur:'2:52', waves:[5,4,6,5,4,6,5,4,5,6,4,5,4,6,5,4,5,6,4,5] },
+    { id:'t13', title:'Market Ready',      mood:'upbeat',    dur:'2:38', waves:[7,9,8,10,9,8,10,9,7,10,8,9,10,8,9,10,8,7,9,10] },
+    { id:'t14', title:'Hearth & Home',     mood:'warm',      dur:'3:10', waves:[5,6,5,7,6,5,7,6,5,6,7,5,6,5,7,6,5,7,6,5] },
+    { id:'t15', title:'Limitless',         mood:'inspiring', dur:'2:50', waves:[7,9,8,10,9,8,10,9,10,8,9,10,8,9,10,9,8,10,9,10] }
+  ];
+
+  /* ── ANIMATION SELECTION ─────────────────────────────────────── */
+  window.vidSelectAnim = function(anim, el) {
+    vidCurrentAnim = anim;
+    document.querySelectorAll('.anim-card').forEach(function(c){ c.classList.remove('sel'); });
+    el.classList.add('sel');
+    var labels = { kenburns:'Ken Burns', parallax:'Parallax', slide:'Slide + Reveal',
+                   fade:'Fade Dissolve', zoomout:'Zoom Out', split:'Split Screen', spinzoom:'Spin + Zoom' };
+    var lbl = document.getElementById('anim-preview-label');
+    if (lbl) lbl.textContent = labels[anim] || anim;
+    vidPreviewAnim();
+  };
+
+  window.vidPreviewAnim = function() {
+    var wrap = document.getElementById('anim-preview-wrap');
+    var img  = document.getElementById('anim-preview-img');
+    if (!wrap || !img) return;
+    var photo = vidPhotos[0];
+    if (!photo) { showGlobalStatus('Upload a photo first to preview animation'); return; }
+    img.src = photo.dataUrl;
+    wrap.className = 'anim-preview-wrap show';
+    var animClass = { kenburns:'anim-kenburns', parallax:'anim-parallax', slide:'anim-slide',
+                      fade:'anim-fade', zoomout:'anim-zoomout', split:'anim-kenburns', spinzoom:'anim-spinzoom' }[vidCurrentAnim] || 'anim-kenburns';
+    img.style.animation = 'none';
+    void img.offsetWidth; // force reflow
+    wrap.className = 'anim-preview-wrap show ' + animClass;
+  };
+
+  /* ── PLATFORM / QUALITY SELECTION ───────────────────────────── */
+  window.vidSelectPlatform = function(plat, el) {
+    vidCurrentPlatform = plat;
+    document.querySelectorAll('.platform-card').forEach(function(c){ c.classList.remove('sel'); });
+    el.classList.add('sel');
+    var pf = PLATFORM_FMT[plat];
+    if (pf) { vidCurrentFmt = pf.aspect; }
+    vidRenderScenePreview();
+  };
+
+  window.vidSelectQuality = function(q, el) {
+    vidCurrentQuality = q;
+    document.querySelectorAll('.qual-btn').forEach(function(b){ b.classList.remove('sel'); });
+    el.classList.add('sel');
+  };
+
+  /* ── TEXT OVERLAY TABS ───────────────────────────────────────── */
+  window.vidOverlayTab = function(tab, btn) {
+    document.querySelectorAll('.overlay-tab').forEach(function(b){ b.classList.remove('act'); });
+    document.querySelectorAll('.overlay-panel').forEach(function(p){ p.classList.remove('show'); });
+    btn.classList.add('act');
+    var panel = document.getElementById('ovl-' + tab);
+    if (panel) panel.classList.add('show');
+  };
+
+  window.vidToggleOverlay = function(btn) {
+    btn.classList.toggle('on');
+  };
+
+  window.vidCTAPreset = function(sel) {
+    var row = document.getElementById('ovl-cta-custom-row');
+    if (row) row.style.display = sel.value === 'custom' ? '' : 'none';
+  };
+
+  window.vidSelectFont = function(font, el) {
+    vidCurrentFont = font;
+    document.querySelectorAll('.font-pick-btn').forEach(function(b){ b.classList.remove('sel'); });
+    el.classList.add('sel');
+  };
+
+  /* ── MUSIC LIBRARY ───────────────────────────────────────────── */
+  window.vidMoodTab = function(mood, btn) {
+    vidCurrentMood = mood;
+    document.querySelectorAll('.music-mood-tab').forEach(function(b){ b.classList.remove('act'); });
+    btn.classList.add('act');
+    vidRenderMusicGrid();
+  };
+
+  function vidRenderMusicGrid() {
+    var c = document.getElementById('music-grid');
+    if (!c) return;
+    var filtered = vidCurrentMood === 'all' ? MUSIC_TRACKS : MUSIC_TRACKS.filter(function(t){ return t.mood === vidCurrentMood; });
+    var html = '<div class="music-card music-card-none' + (!vidSelectedTrack ? ' sel' : '') + '" onclick="vidSelectTrack(null,this)">'
+      + (vidSelectedTrack ? '○' : '✓') + ' No Music</div>';
+    filtered.forEach(function(t) {
+      var isSel = vidSelectedTrack && vidSelectedTrack.id === t.id;
+      var bars = t.waves.map(function(h){ return '<div class="music-wave-bar" style="height:' + (h * 2) + 'px"></div>'; }).join('');
+      html += '<div class="music-card' + (isSel ? ' sel' : '') + '" id="mc-' + t.id + '" onclick="vidSelectTrack(\'' + t.id + '\',this)">'
+        + '<div class="music-title">' + t.title + '</div>'
+        + '<div class="music-mood-tag">' + t.mood + '</div>'
+        + '<div class="music-wave">' + bars + '</div>'
+        + '<div class="music-actions">'
+        + '<button class="music-play-btn" onclick="event.stopPropagation();vidPlayTrack(\'' + t.id + '\')">▶ Preview</button>'
+        + '<span class="music-duration">' + t.dur + '</span>'
+        + '</div></div>';
+    });
+    c.innerHTML = html;
+  }
+
+  window.vidSelectTrack = function(id, el) {
+    if (vidOverlayAudioEl) { vidOverlayAudioEl.pause(); vidOverlayAudioEl = null; }
+    vidSelectedTrack = id ? MUSIC_TRACKS.find(function(t){ return t.id === id; }) || null : null;
+    document.querySelectorAll('.music-card').forEach(function(c){ c.classList.remove('sel'); });
+    if (el) el.classList.add('sel');
+    var noCard = document.querySelector('.music-card-none');
+    if (noCard) noCard.innerHTML = (!vidSelectedTrack ? '✓' : '○') + ' No Music';
+  };
+
+  window.vidPlayTrack = function(id) {
+    var track = MUSIC_TRACKS.find(function(t){ return t.id === id; });
+    if (!track) return;
+    if (vidOverlayAudioEl) { vidOverlayAudioEl.pause(); vidOverlayAudioEl = null; }
+    if (track.src) {
+      vidOverlayAudioEl = new Audio(track.src);
+      vidOverlayAudioEl.volume = (parseInt(document.getElementById('music-vol').value,10)||40) / 100;
+      vidOverlayAudioEl.play().catch(function(){ showGlobalStatus('Preview not available — upload your own track below'); });
+      setTimeout(function(){ if (vidOverlayAudioEl) { vidOverlayAudioEl.pause(); vidOverlayAudioEl = null; } }, 10000);
+    } else {
+      showGlobalStatus('Track "' + track.title + '" — find royalty-free music at pixabay.com/music and upload below');
+    }
+  };
+
   /* ── TEMPLATE / FORMAT SELECTION ───────────────────────────────── */
   window.vidSelectTpl = function(id, btn) {
     vidCurrentTpl = id;
@@ -10054,6 +10439,8 @@ window.initHomeValuation = initHomeValuation;
     if (!addr) { alert('Please enter a street address.'); return null; }
     if (vidPhotos.length===0) { alert('Please upload at least one property photo.'); return null; }
     var city=g('vid-city');
+    var ctaMap = { dm:'DM for Details', link:'Link in Bio', call:'Call Today', tour:'Schedule a Tour', custom:g('ovl-cta-custom') };
+    var ctaSel = (document.getElementById('ovl-cta-preset')||{}).value || 'dm';
     var data={
       addr: city ? addr+', '+city : addr,
       agents: g('vid-agents')||'Gateway Real Estate Advisors',
@@ -10065,7 +10452,20 @@ window.initHomeValuation = initHomeValuation;
       ohDate:g('voh-date'),ohStart:g('voh-start'),ohEnd:g('voh-end'),ohPhone:g('voh-phone'),ohPrice:g('voh-price'),
       prOld:g('vpr-old'),prNew:g('vpr-new'),prSave:g('vpr-save'),
       jsSold:g('vjs-sold'),jsList:g('vjs-list'),jsDom:g('vjs-dom'),
-      slug: addr.replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'-'+Date.now()
+      slug: addr.replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'-'+Date.now(),
+      animStyle:   vidCurrentAnim,
+      platform:    vidCurrentPlatform,
+      quality:     vidCurrentQuality,
+      watermark:   (document.getElementById('vid-watermark')||{}).checked !== false,
+      musicTrack:  vidSelectedTrack ? vidSelectedTrack.title : null,
+      musicVol:    parseInt((document.getElementById('music-vol')||{}).value||40,10),
+      overlayHook: g('ovl-hook-text'),
+      overlayHookPos: (document.getElementById('ovl-hook-pos')||{}).value,
+      overlayStats:   (document.getElementById('ovl-stats-toggle')||{}).classList && document.getElementById('ovl-stats-toggle').classList.contains('on'),
+      overlayCallouts: g('ovl-callout-text'),
+      overlayCTA:  ctaMap[ctaSel] || ctaMap.dm,
+      overlayCTAAgent: (document.getElementById('ovl-cta-agent')||{}).classList && document.getElementById('ovl-cta-agent').classList.contains('on'),
+      overlayFont: vidCurrentFont
     };
     var logos=vidMakeLogos();
     var builders={'listing':buildListing,'just-listed':buildJustListed,'just-sold':buildJustSold,'open-house':buildOpenHouse,'price-improved':buildPriceImproved};
@@ -10082,9 +10482,15 @@ window.initHomeValuation = initHomeValuation;
     bar.textContent=msg;
     if (state==='success'&&extra) {
       outSec.style.display='block';
+      var addrSlug=(g('vid-address')||'property').replace(/[^a-z0-9]+/gi,'-').toLowerCase();
+      var dateStr=new Date().toISOString().slice(0,10);
+      var platLabel={reels:'Reels-TikTok',feed:'Instagram-Feed',landscape:'YouTube-FB',shorts:'YouTube-Shorts',story:'Story'}[vidCurrentPlatform]||vidCurrentPlatform;
+      var dlName=addrSlug+'_'+platLabel+'_'+dateStr+'.mp4';
+      var autoDl=(document.getElementById('vid-autodl')||{}).checked!==false;
+      if (autoDl&&extra.url){var a=document.createElement('a');a.href=extra.url;a.download=dlName;document.body.appendChild(a);a.click();document.body.removeChild(a);}
       outIn.innerHTML='<p style="font-size:12px;color:#81C784;font-weight:600;margin-bottom:4px">&#10003; Video ready!</p>'
-        +'<p style="font-size:11px;color:var(--brand-gray);margin-bottom:10px">Rendered in ~'+extra.elapsed+'s via GitHub Actions</p>'
-        +'<a class="vid-mp4-link" href="'+extra.url+'" download="'+extra.slug+'.mp4">&#8681; Download MP4</a>'
+        +'<p style="font-size:11px;color:var(--brand-gray);margin-bottom:10px">Rendered in ~'+extra.elapsed+'s · '+platLabel+'</p>'
+        +'<a class="vid-mp4-link" href="'+extra.url+'" download="'+dlName+'">&#8681; Download MP4</a>'
         +'<p class="vid-alt-link" style="margin-top:10px"><a href="'+extra.url+'" target="_blank">Open in new tab</a> &nbsp;·&nbsp; <a href="https://github.com/'+VID_REPO+'/actions" target="_blank">View Actions log</a></p>';
     } else if (state==='error'&&extra) {
       outSec.style.display='block';
@@ -10110,7 +10516,8 @@ window.initHomeValuation = initHomeValuation;
     var comp=vidBuildComposition();
     if (!comp) return;
     btn.disabled=true;
-    vidSetStatus('uploading','Uploading composition to GitHub...');
+    var platName = { reels:'Reels/TikTok', feed:'Instagram Feed', landscape:'YouTube/FB', shorts:'YouTube Shorts', story:'Story Format' }[vidCurrentPlatform] || vidCurrentPlatform;
+    vidSetStatus('uploading','Adding ' + vidCurrentAnim + ' animation... Uploading to GitHub...');
     try {
       var b64=btoa(unescape(encodeURIComponent(comp.html)));
       var compPath='compositions/pending/'+comp.slug+'.html';
@@ -10157,7 +10564,9 @@ window.initHomeValuation = initHomeValuation;
               return r.name==='Render Listing Video'&&new Date(r.created_at).getTime()>=triggerMs-10000;
             });
             if (!run){vidSetStatus('rendering','Waiting for runner... ('+elapsed+'s)');return;}
-            if (run.status!=='completed'){vidSetStatus('rendering','Rendering... ('+elapsed+'s)');return;}
+            var pct=Math.min(95,Math.round((elapsed/180)*100));
+            var pMsg=elapsed<20?'Adding animations... '+pct+'%':elapsed<60?'Syncing music... '+pct+'%':elapsed<120?'Rendering text overlays... '+pct+'%':'Finalizing '+platName+' export... '+pct+'%';
+            if (run.status!=='completed'){vidSetStatus('rendering',pMsg+' ('+elapsed+'s)');return;}
             clearInterval(vidPollTimer);
             if (run.conclusion==='success'){
               vidSetStatus('rendering','Verifying download... ('+elapsed+'s)');
@@ -10188,6 +10597,7 @@ window.initHomeValuation = initHomeValuation;
     if (tok) document.getElementById('vid-gh-token').value=tok;
     var bEl=document.getElementById('vid-gh-branch');
     if (bEl) bEl.value=br||'main';
+    vidRenderMusicGrid();
   })();
 
 })();
