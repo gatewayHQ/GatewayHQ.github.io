@@ -6223,7 +6223,7 @@ renderPastOMs();
   "use strict";
 
   var _origShowTab = window.showTab;
-  var totalTabs = 10;
+  var totalTabs = 12;
 
   // ============================================================
   // EMPLOYER DATABASE — curated for Iowa/Midwest markets
@@ -6513,8 +6513,20 @@ renderPastOMs();
     analysisTab.className = 'tab';
     analysisTab.onclick = function() { showTab(9); };
     analysisTab.textContent = '\u{1F4CA} Investment Analysis';
+    var agentBioTab = document.createElement('div');
+    agentBioTab.className = 'tab';
+    agentBioTab.onclick = function() { showTab(10); };
+    agentBioTab.textContent = '\u{1F464} Agent Bio';
+    agentBioTab.style.borderLeft = '2px solid var(--brand-gold,#C8A84B)';
+    var gatewayTab = document.createElement('div');
+    gatewayTab.className = 'tab';
+    gatewayTab.onclick = function() { showTab(11); };
+    gatewayTab.textContent = '\u{1F3E2} About Gateway';
+    gatewayTab.style.borderLeft = '2px solid var(--brand-gold,#C8A84B)';
     tabBar.appendChild(compTab);
     tabBar.appendChild(analysisTab);
+    tabBar.appendChild(agentBioTab);
+    tabBar.appendChild(gatewayTab);
   }
 
   // ---- INJECT COMPARABLE SALES PANEL (TAB 8) ----
@@ -6575,7 +6587,16 @@ renderPastOMs();
         '<div class="form-row"><label>Vacancy Rate (%)</label><input id="iaVacancy" type="number" step="0.1" value="5.0" oninput="calcAnalysis()"></div>' +
       '</div>' +
       '<button class="btn-sm" onclick="pullAnalysisFromOM()" style="margin-top:12px;margin-bottom:16px">\u2B07\uFE0F Pull Values from Cover & Financials</button>' +
-      '<div id="analysisResults" style="display:none;margin-top:16px"><table id="analysisTable" style="width:100%;border-collapse:collapse;font-size:12px"><thead id="analysisHead"></thead><tbody id="analysisBody"></tbody></table></div>';
+      '<div style="display:flex;gap:12px;align-items:center;margin-top:12px;flex-wrap:wrap">' +
+        '<button class="btn-sm" onclick="window.calcAnalysis&&calcAnalysis()" style="background:var(--brand-blue,#A2B6C0);color:#1E2F39;font-weight:700">\u{1F4CA} Run Analysis</button>' +
+        '<label style="font-size:12px;color:var(--brand-gray);cursor:pointer"><input type="checkbox" id="iaIncludePPTX" checked style="margin-right:4px"> Include in PPTX export</label>' +
+        '<label style="font-size:12px;color:var(--brand-gray);cursor:pointer"><input type="checkbox" id="iaLandscape" checked style="margin-right:4px"> Landscape export</label>' +
+      '</div>' +
+      '<div id="analysisResults" style="display:none;margin-top:16px;overflow-x:auto;max-width:100%">' +
+        '<table id="analysisTable" style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px">' +
+          '<thead id="analysisHead"></thead><tbody id="analysisBody"></tbody>' +
+        '</table>' +
+      '</div>';
     container.appendChild(panel);
   }
 
@@ -6604,7 +6625,9 @@ renderPastOMs();
       if (!el) return;
       var btn = document.createElement('button');
       btn.className = 'btn-sm';
-      btn.innerHTML = '\u2728 ' + f.label;
+      btn.textContent = '\u2726 ' + f.label;
+      btn.setAttribute('data-ai-field', f.id);
+      btn.setAttribute('data-ai-label', '\u2726 ' + f.label);
       btn.style.cssText = 'margin-bottom:8px;background:linear-gradient(135deg,#1E2F39,#2a4a5a);border:1px solid var(--brand-blue)';
       btn.onclick = function() { generateAIContent(f.id); };
       el.parentNode.insertBefore(btn, el);
@@ -6613,7 +6636,9 @@ renderPastOMs();
     if (hl1) {
       var hlBtn = document.createElement('button');
       hlBtn.className = 'btn-sm';
-      hlBtn.innerHTML = '\u2728 Generate Highlights';
+      hlBtn.textContent = '\u2726 Generate Highlights';
+      hlBtn.setAttribute('data-ai-field', 'highlights');
+      hlBtn.setAttribute('data-ai-label', '\u2726 Generate Highlights');
       hlBtn.style.cssText = 'margin-bottom:8px;background:linear-gradient(135deg,#1E2F39,#2a4a5a);border:1px solid var(--brand-blue)';
       hlBtn.onclick = function() { generateHighlights(); };
       hl1.parentNode.parentNode.insertBefore(hlBtn, hl1.parentNode);
@@ -6644,7 +6669,7 @@ renderPastOMs();
     var div = document.createElement('div');
     div.style.cssText = 'margin:12px 0;padding:12px;background:rgba(162,182,192,0.08);border-radius:8px';
     div.innerHTML = '<strong style="font-size:13px">📋 Rent Roll Upload</strong>' +
-      '<p style="color:var(--brand-gray);font-size:12px;margin:4px 0 8px">Upload PDF, XLSX, or CSV. Expected columns: Unit#, Tenant, Lease Start, Lease End, Rent, SqFt, Vacancy</p>' +
+      '<p style="color:var(--brand-gray);font-size:12px;margin:4px 0 8px">Upload XLSX, CSV, or PDF. Columns auto-detected: Unit, Beds, Baths, SqFt, Current Rent, Market Rent, Tenant, Lease Start/End, Status, Section 8, Deposit</p>' +
       '<button class="btn-sm" onclick="document.getElementById(\'rentRollInput\').click()">📂 Upload Rent Roll</button>' +
       '<input type="file" id="rentRollInput" accept=".csv,.xlsx,.xls,.pdf" style="display:none" onchange="handleRentRollUpload(this)">' +
       '<div id="rentRollStatus" style="margin-top:8px;font-size:12px;display:none"></div>';
@@ -6895,119 +6920,170 @@ renderPastOMs();
     var head = document.getElementById('analysisHead');
     var body = document.getElementById('analysisBody');
     if (!head || !body) return;
-    var headerRow = '<tr style="background:var(--brand-navy);position:sticky;top:0"><th style="padding:8px;text-align:left;color:var(--brand-blue);font-size:11px;min-width:160px">Metric</th>';
-    data.forEach(function(d) { headerRow += '<th style="padding:8px;text-align:right;color:var(--brand-blue);font-size:11px;white-space:nowrap">Year ' + d.year + '</th>'; });
+    // Header row — navy bg, white text, sticky
+    var headerRow = '<tr style="background:#1E2F39;position:sticky;top:0;z-index:2">' +
+      '<th style="padding:8px 10px;text-align:left;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;min-width:160px;position:sticky;left:0;background:#1E2F39;z-index:3">Metric</th>';
+    data.forEach(function(d) {
+      headerRow += '<th style="padding:8px 10px;text-align:right;color:#A2B6C0;font-size:11px;font-weight:600;white-space:nowrap">Year ' + d.year + '</th>';
+    });
     headerRow += '</tr>';
     head.innerHTML = headerRow;
+
     var sections = [
       { title: 'INCOMES & EXPENSES', rows: [
-        { label: 'Gross Income', key: 'grossIncome', format: 'dollar' },
-        { label: 'Vacancy Loss', key: 'vacancy', format: 'dollar' },
-        { label: 'Effective Income', key: 'effectiveIncome', format: 'dollar' },
-        { label: 'Operating Expenses', key: 'expenses', format: 'dollar' },
-        { label: 'Net Operating Income', key: 'noi', format: 'dollar', bold: true }
+        { label: 'Gross Income',        key: 'grossIncome',     format: 'dollar' },
+        { label: 'Vacancy Loss',        key: 'vacancy',         format: 'dollar' },
+        { label: 'Effective Income',    key: 'effectiveIncome', format: 'dollar' },
+        { label: 'Operating Expenses',  key: 'expenses',        format: 'dollar' },
+        { label: 'Net Operating Income',key: 'noi',             format: 'dollar', bold: true }
       ]},
       { title: 'FINANCING', rows: [
-        { label: 'Annual Debt Service', key: 'annualDebt', format: 'dollar' },
-        { label: 'Cash Flow After Debt', key: 'cashFlow', format: 'dollar', bold: true },
-        { label: 'Loan Balance', key: 'balanceAfter', format: 'dollar' },
-        { label: 'Principal Paid', key: 'principalPaid', format: 'dollar' }
+        { label: 'Annual Debt Service',    key: 'annualDebt',    format: 'dollar' },
+        { label: 'Cash Flow After Debt',   key: 'cashFlow',      format: 'dollar', bold: true },
+        { label: 'Loan Balance',           key: 'balanceAfter',  format: 'dollar' },
+        { label: 'Principal Paid',         key: 'principalPaid', format: 'dollar' }
       ]},
       { title: 'PROFITABILITY', rows: [
-        { label: 'GRM', key: 'grm', format: 'decimal' },
-        { label: 'OER', key: 'oer', format: 'percent' },
-        { label: 'LTV', key: 'ltv', format: 'percent' },
-        { label: 'DSCR', key: 'dscr', format: 'decimal' },
-        { label: 'Break-Even Ratio', key: 'ber', format: 'percent' },
-        { label: 'Cap Rate', key: 'capRate', format: 'percent' },
+        { label: 'GRM',              key: 'grm',       format: 'decimal' },
+        { label: 'OER',              key: 'oer',       format: 'percent' },
+        { label: 'LTV',              key: 'ltv',       format: 'percent' },
+        { label: 'DSCR',             key: 'dscr',      format: 'decimal' },
+        { label: 'Break-Even Ratio', key: 'ber',       format: 'percent' },
+        { label: 'Cap Rate',         key: 'capRate',   format: 'percent' },
         { label: 'Cash-on-Cash Return', key: 'cocReturn', format: 'percent', bold: true }
       ]},
       { title: 'EQUITY', rows: [
-        { label: 'Property Value', key: 'propertyValue', format: 'dollar' },
-        { label: 'Total Equity', key: 'equity', format: 'dollar', bold: true },
+        { label: 'Property Value',         key: 'propertyValue', format: 'dollar' },
+        { label: 'Total Equity',           key: 'equity',        format: 'dollar', bold: true },
         { label: 'Total Return on Investment', key: 'totalReturn', format: 'percent', bold: true }
       ]}
     ];
+
     var html = '';
+    var rowIdx = 0;
     sections.forEach(function(sec) {
-      html += '<tr><td colspan="' + (data.length + 1) + '" style="padding:10px 8px 4px;font-weight:800;font-size:11px;text-transform:uppercase;color:var(--brand-blue);border-bottom:2px solid var(--brand-blue);letter-spacing:1px">' + sec.title + '</td></tr>';
+      // Section header row
+      html += '<tr style="background:#1E2F39"><td colspan="' + (data.length + 1) + '" style="padding:10px 10px 4px;font-weight:800;font-size:11px;text-transform:uppercase;color:#A2B6C0;border-bottom:2px solid var(--brand-blue);letter-spacing:1.5px;position:sticky;left:0">' + sec.title + '</td></tr>';
       sec.rows.forEach(function(row) {
-        html += '<tr style="border-bottom:1px solid rgba(162,182,192,0.15)"><td style="padding:6px 8px;font-size:12px;color:' + (row.bold ? 'var(--brand-cream)' : 'var(--brand-gray)') + ';font-weight:' + (row.bold ? '700' : '400') + '">' + row.label + '</td>';
+        var isEven = (rowIdx % 2 === 0);
+        rowIdx++;
+        var rowBg = row.bold ? 'rgba(30,47,57,0.7)' : (isEven ? 'rgba(162,182,192,0.04)' : 'transparent');
+        var lblColor = row.bold ? '#E4E3D4' : 'rgba(228,227,212,0.65)';
+        var lblWeight = row.bold ? '700' : '400';
+        var tdStyle = 'position:sticky;left:0;background:' + rowBg + ';z-index:1';
+        html += '<tr style="border-bottom:1px solid rgba(162,182,192,0.1);background:' + rowBg + '">' +
+          '<td style="padding:6px 10px;font-size:12px;color:' + lblColor + ';font-weight:' + lblWeight + ';' + tdStyle + '">' +
+          (row.bold ? '<strong>' : '') + row.label + (row.bold ? '</strong>' : '') + '</td>';
         data.forEach(function(d) {
           var val = d[row.key];
           var formatted = row.format === 'dollar' ? fmt(val) : row.format === 'percent' ? fmtPct(val) : fmtDec(val);
-          var color = row.bold ? '#E4E3D4' : (row.format === 'dollar' && val < 0 ? '#ff6b6b' : '#ccc');
-          html += '<td style="padding:6px 8px;text-align:right;font-size:12px;color:' + color + ';font-weight:' + (row.bold ? '600' : '400') + '">' + formatted + '</td>';
+          var color = row.bold ? '#E4E3D4' : (row.format === 'dollar' && val < 0 ? '#ff6b6b' : '#aabbc6');
+          html += '<td style="padding:6px 10px;text-align:right;font-size:12px;color:' + color + ';font-weight:' + (row.bold ? '700' : '400') + '">' + formatted + '</td>';
         });
         html += '</tr>';
       });
     });
     body.innerHTML = html;
+
+    // Apply overflow-x scroll to the table wrapper
+    var table = document.getElementById('analysisTable');
+    if (table && table.parentNode) {
+      table.parentNode.style.overflowX = 'auto';
+      table.parentNode.style.maxWidth = '100%';
+      table.style.tableLayout = 'auto';
+    }
+  }
+  // ---- AI CONTENT GENERATION (Claude API) ----
+  function _omContext() {
+    var propName = ((document.getElementById('propName1') || {}).value || '') + ' ' + ((document.getElementById('propName2') || {}).value || '');
+    propName = propName.trim() || 'the subject property';
+    return {
+      propName: propName,
+      address: (document.getElementById('address') || {}).value || '',
+      units: (document.getElementById('totalUnits') || {}).value || '',
+      price: (document.getElementById('askingPrice') || {}).value || '',
+      cap: (document.getElementById('capRate') || {}).value || '',
+      occ: (document.getElementById('occupancy') || {}).value || '',
+      yearBuilt: (document.getElementById('yearBuilt') || {}).value || '',
+      city: (document.getElementById('mktCity') || {}).value || '',
+      propType: (document.getElementById('propType') || {}).value || 'multifamily',
+      noi: (document.getElementById('noi') || {}).value || ''
+    };
   }
 
-  // ---- AI CONTENT GENERATION ----
-  window.generateAIContent = function(fieldId) {
-    var propName = (document.getElementById('propName1')?.value || '') + ' ' + (document.getElementById('propName2')?.value || '');
-    propName = propName.trim() || 'the subject property';
-    var address = document.getElementById('address')?.value || '';
-    var units = document.getElementById('totalUnits')?.value || '';
-    var price = document.getElementById('askingPrice')?.value || '';
-    var cap = document.getElementById('capRate')?.value || '';
-    var occ = document.getElementById('occupancy')?.value || '';
-    var yearBuilt = document.getElementById('yearBuilt')?.value || '';
-    var city = document.getElementById('mktCity')?.value || '';
-    var propType = document.getElementById('propType')?.value || 'multifamily';
-    var fmtPrice = price ? '$' + parseInt(price).toLocaleString() : '';
-
-    if (fieldId === 'execDesc') {
-      var text = 'Gateway Real Estate Advisors is pleased to present ' + (address || propName) + ', a ' + (units ? units + '-unit ' : '') + propType + ' investment opportunity';
-      if (city) text += ' located in ' + city;
-      text += '.';
-      if (fmtPrice) text += ' The property is being offered at ' + fmtPrice;
-      if (cap) text += ' representing a ' + cap + '% capitalization rate';
-      if (fmtPrice || cap) text += '.';
-      if (occ) text += ' Currently ' + occ + ' occupied, the property demonstrates strong tenant demand and stable cash flow.';
-      if (yearBuilt) text += ' Built in ' + yearBuilt + ', the property has been well-maintained and offers investors a combination of current income and long-term appreciation potential.';
-      text += ' This investment presents an attractive opportunity for both experienced and first-time multifamily investors seeking reliable returns in a growing market.';
-      document.getElementById(fieldId).value = text;
-    } else if (fieldId === 'propDesc') {
-      var text = (address || propName) + ' is a ' + (units ? units + '-unit ' : '') + propType + ' property';
-      if (city) text += ' situated in ' + city;
-      if (yearBuilt) text += ', originally constructed in ' + yearBuilt;
-      text += '. The property features a well-designed unit mix catering to a diverse tenant base.';
-      if (occ) text += ' With ' + occ + ' occupancy, the property demonstrates consistent demand from area renters.';
-      text += ' The property is conveniently located near major employment centers, retail amenities, schools, and transportation routes.';
-      document.getElementById(fieldId).value = text;
-    } else if (fieldId === 'mktDesc') {
-      var cityName = city || 'The subject market';
-      var text = cityName + ' is a vibrant and growing community with a diversified economic base. The metropolitan area has seen steady population and employment growth, driven by key industries including healthcare, manufacturing, education, and government services.';
-      text += ' The local rental market benefits from strong demand fundamentals including a growing workforce, affordable cost of living relative to national averages, and limited new multifamily construction.';
-      text += ' Major employers in the area provide a stable economic foundation, supporting consistent occupancy rates and rent growth across the multifamily sector.';
-      text += ' The market outlook remains positive, with continued job creation and population growth expected to sustain demand for quality rental housing.';
-      document.getElementById(fieldId).value = text;
+  function _showAIIndicator(fieldId) {
+    var el = document.getElementById(fieldId);
+    if (!el) return;
+    var ind = document.getElementById(fieldId + '_aiInd');
+    if (!ind) {
+      ind = document.createElement('div');
+      ind.id = fieldId + '_aiInd';
+      ind.style.cssText = 'font-size:11px;color:var(--brand-blue);margin-top:3px';
+      el.parentNode.insertBefore(ind, el.nextSibling);
     }
+    ind.textContent = '\u2726 AI Generated \u2014 review before export';
+    ind.style.display = 'block';
+    setTimeout(function(){ ind.style.display = 'none'; }, 10000);
+  }
+
+  function _aiBtn(fieldId, running) {
+    var btns = document.querySelectorAll('[data-ai-field="' + fieldId + '"]');
+    btns.forEach(function(b){ b.disabled = running; b.textContent = running ? '\u23F3 Generating\u2026' : (b.getAttribute('data-ai-label') || '\u2726 AI Assist'); });
+  }
+
+  window.generateAIContent = function(fieldId) {
+    var ctx = _omContext();
+    var fmtPrice = ctx.price ? '$' + parseInt(ctx.price).toLocaleString() : '';
+    var sys = 'You are a professional commercial real estate marketing writer for Gateway Real Estate Advisors. Write concise, compelling, broker-quality copy. Use active voice. Do not use bullet points unless specifically asked. Return only the requested text with no preamble.';
+    var prompt = '';
+    if (fieldId === 'execDesc') {
+      prompt = 'Write a 3-4 sentence executive summary paragraph for a multifamily investment OM for: Property: ' + (ctx.address || ctx.propName) +
+        (ctx.units ? ', ' + ctx.units + ' units' : '') + (fmtPrice ? ', asking price ' + fmtPrice : '') +
+        (ctx.cap ? ', cap rate ' + ctx.cap + '%' : '') + (ctx.occ ? ', occupancy ' + ctx.occ : '') +
+        (ctx.city ? ', located in ' + ctx.city : '') + '. Begin with "Gateway Real Estate Advisors is pleased to present..."';
+    } else if (fieldId === 'propDesc') {
+      prompt = 'Write a 3-4 sentence property description for: ' + (ctx.address || ctx.propName) +
+        (ctx.units ? ', ' + ctx.units + ' units' : '') + (ctx.yearBuilt ? ', built ' + ctx.yearBuilt : '') +
+        (ctx.city ? ', ' + ctx.city : '') + '. Focus on physical attributes, location, and tenant appeal.';
+    } else if (fieldId === 'mktDesc') {
+      prompt = 'Write a 4-5 sentence market overview paragraph for the ' + (ctx.city || 'subject') + ' real estate market. Cover economic drivers, rental demand, employment base, and multifamily market fundamentals. Be specific and market-focused.';
+    }
+    if (!prompt) return;
+    _aiBtn(fieldId, true);
+    claudeRequest(sys, prompt, function(text) {
+      var el = document.getElementById(fieldId);
+      if (el) el.value = text;
+      _showAIIndicator(fieldId);
+      _aiBtn(fieldId, false);
+    }, function(err) {
+      showGlobalStatus('AI error: ' + err);
+      _aiBtn(fieldId, false);
+    });
   };
 
   window.generateHighlights = function() {
-    var cap = document.getElementById('capRate')?.value || '';
-    var occ = document.getElementById('occupancy')?.value || '';
-    var units = document.getElementById('totalUnits')?.value || '';
-    var yearBuilt = document.getElementById('yearBuilt')?.value || '';
-    var city = document.getElementById('mktCity')?.value || '';
-    var highlights = [];
-    if (cap) highlights.push('Attractive ' + cap + '% cap rate with stable cash flow and strong return metrics for investors.');
-    else highlights.push('Strong capitalization rate offering attractive risk-adjusted returns for investors.');
-    if (occ) highlights.push(occ + ' occupancy demonstrating strong tenant demand and effective property management.');
-    else highlights.push('High occupancy rates demonstrating strong tenant demand and effective management.');
-    if (city) highlights.push('Prime ' + city + ' location with proximity to major employers, retail, schools, and transportation.');
-    else highlights.push('Prime location with proximity to major employers, retail amenities, and transportation routes.');
-    if (yearBuilt && parseInt(yearBuilt) >= 2000) highlights.push('Modern construction (' + yearBuilt + ') with updated systems, reducing near-term capital expenditure needs.');
-    else if (yearBuilt) highlights.push('Well-maintained ' + yearBuilt + ' construction with proven operational history and value-add potential.');
-    else highlights.push('Value-add potential through unit improvements and operational efficiencies to increase NOI.');
-    for (var i = 0; i < 4; i++) {
-      var el = document.getElementById('hl' + (i + 1));
-      if (el && highlights[i]) el.value = highlights[i];
-    }
+    var ctx = _omContext();
+    var sys = 'You are a commercial real estate marketing writer. Return exactly 4 concise investment highlight sentences (1 sentence each, no bullet symbols, no numbering). Each on its own line. No preamble.';
+    var prompt = 'Write 4 investment highlights for: ' + (ctx.address || ctx.propName) +
+      (ctx.units ? ', ' + ctx.units + ' units' : '') +
+      (ctx.cap ? ', cap rate ' + ctx.cap + '%' : '') +
+      (ctx.occ ? ', occupancy ' + ctx.occ : '') +
+      (ctx.yearBuilt ? ', built ' + ctx.yearBuilt : '') +
+      (ctx.city ? ', ' + ctx.city : '') +
+      '. Focus on cap rate/returns, occupancy, location, and value-add or condition.';
+    var hlBtn = document.querySelector('[data-ai-field="highlights"]');
+    if (hlBtn) { hlBtn.disabled = true; hlBtn.textContent = '\u23F3 Generating\u2026'; }
+    claudeRequest(sys, prompt, function(text) {
+      var lines = text.split('\n').map(function(l){ return l.replace(/^[\-\*\d\.\s]+/, '').trim(); }).filter(function(l){ return l.length > 5; });
+      for (var i = 0; i < 4; i++) {
+        var el = document.getElementById('hl' + (i + 1));
+        if (el && lines[i]) el.value = lines[i];
+      }
+      if (hlBtn) { hlBtn.disabled = false; hlBtn.textContent = hlBtn.getAttribute('data-ai-label') || '\u2726 Generate Highlights'; }
+    }, function(err) {
+      showGlobalStatus('AI error: ' + err);
+      if (hlBtn) { hlBtn.disabled = false; hlBtn.textContent = hlBtn.getAttribute('data-ai-label') || '\u2726 Generate Highlights'; }
+    });
   };
 
   // ---- OM UPLOAD / EXPORT ----
@@ -7369,43 +7445,71 @@ renderPastOMs();
       }
       return -1;
     }
-    var colUnit = findCol('unit', 'type', '#');
-    var colCount = findCol('units', 'count', 'qty', 'number');
-    var colTenant = findCol('tenant', 'resident', 'name', 'lessee', 'sample');
-    var colStart = findCol('start', 'begin', 'from', 'commence');
-    var colEnd = findCol('end', 'expire', 'expir', 'thru');
-    var colRent = findCol('rent', 'monthly', 'amount', 'avg rent', 'rate');
-    var colSqft = findCol('sqft', 'sf', 'sq ft', 'square', 'size');
-    var colVacancy = findCol('vacant', 'vacancy', 'status', 'occupied');
+    var colUnit     = findCol('unit #', 'unit#', 'unit no', 'unit', 'apt', 'type', '#');
+    var colBeds     = findCol('beds', 'bed', 'br', 'bdrm', 'bedroom');
+    var colBaths    = findCol('baths', 'bath', 'ba', 'bth');
+    var colSqft     = findCol('sqft', 'sq ft', 'sf', 'square', 'size');
+    var colCurRent  = findCol('current rent', 'cur rent', 'actual rent', 'contract rent', 'monthly rent', 'rent', 'monthly', 'amount', 'rate');
+    var colMktRent  = findCol('market rent', 'mkt rent', 'market rate', 'pro forma rent', 'market');
+    var colTenant   = findCol('tenant', 'resident', 'lessee', 'occupant', 'name');
+    var colStart    = findCol('lease start', 'start date', 'move in', 'begin', 'from', 'commence');
+    var colEnd      = findCol('lease end', 'expir', 'end date', 'move out', 'thru');
+    var colStatus   = findCol('status', 'occupied', 'vacant', 'vacancy');
+    var colSec8     = findCol('section 8', 'sec 8', 'hcv', 'voucher', 'housing');
+    var colDeposit  = findCol('deposit', 'security dep', 'sec dep');
 
-    // Fallback positional mapping
+    // Fallback positional mapping if key columns not found
     if (colUnit === -1) colUnit = 0;
-    if (colRent === -1) colRent = Math.min(3, headers.length - 1);
-    if (colSqft === -1) colSqft = Math.min(2, headers.length - 1);
+    if (colCurRent === -1) colCurRent = Math.min(4, headers.length - 1);
+    if (colSqft === -1 && headers.length > 2) colSqft = 3;
 
     var parsed = [];
+    var totalUnits = 0, totalVacant = 0, totalCurRent = 0, totalMktRent = 0;
+    var sec8Count = 0, sec8Rent = 0;
     tbody.innerHTML = '';
+
     rows.slice(1).forEach(function(cols) {
       if (!cols || cols.length < 2) return;
-      var unit = colUnit >= 0 ? (cols[colUnit]||'').toString().trim() : '';
-      var unitCount = colCount >= 0 ? parseInt((cols[colCount]||'').toString()) || 1 : 1;
-      var tenant = colTenant >= 0 ? (cols[colTenant]||'').toString().trim() : '';
+      var unit       = colUnit >= 0 ? (cols[colUnit]||'').toString().trim() : '';
+      var beds       = colBeds >= 0 ? (cols[colBeds]||'').toString().trim() : '';
+      var baths      = colBaths >= 0 ? (cols[colBaths]||'').toString().trim() : '';
+      var sqft       = colSqft >= 0 ? (cols[colSqft]||'').toString().replace(/[^0-9.]/g,'') : '';
+      var curRent    = colCurRent >= 0 ? parseFloat((cols[colCurRent]||'').toString().replace(/[^0-9.]/g,'')) || 0 : 0;
+      var mktRent    = colMktRent >= 0 ? parseFloat((cols[colMktRent]||'').toString().replace(/[^0-9.]/g,'')) || 0 : 0;
+      var tenant     = colTenant >= 0 ? (cols[colTenant]||'').toString().trim() : '';
       var leaseStart = colStart >= 0 ? (cols[colStart]||'').toString().trim() : '';
-      var leaseEnd = colEnd >= 0 ? (cols[colEnd]||'').toString().trim() : '';
-      var rent = colRent >= 0 ? (cols[colRent]||'').toString().replace(/[^0-9.]/g,'') : '';
-      var sqft = colSqft >= 0 ? (cols[colSqft]||'').toString().replace(/[^0-9.]/g,'') : '';
-      var vacancy = colVacancy >= 0 ? parseInt((cols[colVacancy]||'').toString()) || 0 : 0;
-      if (!unit && !rent) return;
+      var leaseEnd   = colEnd >= 0 ? (cols[colEnd]||'').toString().trim() : '';
+      var status     = colStatus >= 0 ? (cols[colStatus]||'').toString().trim().toLowerCase() : '';
+      var isSec8     = colSec8 >= 0 ? !!(cols[colSec8]||'').toString().trim() : false;
+      if (isSec8) { var v = (cols[colSec8]||'').toString().toLowerCase().trim(); isSec8 = v === 'yes' || v === 'y' || v === '1' || v === 'true' || v === 'x'; }
+      var deposit    = colDeposit >= 0 ? (cols[colDeposit]||'').toString().replace(/[^0-9.]/g,'') : '';
+
+      var isVacant = status.indexOf('vacant') !== -1 || status.indexOf('v') === 0 || (!tenant && !curRent);
+      if (!unit && !curRent && !tenant) return;
+
+      // Derive unit type label from beds/baths if unit column is just a number
+      var unitLabel = unit;
+      if (beds && !isNaN(parseFloat(beds))) {
+        unitLabel = beds + 'BD' + (baths ? '/' + parseFloat(baths) + 'BA' : '') + (unit && unit !== beds ? ' – ' + unit : '');
+      }
 
       var tr = document.createElement('tr');
-      var tooltip = (leaseStart ? 'Lease: ' + leaseStart + (leaseEnd ? ' – ' + leaseEnd : '') : '') +
-                    (tenant ? (leaseStart ? ' | ' : '') + 'Tenant: ' + tenant : '');
-      tr.innerHTML = '<td><input value="' + (unit||'').replace(/"/g,'&quot;') + '" class="unit-type" title="' + tooltip + '"></td>' +
-        '<td><input type="number" value="' + (unitCount||1) + '" class="unit-count" oninput="recalcMetrics()"></td>' +
+      var tooltip = (tenant ? 'Tenant: ' + tenant : '') +
+                    (leaseStart ? ' | Lease: ' + leaseStart + (leaseEnd ? ' – ' + leaseEnd : '') : '') +
+                    (isSec8 ? ' | Sec 8' : '') + (deposit ? ' | Dep: $' + deposit : '');
+      tr.innerHTML = '<td><input value="' + unitLabel.replace(/"/g,'&quot;') + '" class="unit-type" title="' + tooltip.replace(/"/g,'&quot;') + '"></td>' +
+        '<td><input type="number" value="1" class="unit-count" oninput="recalcMetrics()"></td>' +
         '<td><input type="number" value="' + (sqft||'') + '" class="unit-sqft"></td>' +
-        '<td><input type="number" value="' + (rent||'') + '" class="unit-rent" oninput="recalcMetrics()"></td>';
+        '<td><input type="number" value="' + (curRent||'') + '" class="unit-rent" oninput="recalcMetrics()"></td>';
       tbody.appendChild(tr);
-      parsed.push({ unit: unit, count: unitCount, tenant: tenant, leaseStart: leaseStart, leaseEnd: leaseEnd, rent: rent, sqft: sqft, vacancy: vacancy });
+
+      totalUnits += 1;
+      if (isVacant) totalVacant++;
+      totalCurRent += curRent;
+      totalMktRent += mktRent || curRent;
+      if (isSec8) { sec8Count++; sec8Rent += curRent; }
+      parsed.push({ unit: unit, beds: beds, baths: baths, sqft: sqft, curRent: curRent, mktRent: mktRent,
+                    tenant: tenant, leaseStart: leaseStart, leaseEnd: leaseEnd, status: status, isSec8: isSec8, deposit: deposit, vacant: isVacant });
     });
 
     if (parsed.length === 0) {
@@ -7413,18 +7517,23 @@ renderPastOMs();
       return;
     }
 
-    var totalUnits = parsed.reduce(function(s,r){return s+(r.count||1);},0);
-    var totalVacant = parsed.reduce(function(s,r){return s+(r.vacancy||0);},0);
-    var totalRent = parsed.reduce(function(s,r){ var rAmt = parseFloat(r.rent)||0; var cnt = r.count||1; return s + rAmt*cnt; }, 0);
-    var summary = '✓ Imported ' + parsed.length + ' unit type' + (parsed.length !== 1 ? 's' : '') +
-      ' (' + totalUnits + ' total units' + (totalVacant ? ', ' + totalVacant + ' vacant' : '') + ')' +
-      (totalRent > 0 ? ' · Gross Rent: $' + Math.round(totalRent).toLocaleString() + '/mo' : '') +
-      '. Review and adjust as needed.';
-    rrStatus(summary, false);
-    showGlobalStatus('Rent roll imported: ' + totalUnits + ' units, $' + Math.round(totalRent).toLocaleString() + '/mo gross rent');
+    // Auto-populate summary fields
+    var occupancyPct = totalUnits > 0 ? Math.round(((totalUnits - totalVacant) / totalUnits) * 100) : 0;
+    var vacancyPct = 100 - occupancyPct;
+    var lossToLease = totalMktRent - totalCurRent;
+
+    if (document.getElementById('totalUnits') && !document.getElementById('totalUnits').value) document.getElementById('totalUnits').value = totalUnits;
+    if (document.getElementById('occupancy') && !document.getElementById('occupancy').value) document.getElementById('occupancy').value = occupancyPct + '%';
+
+    var successMsg = '✓ Imported ' + parsed.length + ' unit' + (parsed.length !== 1 ? 's' : '') +
+      ' · Occ: ' + occupancyPct + '%' + (totalVacant ? ' (' + totalVacant + ' vacant)' : '') +
+      (totalCurRent > 0 ? ' · Actual Gross Rent: $' + Math.round(totalCurRent).toLocaleString() + '/mo' : '') +
+      (lossToLease > 0 ? ' · Loss to Lease: $' + Math.round(lossToLease).toLocaleString() + '/mo' : '') +
+      (sec8Count > 0 ? ' · Sec 8: ' + sec8Count + ' units ($' + Math.round(sec8Rent).toLocaleString() + '/mo)' : '');
+    rrStatus(successMsg, false);
+    showGlobalStatus('Rent roll imported: ' + totalUnits + ' units');
     if (typeof window.recalcMetrics === 'function') window.recalcMetrics();
   }
-
   // ---- T12 UPLOAD ----
   function t12Status(msg, isError) {
     var el = document.getElementById('t12Status');
@@ -7708,11 +7817,432 @@ renderPastOMs();
   window.renderEmployers = renderEmployers;
   window.renderIndustries = renderIndustries;
 
+  // ---- CLAUDE API HELPER ----
+  function getClaudeKey() {
+    var k = localStorage.getItem('gw_claude_api_key') || '';
+    if (!k) {
+      k = prompt('Enter your Claude API key (stored locally):') || '';
+      if (k) localStorage.setItem('gw_claude_api_key', k.trim());
+    }
+    return k.trim();
+  }
+
+  function claudeRequest(systemPrompt, userPrompt, onResult, onError) {
+    var key = getClaudeKey();
+    if (!key) { onError('No API key provided.'); return; }
+    fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      })
+    }).then(function(r) {
+      if (!r.ok) { return r.json().then(function(e){ throw new Error(e.error && e.error.message || ('HTTP ' + r.status)); }); }
+      return r.json();
+    }).then(function(data) {
+      var text = data.content && data.content[0] && data.content[0].text || '';
+      onResult(text.trim());
+    }).catch(function(err) { onError(err.message || String(err)); });
+  }
+
+  // ---- INJECT AGENT BIO PANEL (TAB 10) ----
+  function injectAgentBioPanel() {
+    var container = document.querySelector('#page-multifamily');
+    if (!container) return;
+    var panel = document.createElement('div');
+    panel.className = 'panel';
+    panel.id = 'tab10';
+    panel.style.cssText = 'display:none';
+    panel.innerHTML =
+      '<div class="section-title">About the Agent(s)</div>' +
+      '<p style="color:var(--brand-gray);font-size:13px;margin-bottom:16px">Build detailed agent bio pages for the OM. Profiles save locally by email address.</p>' +
+      '<div id="agentBioList"></div>' +
+      '<button class="btn-sm" onclick="addAgentBioCard()" style="margin-top:8px">+ Add Agent Bio</button>' +
+      '<div style="margin-top:16px;padding:12px;background:rgba(162,182,192,0.06);border-radius:8px;border:1px solid rgba(162,182,192,0.15)">' +
+        '<label style="font-size:12px;color:var(--brand-gray)">Claude API Key (for AI Bio Writer)</label>' +
+        '<div style="display:flex;gap:8px;margin-top:4px">' +
+          '<input id="claudeKeyInput" type="password" placeholder="sk-ant-..." style="flex:1;font-size:13px" ' +
+            'value="' + (localStorage.getItem('gw_claude_api_key') || '') + '" ' +
+            'oninput="localStorage.setItem(\'gw_claude_api_key\',this.value.trim())">' +
+          '<button class="btn-sm" onclick="localStorage.removeItem(\'gw_claude_api_key\');document.getElementById(\'claudeKeyInput\').value=\'\';showGlobalStatus(\'API key cleared\')">Clear</button>' +
+        '</div>' +
+      '</div>';
+    container.appendChild(panel);
+    // Render one blank card to start
+    setTimeout(function() { addAgentBioCard(); }, 50);
+  }
+
+  var _agentBioCards = [];
+
+  window.addAgentBioCard = function() {
+    if (_agentBioCards.length >= 4) { showGlobalStatus('Maximum 4 agents supported'); return; }
+    var idx = _agentBioCards.length;
+    var id = 'abc' + idx;
+    _agentBioCards.push({ id: id });
+    var container = document.getElementById('agentBioList');
+    if (!container) return;
+    var card = document.createElement('div');
+    card.id = id;
+    card.style.cssText = 'border:1px solid rgba(162,182,192,0.2);border-radius:10px;padding:16px;margin-bottom:16px;background:rgba(30,47,57,0.4)';
+    if (idx === 0) card.style.borderColor = 'var(--brand-gold,#C8A84B)';
+    card.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
+        '<span style="font-size:13px;font-weight:600;color:var(--brand-cream)">' + (idx === 0 ? '★ Primary Agent' : 'Agent ' + (idx + 1)) + '</span>' +
+        (idx > 0 ? '<button class="btn-sm" style="padding:2px 10px;font-size:11px" onclick="removeAgentBioCard(\'' + id + '\')">✕ Remove</button>' : '') +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">' +
+        '<div>' +
+          '<div style="margin-bottom:10px;text-align:center">' +
+            '<div id="' + id + '_photoPreview" style="width:120px;height:150px;border-radius:10px;background:rgba(162,182,192,0.1);border:2px dashed rgba(162,182,192,0.3);margin:0 auto 6px;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden" onclick="document.getElementById(\'' + id + '_photoInput\').click()">' +
+              '<span style="color:var(--brand-gray);font-size:12px">Click to upload</span>' +
+            '</div>' +
+            '<input type="file" id="' + id + '_photoInput" accept="image/*" style="display:none" onchange="previewAgentPhoto(\'' + id + '\',this)">' +
+          '</div>' +
+          '<div class="form-row"><label>Full Name</label><input id="' + id + '_name" placeholder="Jane Smith" oninput="autoSaveAgentBio(\'' + id + '\')"></div>' +
+          '<div class="form-row"><label>Title</label><input id="' + id + '_title" placeholder="Senior Advisor" oninput="autoSaveAgentBio(\'' + id + '\')"></div>' +
+          '<div class="form-row"><label>Phone</label><input id="' + id + '_phone" placeholder="(712) 555-0100" oninput="autoSaveAgentBio(\'' + id + '\')"></div>' +
+          '<div class="form-row"><label>Email</label><input id="' + id + '_email" type="email" placeholder="jane@gatewayrea.com" oninput="autoSaveAgentBio(\'' + id + '\')"></div>' +
+          '<div class="form-row"><label>License #</label><input id="' + id + '_license" placeholder="B12345" oninput="autoSaveAgentBio(\'' + id + '\')"></div>' +
+          '<div class="form-row"><label>QR Code URL</label><input id="' + id + '_qrurl" placeholder="https://..." oninput="renderQR(\'' + id + '\')"></div>' +
+          '<div id="' + id + '_qr" style="margin-top:6px;text-align:center"></div>' +
+        '</div>' +
+        '<div>' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">' +
+            '<label style="font-size:12px;color:var(--brand-gray);text-transform:uppercase;letter-spacing:1px">Bio / Area of Expertise</label>' +
+            '<button class="btn-sm" style="font-size:11px;padding:2px 10px;background:linear-gradient(135deg,#1E2F39,#2a4a5a);border:1px solid var(--brand-blue)" onclick="writeBioAI(\'' + id + '\')">✦ Write Bio</button>' +
+          '</div>' +
+          '<textarea id="' + id + '_bio" rows="5" placeholder="Specializes in multifamily and commercial investment properties..." style="width:100%;margin-bottom:8px" oninput="autoSaveAgentBio(\'' + id + '\')"></textarea>' +
+          '<div id="' + id + '_aiIndicator" style="display:none;font-size:11px;color:var(--brand-blue);margin-bottom:6px">✦ AI Generated — review before export</div>' +
+          '<div class="form-row"><label>Professional Accomplishments</label>' +
+            '<textarea id="' + id + '_accomplishments" rows="3" placeholder="Top Producer 2023, $50M+ in transactions..." oninput="autoSaveAgentBio(\'' + id + '\')"></textarea></div>' +
+          '<div class="form-row"><label>Affiliations</label>' +
+            '<textarea id="' + id + '_affiliations" rows="2" placeholder="NAR, Iowa Association of Realtors..." oninput="autoSaveAgentBio(\'' + id + '\')"></textarea></div>' +
+          '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">' +
+            '<button class="btn-sm" onclick="saveAgentProfile(\'' + id + '\')">💾 Save Profile</button>' +
+            '<button class="btn-sm" onclick="loadAgentProfile(\'' + id + '\')">📂 Load Saved Profile</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    container.appendChild(card);
+  };
+
+  window.removeAgentBioCard = function(id) {
+    var el = document.getElementById(id);
+    if (el) el.remove();
+    _agentBioCards = _agentBioCards.filter(function(c){ return c.id !== id; });
+  };
+
+  window.previewAgentPhoto = function(id, input) {
+    if (!input.files || !input.files[0]) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var preview = document.getElementById(id + '_photoPreview');
+      if (preview) { preview.innerHTML = '<img src="' + e.target.result + '" style="width:100%;height:100%;object-fit:cover">'; }
+      var photoData = document.getElementById(id + '_photoData');
+      if (!photoData) {
+        photoData = document.createElement('input');
+        photoData.type = 'hidden';
+        photoData.id = id + '_photoData';
+        var card = document.getElementById(id);
+        if (card) card.appendChild(photoData);
+      }
+      photoData.value = e.target.result;
+    };
+    reader.readAsDataURL(input.files[0]);
+  };
+
+  window.renderQR = function(id) {
+    var url = (document.getElementById(id + '_qrurl') || {}).value || '';
+    var container = document.getElementById(id + '_qr');
+    if (!container) return;
+    if (!url) { container.innerHTML = ''; return; }
+    if (typeof qrcode !== 'undefined') {
+      try {
+        var qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        container.innerHTML = qr.createImgTag(3);
+      } catch(e) { container.innerHTML = ''; }
+    }
+  };
+
+  window.writeBioAI = function(id) {
+    var name = (document.getElementById(id + '_name') || {}).value || 'the agent';
+    var title = (document.getElementById(id + '_title') || {}).value || 'Real Estate Advisor';
+    var accomplishments = (document.getElementById(id + '_accomplishments') || {}).value || '';
+    var affiliations = (document.getElementById(id + '_affiliations') || {}).value || '';
+    var propName = ((document.getElementById('propName1') || {}).value || '') + ' ' + ((document.getElementById('propName2') || {}).value || '');
+    var btn = document.querySelector('#' + id + ' button[onclick*="writeBioAI"]');
+    if (btn) { btn.textContent = '⏳ Writing...'; btn.disabled = true; }
+    var sys = 'You are a professional real estate marketing copywriter specializing in agent bios for commercial and multifamily investment sales. Write in a confident, professional tone. Be concise (3-4 sentences max).';
+    var prompt = 'Write a professional real estate agent bio for: Name: ' + name + ', Title: ' + title +
+      (accomplishments ? ', Accomplishments: ' + accomplishments : '') +
+      (affiliations ? ', Affiliations: ' + affiliations : '') +
+      '. The agent works at Gateway Real Estate Advisors.';
+    claudeRequest(sys, prompt, function(text) {
+      var el = document.getElementById(id + '_bio');
+      if (el) el.value = text;
+      var ind = document.getElementById(id + '_aiIndicator');
+      if (ind) { ind.style.display = 'block'; setTimeout(function(){ ind.style.display='none'; }, 10000); }
+      if (btn) { btn.textContent = '✦ Write Bio'; btn.disabled = false; }
+      autoSaveAgentBio(id);
+    }, function(err) {
+      showGlobalStatus('AI error: ' + err);
+      if (btn) { btn.textContent = '✦ Write Bio'; btn.disabled = false; }
+    });
+  };
+
+  window.autoSaveAgentBio = function(id) {
+    var email = (document.getElementById(id + '_email') || {}).value || '';
+    if (!email) return;
+    saveAgentProfile(id, true);
+  };
+
+  window.saveAgentProfile = function(id, silent) {
+    var email = (document.getElementById(id + '_email') || {}).value || '';
+    if (!email) { if (!silent) showGlobalStatus('Enter an email address to save the profile'); return; }
+    var profile = {
+      name: (document.getElementById(id + '_name') || {}).value || '',
+      title: (document.getElementById(id + '_title') || {}).value || '',
+      phone: (document.getElementById(id + '_phone') || {}).value || '',
+      email: email,
+      license: (document.getElementById(id + '_license') || {}).value || '',
+      qrurl: (document.getElementById(id + '_qrurl') || {}).value || '',
+      bio: (document.getElementById(id + '_bio') || {}).value || '',
+      accomplishments: (document.getElementById(id + '_accomplishments') || {}).value || '',
+      affiliations: (document.getElementById(id + '_affiliations') || {}).value || '',
+      photo: (document.getElementById(id + '_photoData') || {}).value || ''
+    };
+    localStorage.setItem('gateway_agent_profile_' + email.toLowerCase(), JSON.stringify(profile));
+    if (!silent) showGlobalStatus('Profile saved for ' + email);
+  };
+
+  window.loadAgentProfile = function(id) {
+    // Build list of saved profiles
+    var profiles = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var key = localStorage.key(i);
+      if (key && key.indexOf('gateway_agent_profile_') === 0) {
+        try { var p = JSON.parse(localStorage.getItem(key)); if (p && p.email) profiles.push(p); } catch(e) {}
+      }
+    }
+    if (profiles.length === 0) { showGlobalStatus('No saved profiles found'); return; }
+    var options = profiles.map(function(p, i){ return i + ': ' + (p.name || p.email); }).join('\n');
+    var choice = prompt('Select profile number:\n' + options);
+    var idx2 = parseInt(choice);
+    if (isNaN(idx2) || idx2 < 0 || idx2 >= profiles.length) return;
+    var p2 = profiles[idx2];
+    var fields = ['name','title','phone','email','license','qrurl','bio','accomplishments','affiliations'];
+    fields.forEach(function(f) {
+      var el = document.getElementById(id + '_' + f);
+      if (el && p2[f]) el.value = p2[f];
+    });
+    if (p2.photo) {
+      var preview = document.getElementById(id + '_photoPreview');
+      if (preview) preview.innerHTML = '<img src="' + p2.photo + '" style="width:100%;height:100%;object-fit:cover">';
+      var photoData = document.getElementById(id + '_photoData');
+      if (!photoData) {
+        photoData = document.createElement('input');
+        photoData.type = 'hidden';
+        photoData.id = id + '_photoData';
+        var card = document.getElementById(id);
+        if (card) card.appendChild(photoData);
+      }
+      photoData.value = p2.photo;
+    }
+    if (p2.qrurl) renderQR(id);
+    showGlobalStatus('Profile loaded: ' + (p2.name || p2.email));
+  };
+
+  // ---- INJECT ABOUT GATEWAY PANEL (TAB 11) ----
+  var _gwAdminUnlocked = false;
+  var GW_ADMIN_PASS = 'gw2025';
+
+  function injectGatewayPanel() {
+    var container = document.querySelector('#page-multifamily');
+    if (!container) return;
+    var panel = document.createElement('div');
+    panel.className = 'panel';
+    panel.id = 'tab11';
+    panel.style.cssText = 'display:none';
+
+    // Try loading saved data
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem('gateway_about_company') || '{}'); } catch(e) {}
+    var services = saved.services || 'Investment Sales · Multifamily · Commercial · Land · 1031 Exchange Advisory';
+    var additionalServices = saved.additionalServices || 'Buyer Representation · Seller Representation · Market Analysis · Lease Advisory';
+    var stat1v = saved.stat1v || '$1B+'; var stat1l = saved.stat1l || 'Total Transaction Volume';
+    var stat2v = saved.stat2v || '500+'; var stat2l = saved.stat2l || 'Transactions Closed';
+    var stat3v = saved.stat3v || '20+'; var stat3l = saved.stat3l || 'Years Experience';
+    var stat4v = saved.stat4v || '4'; var stat4l = saved.stat4l || 'States Covered';
+    var para1 = saved.para1 || 'Gateway Real Estate Advisors is a boutique commercial real estate brokerage specializing in investment sales across the Midwest. Our team combines deep local market knowledge with institutional-grade analysis to deliver superior results for our clients.';
+    var para2 = saved.para2 || 'We represent owners, buyers, and investors across multifamily, commercial, industrial, and land asset classes. Our advisors average over 10 years of experience and have facilitated hundreds of transactions valued at over $1 billion in aggregate.';
+    var supportTeam = saved.supportTeam || '';
+    var readonlyAttr = _gwAdminUnlocked ? '' : 'readonly';
+    var editBtnStyle = _gwAdminUnlocked ? 'display:none' : '';
+    var saveBtnStyle = _gwAdminUnlocked ? '' : 'display:none';
+
+    panel.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">' +
+        '<div class="section-title" style="margin:0">About Gateway Real Estate Advisors</div>' +
+        '<div id="gwAdminBar" style="display:flex;gap:8px;align-items:center">' +
+          '<span id="gwAdminBadge" style="font-size:11px;color:var(--brand-gray);' + (readonlyAttr ? '' : 'display:none') + '">🔒 Read-only</span>' +
+          '<button id="gwEditBtn" class="btn-sm" style="font-size:11px;' + editBtnStyle + '" onclick="unlockGatewayEdit()">🔓 Admin Edit</button>' +
+          '<button id="gwSaveBtn" class="btn-sm" style="font-size:11px;background:var(--brand-gold,#C8A84B);color:#1E2F39;' + saveBtnStyle + '" onclick="saveGatewayData()">💾 Save Changes</button>' +
+        '</div>' +
+      '</div>' +
+      '<p style="color:var(--brand-gray);font-size:13px;margin-bottom:16px">This page auto-loads for all agents in the OM export. Admin login required to edit.</p>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">' +
+        '<div style="background:var(--brand-navy,#1E2F39);border-radius:10px;padding:16px">' +
+          '<div class="form-row"><label>Office Photo URL</label>' +
+            '<input id="gw_officePhoto" placeholder="https://... or upload below" ' + readonlyAttr + ' value="' + (saved.officePhoto||'').replace(/"/g,'&quot;') + '">' +
+          '</div>' +
+          '<div class="form-row" style="margin-top:8px"><label>Investment Sales / Primary Services</label>' +
+            '<textarea id="gw_services" rows="3" ' + readonlyAttr + '>' + services + '</textarea>' +
+          '</div>' +
+          '<div class="form-row"><label>Additional Services</label>' +
+            '<textarea id="gw_additionalServices" rows="2" ' + readonlyAttr + '>' + additionalServices + '</textarea>' +
+          '</div>' +
+          '<div style="margin-top:12px"><div style="font-size:11px;color:var(--brand-gray);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Company Stats</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+              '<div style="text-align:center;background:rgba(162,182,192,0.08);border-radius:8px;padding:8px">' +
+                '<input id="gw_stat1v" value="' + stat1v + '" ' + readonlyAttr + ' style="text-align:center;font-size:22px;font-weight:200;color:var(--brand-cream);border:none;background:transparent;width:100%">' +
+                '<input id="gw_stat1l" value="' + stat1l + '" ' + readonlyAttr + ' style="text-align:center;font-size:10px;color:var(--brand-gray);border:none;background:transparent;width:100%;letter-spacing:1px">' +
+              '</div>' +
+              '<div style="text-align:center;background:rgba(162,182,192,0.08);border-radius:8px;padding:8px">' +
+                '<input id="gw_stat2v" value="' + stat2v + '" ' + readonlyAttr + ' style="text-align:center;font-size:22px;font-weight:200;color:var(--brand-cream);border:none;background:transparent;width:100%">' +
+                '<input id="gw_stat2l" value="' + stat2l + '" ' + readonlyAttr + ' style="text-align:center;font-size:10px;color:var(--brand-gray);border:none;background:transparent;width:100%;letter-spacing:1px">' +
+              '</div>' +
+              '<div style="text-align:center;background:rgba(162,182,192,0.08);border-radius:8px;padding:8px">' +
+                '<input id="gw_stat3v" value="' + stat3v + '" ' + readonlyAttr + ' style="text-align:center;font-size:22px;font-weight:200;color:var(--brand-cream);border:none;background:transparent;width:100%">' +
+                '<input id="gw_stat3l" value="' + stat3l + '" ' + readonlyAttr + ' style="text-align:center;font-size:10px;color:var(--brand-gray);border:none;background:transparent;width:100%;letter-spacing:1px">' +
+              '</div>' +
+              '<div style="text-align:center;background:rgba(162,182,192,0.08);border-radius:8px;padding:8px">' +
+                '<input id="gw_stat4v" value="' + stat4v + '" ' + readonlyAttr + ' style="text-align:center;font-size:22px;font-weight:200;color:var(--brand-cream);border:none;background:transparent;width:100%">' +
+                '<input id="gw_stat4l" value="' + stat4l + '" ' + readonlyAttr + ' style="text-align:center;font-size:10px;color:var(--brand-gray);border:none;background:transparent;width:100%;letter-spacing:1px">' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="border-radius:10px;padding:16px;background:rgba(228,227,212,0.05);border:1px solid rgba(162,182,192,0.15)">' +
+          '<div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--brand-gray);margin-bottom:6px">WHO WE ARE</div>' +
+          '<textarea id="gw_para1" rows="4" ' + readonlyAttr + ' style="margin-bottom:10px">' + para1 + '</textarea>' +
+          '<textarea id="gw_para2" rows="4" ' + readonlyAttr + '>' + para2 + '</textarea>' +
+          '<div style="margin-top:14px"><div style="font-size:11px;color:var(--brand-gray);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Support Team</div>' +
+            '<div id="gwSupportTeam"></div>' +
+            '<button id="gwAddSupportBtn" class="btn-sm" style="font-size:11px;margin-top:6px;' + saveBtnStyle + '" onclick="addGWSupportMember()">+ Add Member</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    container.appendChild(panel);
+    // Render support team
+    if (saved.supportTeamMembers) {
+      _gwSupportMembers = saved.supportTeamMembers;
+      renderGWSupportTeam();
+    }
+  }
+
+  var _gwSupportMembers = [];
+
+  window.unlockGatewayEdit = function() {
+    var pass = prompt('Enter admin password:');
+    if (pass === GW_ADMIN_PASS) {
+      _gwAdminUnlocked = true;
+      // Enable all fields
+      ['gw_officePhoto','gw_services','gw_additionalServices','gw_para1','gw_para2',
+       'gw_stat1v','gw_stat1l','gw_stat2v','gw_stat2l','gw_stat3v','gw_stat3l','gw_stat4v','gw_stat4l'].forEach(function(id2) {
+        var el = document.getElementById(id2);
+        if (el) el.removeAttribute('readonly');
+      });
+      var badge = document.getElementById('gwAdminBadge');
+      var editBtn = document.getElementById('gwEditBtn');
+      var saveBtn = document.getElementById('gwSaveBtn');
+      var addBtn = document.getElementById('gwAddSupportBtn');
+      if (badge) badge.style.display = 'none';
+      if (editBtn) editBtn.style.display = 'none';
+      if (saveBtn) saveBtn.style.display = '';
+      if (addBtn) addBtn.style.display = '';
+      renderGWSupportTeam();
+      showGlobalStatus('Admin mode unlocked');
+    } else {
+      showGlobalStatus('Incorrect password');
+    }
+  };
+
+  window.saveGatewayData = function() {
+    var data = {
+      officePhoto: (document.getElementById('gw_officePhoto')||{}).value||'',
+      services: (document.getElementById('gw_services')||{}).value||'',
+      additionalServices: (document.getElementById('gw_additionalServices')||{}).value||'',
+      stat1v: (document.getElementById('gw_stat1v')||{}).value||'',
+      stat1l: (document.getElementById('gw_stat1l')||{}).value||'',
+      stat2v: (document.getElementById('gw_stat2v')||{}).value||'',
+      stat2l: (document.getElementById('gw_stat2l')||{}).value||'',
+      stat3v: (document.getElementById('gw_stat3v')||{}).value||'',
+      stat3l: (document.getElementById('gw_stat3l')||{}).value||'',
+      stat4v: (document.getElementById('gw_stat4v')||{}).value||'',
+      stat4l: (document.getElementById('gw_stat4l')||{}).value||'',
+      para1: (document.getElementById('gw_para1')||{}).value||'',
+      para2: (document.getElementById('gw_para2')||{}).value||'',
+      supportTeamMembers: _gwSupportMembers
+    };
+    localStorage.setItem('gateway_about_company', JSON.stringify(data));
+    showGlobalStatus('Gateway company info saved');
+  };
+
+  window.addGWSupportMember = function() {
+    if (!_gwAdminUnlocked) return;
+    _gwSupportMembers.push({ role: '', name: '', photo: '' });
+    renderGWSupportTeam();
+  };
+
+  function renderGWSupportTeam() {
+    var container = document.getElementById('gwSupportTeam');
+    if (!container) return;
+    container.innerHTML = '';
+    _gwSupportMembers.forEach(function(m, i) {
+      var div = document.createElement('div');
+      div.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px';
+      div.innerHTML =
+        '<div style="width:50px;height:50px;border-radius:50%;background:rgba(162,182,192,0.15);border:1px dashed rgba(162,182,192,0.3);flex-shrink:0;cursor:' + (_gwAdminUnlocked?'pointer':'default') + ';overflow:hidden;display:flex;align-items:center;justify-content:center" ' +
+          (_gwAdminUnlocked ? 'onclick="document.getElementById(\'gwSupportPhotoInput_' + i + '\').click()"' : '') + '>' +
+          (m.photo ? '<img src="' + m.photo + '" style="width:100%;height:100%;object-fit:cover">' : '<span style="font-size:18px">👤</span>') +
+        '</div>' +
+        (_gwAdminUnlocked ? '<input type="file" id="gwSupportPhotoInput_' + i + '" accept="image/*" style="display:none" onchange="loadGWSupportPhoto(' + i + ',this)">' : '') +
+        '<div style="flex:1">' +
+          '<input value="' + (m.role||'') + '" placeholder="Role" ' + (_gwAdminUnlocked?'':'readonly') + ' style="margin-bottom:4px;font-size:12px" oninput="_gwSupportMembers[' + i + '].role=this.value">' +
+          '<input value="' + (m.name||'') + '" placeholder="Full Name" ' + (_gwAdminUnlocked?'':'readonly') + ' style="font-size:12px" oninput="_gwSupportMembers[' + i + '].name=this.value">' +
+        '</div>' +
+        (_gwAdminUnlocked ? '<button class="btn-sm" style="font-size:11px;padding:2px 8px" onclick="_gwSupportMembers.splice(' + i + ',1);renderGWSupportTeam()">✕</button>' : '');
+      container.appendChild(div);
+    });
+  }
+
+  window.loadGWSupportPhoto = function(idx, input) {
+    if (!input.files || !input.files[0]) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      _gwSupportMembers[idx].photo = e.target.result;
+      renderGWSupportTeam();
+    };
+    reader.readAsDataURL(input.files[0]);
+  };
+
   // ---- INIT ----
   function initOverlay() {
     injectTabs();
     injectCompsPanel();
     injectAnalysisPanel();
+    injectAgentBioPanel();
+    injectGatewayPanel();
     injectVacancyLoss();
     injectAIButtons();
     injectOMUpload();
