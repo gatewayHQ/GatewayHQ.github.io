@@ -1,1 +1,28 @@
+# API Configuration (contains secret keys)
+config.js
+
+# Rendered video files
+renders/*.mp4
+renders/*.webm
 renders/nebraska-promo_2026-04-17_00-25-01.mp4
+
+# Node modules
+node_modules/
+package-lock.json
+
+# Environment files
+.env
+.env.local
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Editor Files
+.vscode/
+.idea/
+*.swp
+
+# Build folders
+dist/
+build/

@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gateway Agent Toolkit</title>
+<!-- Load API config FIRST — config.js is gitignored and holds API keys -->
+<script src="config.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=EB+Garamond:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 /* ========== GLOBAL RESETS & VARIABLES ========== */
@@ -477,6 +479,35 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
   gap: 10px;
   margin-top: 16px;
 }
+
+/* ── Buffer Integration ── */
+.buffer-bar { display:flex; align-items:center; gap:10px; padding:10px 14px; background:#0e1e28; border:1px solid #2a4050; border-radius:10px; margin-bottom:14px; flex-wrap:wrap; }
+.buffer-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.buffer-dot.off { background:#E74C3C; }
+.buffer-dot.on  { background:#27AE60; }
+.buffer-status-text { font-size:12px; font-weight:600; flex:1; }
+.buffer-btn { padding:5px 14px; border-radius:6px; border:1px solid #2a4050; background:#1a2e3b; color:#C8D8E0; font-size:11px; font-weight:700; letter-spacing:0.5px; cursor:pointer; font-family:'Montserrat',sans-serif; white-space:nowrap; transition:border-color .15s; }
+.buffer-btn:hover { border-color:#C8A84B; color:#C8A84B; }
+.buffer-profiles-wrap { display:none; padding:10px 14px; background:#0e1e28; border:1px solid #2a4050; border-radius:10px; margin-bottom:14px; }
+.buffer-profiles-wrap.show { display:block; }
+.buffer-profile-item { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid #1a2e3b; }
+.buffer-profile-item:last-child { border-bottom:none; }
+.buffer-profile-item label { font-size:12px; color:#C8D8E0; cursor:pointer; flex:1; }
+.buffer-profile-item input[type=checkbox] { accent-color:#C8A84B; width:14px; height:14px; cursor:pointer; }
+.buffer-profile-service { font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; padding:2px 7px; border-radius:4px; background:rgba(200,168,75,0.15); color:#C8A84B; }
+.buffer-schedule-row { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; align-items:center; }
+.buffer-schedule-row input[type=datetime-local] { flex:1; min-width:160px; background:#1a2e3b; border:1px solid #2a4050; border-radius:6px; color:#C8D8E0; font-size:12px; padding:7px 10px; }
+.buffer-schedule-btn { padding:8px 20px; background:#C8A84B; color:#152229; border:none; border-radius:7px; font-family:'Montserrat',sans-serif; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; transition:background .15s; }
+.buffer-schedule-btn:hover { background:#d4b55e; }
+.buffer-schedule-btn:disabled { opacity:.5; cursor:not-allowed; }
+.buffer-now-btn { padding:8px 14px; background:transparent; border:1px solid #C8A84B; color:#C8A84B; border-radius:7px; font-family:'Montserrat',sans-serif; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.buffer-now-btn:hover { background:rgba(200,168,75,.1); }
+.buffer-posts-section { margin-top:20px; border-top:1px solid #2a4050; padding-top:16px; }
+.buffer-posts-title { font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:#7a9aaa; margin-bottom:10px; }
+.buffer-post-card { background:#0e1e28; border:1px solid #2a4050; border-left:3px solid #C8A84B; border-radius:8px; padding:10px 14px; margin-bottom:8px; }
+.buffer-post-caption { font-size:12px; color:#C8D8E0; margin-bottom:5px; line-height:1.5; }
+.buffer-post-meta { display:flex; gap:12px; flex-wrap:wrap; font-size:10px; color:#7a9aaa; }
+.buffer-post-status { color:#27AE60; font-weight:700; }
 
 /* ========== MULTIFAMILY OM BUILDER (from v9) ========== */
 #page-multifamily {
@@ -1389,6 +1420,26 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
 
 <!-- ========== SOCIAL MEDIA BUILDER ========== -->
 <div id="page-social" class="page">
+
+  <!-- ── Buffer Connection Bar ── -->
+  <div class="buffer-bar" id="buffer-bar">
+    <div class="buffer-dot off" id="buffer-dot"></div>
+    <span class="buffer-status-text" id="buffer-status-text" style="color:#7a9aaa">Buffer not connected</span>
+    <button class="buffer-btn" id="buffer-connect-btn" onclick="testBufferConnection()">Connect Buffer</button>
+    <button class="buffer-btn" id="buffer-refresh-btn" style="display:none" onclick="loadBufferProfiles()">↻ Refresh</button>
+  </div>
+
+  <!-- ── Buffer Profiles ── -->
+  <div class="buffer-profiles-wrap" id="buffer-profiles-wrap">
+    <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#7a9aaa;margin-bottom:8px">Post To</div>
+    <div id="buffer-profiles-list"></div>
+    <div class="buffer-schedule-row">
+      <input type="datetime-local" id="buffer-schedule-time" title="Schedule time (leave blank to add to queue)">
+      <button class="buffer-now-btn" onclick="schedulePostToBuffer(true)">Send Now</button>
+      <button class="buffer-schedule-btn" id="buffer-sched-btn" onclick="schedulePostToBuffer(false)">📅 Schedule Post</button>
+    </div>
+  </div>
+
   <div class="sm-container">
     <!-- LEFT: Form -->
     <div class="sm-form" id="sm-form">
@@ -1583,6 +1634,7 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
       <div class="btn-row">
         <button class="btn btn-primary" onclick="updateSocialPreview()" style="flex:1">🔄 Update Preview</button>
         <button class="btn btn-success" onclick="downloadSocialGraphic()" style="flex:1">⬇️ Download PNG</button>
+        <button class="btn buffer-schedule-btn" id="sm-buffer-btn" onclick="schedulePostToBuffer(false)" style="flex:1;display:none">📅 Schedule to Buffer</button>
       </div>
     </div>
 
@@ -1597,6 +1649,12 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
         <button class="btn btn-secondary" onclick="downloadSocialSquare()">⬇️ Download Square (1080×1080)</button>
       </div>
     </div>
+  </div>
+
+  <!-- ── Scheduled Posts Dashboard ── -->
+  <div class="buffer-posts-section" id="scheduled-posts-dashboard" style="display:none">
+    <div style="font-size:11px;color:#7a9aaa;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;font-weight:700">Scheduled Posts</div>
+    <div id="scheduled-posts-list"></div>
   </div>
 </div>
 
@@ -4921,6 +4979,177 @@ function downloadSocialSquare() {
   showGlobalStatus('✅ Square PNG downloaded!');
 }
 
+// ===================================================================
+// BUFFER API INTEGRATION
+// ===================================================================
+
+async function testBufferConnection() {
+  var token = (window.CONFIG && window.CONFIG.bufferAccessToken) ? window.CONFIG.bufferAccessToken : '';
+  if (!token) {
+    showGlobalStatus('⚠️ Buffer API key not found in config.js');
+    return;
+  }
+  var dot = document.getElementById('buffer-dot');
+  var statusText = document.getElementById('buffer-status-text');
+  var connectBtn = document.getElementById('buffer-connect-btn');
+  var refreshBtn = document.getElementById('buffer-refresh-btn');
+  statusText.textContent = 'Connecting...';
+  statusText.style.color = '#C8A84B';
+  try {
+    var resp = await fetch('https://api.bufferapp.com/1/user.json?access_token=' + encodeURIComponent(token));
+    if (!resp.ok) { handleBufferError({status: resp.status}, 'connection'); return; }
+    var data = await resp.json();
+    dot.className = 'buffer-dot on';
+    statusText.textContent = 'Connected as ' + (data.name || data.email || 'Buffer User');
+    statusText.style.color = '#27AE60';
+    connectBtn.textContent = '✓ Connected';
+    connectBtn.disabled = true;
+    if (refreshBtn) refreshBtn.style.display = 'inline-block';
+    await loadBufferProfiles(token);
+  } catch(e) {
+    handleBufferError(e, 'connection');
+  }
+}
+
+async function loadBufferProfiles(token) {
+  token = token || (window.CONFIG && window.CONFIG.bufferAccessToken) || '';
+  if (!token) return;
+  try {
+    var resp = await fetch('https://api.bufferapp.com/1/profiles.json?access_token=' + encodeURIComponent(token));
+    if (!resp.ok) { handleBufferError({status: resp.status}, 'profiles'); return; }
+    var profiles = await resp.json();
+    var wrap = document.getElementById('buffer-profiles-wrap');
+    var list = document.getElementById('buffer-profiles-list');
+    var smBtn = document.getElementById('sm-buffer-btn');
+    if (!list) return;
+    list.innerHTML = '';
+    profiles.forEach(function(p) {
+      var item = document.createElement('label');
+      item.className = 'buffer-profile-item';
+      item.innerHTML = '<input type="checkbox" name="buffer-profile" value="' + p.id + '" checked> ' +
+        '<span style="font-weight:700">' + p.formatted_service + '</span> &mdash; ' + (p.formatted_username || p.service_username);
+      list.appendChild(item);
+    });
+    if (wrap) wrap.classList.add('show');
+    if (smBtn) smBtn.style.display = 'inline-block';
+    showGlobalStatus('✅ Loaded ' + profiles.length + ' Buffer profile(s)');
+    loadScheduledPosts();
+  } catch(e) {
+    handleBufferError(e, 'profiles');
+  }
+}
+
+async function schedulePostToBuffer(sendNow) {
+  var token = (window.CONFIG && window.CONFIG.bufferAccessToken) || '';
+  if (!token) { showGlobalStatus('⚠️ Buffer not connected'); return; }
+  var caption = (document.getElementById('sm-caption') || {}).value || '';
+  var heading = (document.getElementById('sm-heading') || {}).value || 'Property';
+  if (!caption) caption = heading + ' — Listed by Gateway Real Estate Advisors | Sioux City, IA';
+  var profileCheckboxes = document.querySelectorAll('input[name="buffer-profile"]:checked');
+  if (!profileCheckboxes.length) { showGlobalStatus('⚠️ Select at least one Buffer profile'); return; }
+  var profileIds = Array.from(profileCheckboxes).map(function(cb) { return cb.value; });
+  var schedTime = sendNow ? null : (document.getElementById('buffer-schedule-time') || {}).value;
+  var canvas = document.getElementById('sm-canvas');
+  var mediaDataUrl = canvas ? canvas.toDataURL('image/png') : null;
+  var schedBtn = document.getElementById('buffer-sched-btn');
+  if (schedBtn) { schedBtn.disabled = true; schedBtn.textContent = sendNow ? 'Sending...' : 'Scheduling...'; }
+  try {
+    var results = [];
+    for (var i = 0; i < profileIds.length; i++) {
+      var body = new URLSearchParams();
+      body.append('access_token', token);
+      body.append('profile_ids[]', profileIds[i]);
+      body.append('text', caption);
+      if (schedTime && !sendNow) {
+        body.append('scheduled_at', new Date(schedTime).toISOString());
+      }
+      if (sendNow) body.append('now', 'true');
+      var resp = await fetch('https://api.bufferapp.com/1/updates/create.json', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: body.toString()
+      });
+      if (!resp.ok) { handleBufferError({status: resp.status}, 'schedule'); continue; }
+      var result = await resp.json();
+      results.push(result);
+    }
+    if (results.length) {
+      var postRecord = {
+        id: Date.now(),
+        caption: caption,
+        profiles: profileIds.length,
+        scheduledAt: sendNow ? 'Now' : (schedTime || 'Queued'),
+        status: sendNow ? 'Sent' : 'Scheduled',
+        thumb: mediaDataUrl ? mediaDataUrl.substring(0, 60) + '...' : null,
+        ts: new Date().toLocaleString()
+      };
+      addToScheduledPosts(postRecord);
+      showGlobalStatus(sendNow ? '✅ Sent to ' + results.length + ' profile(s)!' : '✅ Scheduled on ' + results.length + ' profile(s)!');
+    }
+  } catch(e) {
+    handleBufferError(e, 'schedule');
+  } finally {
+    if (schedBtn) { schedBtn.disabled = false; schedBtn.textContent = '📅 Schedule Post'; }
+  }
+}
+
+function addToScheduledPosts(post) {
+  var saved = JSON.parse(localStorage.getItem('gateway_scheduled_posts') || '[]');
+  saved.unshift(post);
+  if (saved.length > 50) saved = saved.slice(0, 50);
+  localStorage.setItem('gateway_scheduled_posts', JSON.stringify(saved));
+  var list = document.getElementById('scheduled-posts-list');
+  var dashboard = document.getElementById('scheduled-posts-dashboard');
+  if (!list) return;
+  if (dashboard) dashboard.style.display = 'block';
+  var card = document.createElement('div');
+  card.className = 'buffer-post-card';
+  card.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+      '<span class="buffer-post-status">' + post.status + '</span>' +
+      '<span style="font-size:10px;color:#7a9aaa">' + post.ts + '</span>' +
+    '</div>' +
+    '<div style="font-size:12px;color:#C8D8E0;margin-bottom:4px">' + post.caption.substring(0, 100) + (post.caption.length > 100 ? '...' : '') + '</div>' +
+    '<div style="font-size:10px;color:#7a9aaa">📅 ' + post.scheduledAt + ' &nbsp;|&nbsp; ' + post.profiles + ' profile(s)</div>';
+  list.insertBefore(card, list.firstChild);
+}
+
+function loadScheduledPosts() {
+  var saved = JSON.parse(localStorage.getItem('gateway_scheduled_posts') || '[]');
+  if (!saved.length) return;
+  var list = document.getElementById('scheduled-posts-list');
+  var dashboard = document.getElementById('scheduled-posts-dashboard');
+  if (!list) return;
+  list.innerHTML = '';
+  if (dashboard) dashboard.style.display = 'block';
+  saved.forEach(function(post) {
+    var card = document.createElement('div');
+    card.className = 'buffer-post-card';
+    card.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+        '<span class="buffer-post-status">' + post.status + '</span>' +
+        '<span style="font-size:10px;color:#7a9aaa">' + post.ts + '</span>' +
+      '</div>' +
+      '<div style="font-size:12px;color:#C8D8E0;margin-bottom:4px">' + post.caption.substring(0, 100) + (post.caption.length > 100 ? '...' : '') + '</div>' +
+      '<div style="font-size:10px;color:#7a9aaa">📅 ' + post.scheduledAt + ' &nbsp;|&nbsp; ' + post.profiles + ' profile(s)</div>';
+    list.appendChild(card);
+  });
+}
+
+function handleBufferError(error, context) {
+  var dot = document.getElementById('buffer-dot');
+  var statusText = document.getElementById('buffer-status-text');
+  var msg = 'Buffer error';
+  if (error && error.status === 401) msg = '⚠️ Buffer: Invalid API token (401)';
+  else if (error && error.status === 403) msg = '⚠️ Buffer: Access denied (403)';
+  else if (error && error.status === 429) msg = '⚠️ Buffer: Rate limit hit — try again later';
+  else if (error && error.status === 404) msg = '⚠️ Buffer: Resource not found (404)';
+  else if (context === 'connection') msg = '⚠️ Buffer: Could not connect — check API key';
+  else if (context === 'schedule') msg = '⚠️ Buffer: Post failed to schedule';
+  if (dot) dot.className = 'buffer-dot off';
+  if (statusText) { statusText.textContent = msg; statusText.style.color = '#E74C3C'; }
+  showGlobalStatus(msg);
+}
 
 // ===================================================================
 // LEASING OM BUILDER
@@ -10601,6 +10830,10 @@ window.initHomeValuation = initHomeValuation;
   })();
 
 })();
+
+document.addEventListener('DOMContentLoaded', function() {
+  loadScheduledPosts();
+});
 </script>
 </body>
 </html>
