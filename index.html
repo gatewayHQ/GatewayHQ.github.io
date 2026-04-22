@@ -4992,6 +4992,18 @@ function getBufferToken() {
   return localStorage.getItem('buffer_access_token') || '';
 }
 
+// Buffer's v1 API blocks browser requests via CORS. Try direct first;
+// if the browser throws a network error (CORS), retry through a proxy.
+async function bufferFetch(url, options) {
+  try {
+    var r = await fetch(url, options);
+    return r;
+  } catch(directErr) {
+    var proxy = 'https://corsproxy.io/?' + encodeURIComponent(url);
+    return fetch(proxy, options);
+  }
+}
+
 async function testBufferConnection() {
   var token = getBufferToken();
   if (!token) {
@@ -5006,7 +5018,7 @@ async function testBufferConnection() {
   statusText.textContent = 'Connecting...';
   statusText.style.color = '#C8A84B';
   try {
-    var resp = await fetch('https://api.bufferapp.com/1/user.json?access_token=' + encodeURIComponent(token));
+    var resp = await bufferFetch('https://api.bufferapp.com/1/user.json?access_token=' + encodeURIComponent(token));
     if (!resp.ok) { handleBufferError({status: resp.status}, 'connection'); return; }
     var data = await resp.json();
     localStorage.setItem('buffer_access_token', token);
@@ -5019,7 +5031,7 @@ async function testBufferConnection() {
     if (refreshBtn) refreshBtn.style.display = 'inline-block';
     await loadBufferProfiles(token);
   } catch(e) {
-    handleBufferError(e, 'connection');
+    handleBufferError({message: e.message}, 'connection');
   }
 }
 
@@ -5027,7 +5039,7 @@ async function loadBufferProfiles(token) {
   token = token || getBufferToken();
   if (!token) return;
   try {
-    var resp = await fetch('https://api.bufferapp.com/1/profiles.json?access_token=' + encodeURIComponent(token));
+    var resp = await bufferFetch('https://api.bufferapp.com/1/profiles.json?access_token=' + encodeURIComponent(token));
     if (!resp.ok) { handleBufferError({status: resp.status}, 'profiles'); return; }
     var profiles = await resp.json();
     var wrap = document.getElementById('buffer-profiles-wrap');
@@ -5047,7 +5059,7 @@ async function loadBufferProfiles(token) {
     showGlobalStatus('✅ Loaded ' + profiles.length + ' Buffer profile(s)');
     loadScheduledPosts();
   } catch(e) {
-    handleBufferError(e, 'profiles');
+    handleBufferError({message: e.message}, 'profiles');
   }
 }
 
@@ -5076,7 +5088,7 @@ async function schedulePostToBuffer(sendNow) {
         body.append('scheduled_at', new Date(schedTime).toISOString());
       }
       if (sendNow) body.append('now', 'true');
-      var resp = await fetch('https://api.bufferapp.com/1/updates/create.json', {
+      var resp = await bufferFetch('https://api.bufferapp.com/1/updates/create.json', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: body.toString()
@@ -5151,13 +5163,14 @@ function loadScheduledPosts() {
 function handleBufferError(error, context) {
   var dot = document.getElementById('buffer-dot');
   var statusText = document.getElementById('buffer-status-text');
-  var msg = 'Buffer error';
-  if (error && error.status === 401) msg = '⚠️ Buffer: Invalid API token (401)';
+  var msg;
+  if (error && error.status === 401) msg = '⚠️ Buffer: Invalid API token — double-check your token';
   else if (error && error.status === 403) msg = '⚠️ Buffer: Access denied (403)';
-  else if (error && error.status === 429) msg = '⚠️ Buffer: Rate limit hit — try again later';
-  else if (error && error.status === 404) msg = '⚠️ Buffer: Resource not found (404)';
-  else if (context === 'connection') msg = '⚠️ Buffer: Could not connect — check API key';
+  else if (error && error.status === 429) msg = '⚠️ Buffer: Rate limit hit — try again in a moment';
+  else if (error && error.status === 404) msg = '⚠️ Buffer: Endpoint not found (404)';
+  else if (error && error.message) msg = '⚠️ Buffer: ' + error.message;
   else if (context === 'schedule') msg = '⚠️ Buffer: Post failed to schedule';
+  else msg = '⚠️ Buffer: Could not connect — check your token';
   if (dot) dot.className = 'buffer-dot off';
   if (statusText) { statusText.textContent = msg; statusText.style.color = '#E74C3C'; }
   showGlobalStatus(msg);
