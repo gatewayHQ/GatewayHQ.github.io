@@ -1263,7 +1263,7 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
 .anim-card-icon { font-size:18px;margin-bottom:5px; }
 .anim-card-name { font-size:10px;font-weight:700;color:var(--text-primary);letter-spacing:0.3px;line-height:1.3; }
 .anim-card-time { font-size:9px;color:var(--brand-gray);margin-top:2px; }
-.anim-preview-wrap { border-radius:9px;overflow:hidden;background:#0e1e28;height:120px;position:relative;margin-bottom:10px;display:none; }
+.anim-preview-wrap { border-radius:9px;overflow:hidden;background:#0e1e28;height:220px;position:relative;margin-bottom:10px;display:none; }
 .anim-preview-wrap.show { display:block; }
 .anim-preview-wrap img { position:absolute;inset:0;width:100%;height:100%;object-fit:cover; }
 .anim-preview-label { position:absolute;bottom:8px;left:10px;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7); }
@@ -1275,12 +1275,12 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
 @keyframes vidFade      { 0% { opacity:0; } 100% { opacity:1; } }
 @keyframes vidZoomOut   { 0% { transform:scale(1.6); } 100% { transform:scale(1); } }
 @keyframes vidSpinZoom  { 0% { transform:scale(0.75) rotate(-5deg); } 100% { transform:scale(1) rotate(0deg); } }
-.anim-kenburns img  { animation:vidKenBurns 2.5s ease-in-out forwards; }
-.anim-parallax img  { animation:vidParallax 2.5s ease-in-out forwards; }
-.anim-slide img     { animation:vidSlide 1.2s cubic-bezier(.22,1,.36,1) forwards; }
-.anim-fade img      { animation:vidFade 1.8s ease-in forwards; }
-.anim-zoomout img   { animation:vidZoomOut 2s ease-out forwards; }
-.anim-spinzoom img  { animation:vidSpinZoom 1.5s cubic-bezier(.34,1.56,.64,1) forwards; }
+.anim-kenburns img  { animation:vidKenBurns 3s ease-in-out infinite alternate; }
+.anim-parallax img  { animation:vidParallax 2.5s ease-in-out infinite alternate; }
+.anim-slide img     { animation:vidSlide 1.4s cubic-bezier(.22,1,.36,1) infinite alternate; }
+.anim-fade img      { animation:vidFade 1.8s ease-in-out infinite alternate; }
+.anim-zoomout img   { animation:vidZoomOut 2.2s ease-in-out infinite alternate; }
+.anim-spinzoom img  { animation:vidSpinZoom 1.8s cubic-bezier(.34,1.56,.64,1) infinite alternate; }
 
 /* ── Text Overlays ── */
 .overlay-tabs { display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px; }
@@ -3256,7 +3256,7 @@ function renderSocialAgents() {
           <input type="text" placeholder="Title" value="${a.title}" oninput="smAgents[${i}].title=this.value; updateSocialPreview()">
           <input type="text" placeholder="Phone" value="${a.phone}" oninput="smAgents[${i}].phone=this.value; updateSocialPreview()">
           <input type="text" placeholder="Email" value="${a.email}" oninput="smAgents[${i}].email=this.value; updateSocialPreview()">
-          <input type="text" placeholder="License #" value="${a.license}" oninput="smAgents[${i}].license=this.value; updateSocialPreview()" style="grid-column:1/-1">
+          <input type="text" placeholder="Licensed in (e.g. Iowa, Nebraska, SD)" value="${a.license}" oninput="smAgents[${i}].license=this.value; updateSocialPreview()" style="grid-column:1/-1">
         </div>
       </div>
       <div style="display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap">
@@ -3308,7 +3308,7 @@ function loadAgentPreset(i, sel) {
   var container = document.getElementById('sm-agents-container');
   var card = container && container.children[i];
   if (card) {
-    var fieldMap = { 'Name': p.name, 'Title': p.title, 'Phone': p.phone, 'Email': p.email, 'License #': p.license };
+    var fieldMap = { 'Name': p.name, 'Title': p.title, 'Phone': p.phone, 'Email': p.email, 'Licensed in (e.g. Iowa, Nebraska, SD)': p.license };
     Object.keys(fieldMap).forEach(function(ph) {
       var inp = card.querySelector('input[placeholder="' + ph + '"]');
       if (inp) inp.value = fieldMap[ph] || '';
@@ -3573,7 +3573,7 @@ async function drawResidentialNewListing(canvas, ctx) {
       if (ag.title) ctx.fillText(ag.title, tX, agentY + 56);
       if (ag.phone) ctx.fillText(ag.phone, tX, agentY + 82);
       if (ag.email) { ctx.font = '400 20px "Montserrat"'; ctx.fillStyle = pal.accent; ctx.fillText(ag.email, tX, agentY + 106); }
-      if (ag.license) { ctx.font = '400 18px "Montserrat"'; ctx.fillStyle = pal.logoKey === 'dark' ? '#5a4832' : '#B8CED8'; ctx.fillText('Lic. ' + ag.license, tX, agentY + 128); }
+      if (ag.license) { ctx.font = '400 18px "Montserrat"'; ctx.fillStyle = pal.logoKey === 'dark' ? '#5a4832' : '#B8CED8'; ctx.fillText(ag.license, tX, agentY + 128); }
     }
     agentY += 118;
   }
@@ -3704,7 +3704,7 @@ async function drawResidentialJustSold(canvas, ctx) {
       if (ag.title) ctx.fillText(ag.title, tX, agentY + 53);
       if (ag.phone) ctx.fillText(ag.phone, tX, agentY + 78);
       if (ag.email) { ctx.font = '400 19px Montserrat'; ctx.fillStyle = pal.accent; ctx.fillText(ag.email, tX, agentY + 101); }
-      if (ag.license) { ctx.font = '400 17px Montserrat'; ctx.fillStyle = pal.logoKey === 'dark' ? '#5a4832' : '#B8CED8'; ctx.fillText('Lic. ' + ag.license, tX, agentY + 122); }
+      if (ag.license) { ctx.font = '400 17px Montserrat'; ctx.fillStyle = pal.logoKey === 'dark' ? '#5a4832' : '#B8CED8'; ctx.fillText(ag.license, tX, agentY + 122); }
     }
     agentY += 112;
   }
@@ -3771,7 +3771,7 @@ async function drawResAgentStrip(ctx, pal, startY, W, H) {
       if (ag.title) ctx.fillText(ag.title, tX, agentY + 53);
       if (ag.phone) ctx.fillText(ag.phone, tX, agentY + 78);
       if (ag.email) { ctx.font = '400 19px Montserrat'; ctx.fillText(ag.email, tX, agentY + 101); }
-      if (ag.license) { ctx.font = '400 17px Montserrat'; ctx.fillStyle = pal.logoKey === 'dark' ? '#5a4832' : '#B8CED8'; ctx.fillText('Lic. ' + ag.license, tX, agentY + 122); }
+      if (ag.license) { ctx.font = '400 17px Montserrat'; ctx.fillStyle = pal.logoKey === 'dark' ? '#5a4832' : '#B8CED8'; ctx.fillText(ag.license, tX, agentY + 122); }
     }
     agentY += 210;
   }
@@ -4712,7 +4712,7 @@ async function drawCommercialTemplate(canvas, ctx, templateName) {
       ctx.fillStyle = pal.accent;
       if (ag2.phone)   ctx.fillText(ag2.phone,   tX2, agentY + 65);
       if (ag2.email) { ctx.font = '400 16px Montserrat'; ctx.fillStyle = pal.accent; ctx.fillText(ag2.email, tX2, agentY + 84); }
-      if (ag2.license) { ctx.font = '400 15px Montserrat'; ctx.fillStyle = pal.logoKey === 'dark' ? '#5a4832' : '#B8CED8'; ctx.fillText('Lic. ' + ag2.license, tX2, agentY + 102); }
+      if (ag2.license) { ctx.font = '400 15px Montserrat'; ctx.fillStyle = pal.logoKey === 'dark' ? '#5a4832' : '#B8CED8'; ctx.fillText(ag2.license, tX2, agentY + 102); }
     }
   }
 
@@ -4976,7 +4976,7 @@ async function updateSocialPreview() {
       if (ag.license) {
         ctx.font = '400 11px "Montserrat", sans-serif';
         ctx.fillStyle = '#5a6a72';
-        ctx.fillText('License No. ' + ag.license, textX, y + 94);
+        ctx.fillText(ag.license, textX, y + 94);
       }
     }
     y += 110;
@@ -10185,11 +10185,13 @@ window.initHomeValuation = initHomeValuation;
     var photo = vidPhotos[0];
     if (!photo) { showGlobalStatus('Upload a photo first to preview animation'); return; }
     img.src = photo.dataUrl;
-    wrap.className = 'anim-preview-wrap show';
     var animClass = { kenburns:'anim-kenburns', parallax:'anim-parallax', slide:'anim-slide',
                       fade:'anim-fade', zoomout:'anim-zoomout', split:'anim-kenburns', spinzoom:'anim-spinzoom' }[vidCurrentAnim] || 'anim-kenburns';
+    // Strip any inline style so the CSS class animation can take effect
     img.style.animation = 'none';
-    void img.offsetWidth; // force reflow
+    wrap.className = 'anim-preview-wrap show';
+    void img.offsetWidth; // force reflow — restarts animation
+    img.style.animation = '';
     wrap.className = 'anim-preview-wrap show ' + animClass;
   };
 
