@@ -1550,7 +1550,12 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
         <div class="form-row">
           <label>Heading</label>
           <select id="sm-heading" onchange="onTemplateChange()">
-            <optgroup label="── Commercial ──">
+            <optgroup label="── Premium Commercial (Social) ──">
+              <option value="comm-exclusive">Exclusively Offered ✦</option>
+              <option value="comm-investment-alert">Investment Alert ✦</option>
+              <option value="comm-just-sold-premium">Just Sold — Premium ✦</option>
+            </optgroup>
+            <optgroup label="── Standard Commercial ──">
               <option value="Just Listed">Just Listed</option>
               <option value="Just Sold">Just Sold</option>
               <option value="Under Contract">Under Contract</option>
@@ -1740,13 +1745,22 @@ h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
 
     <!-- RIGHT: Preview -->
     <div class="sm-preview-wrap">
-      <div style="font-size:12px; color:var(--brand-gray); letter-spacing:1px; text-transform:uppercase; margin-bottom:4px;">Live Preview (1080×1350)</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:12px;color:var(--brand-gray);letter-spacing:1px;text-transform:uppercase" id="sm-preview-label">Live Preview (1080×1350)</div>
+        <select id="sm-format" onchange="onFormatChange()" style="font-size:12px;padding:4px 10px;background:rgba(162,182,192,0.1);border:1px solid rgba(162,182,192,0.2);border-radius:6px;color:var(--brand-cream);font-family:'Montserrat',sans-serif">
+          <option value="portrait">Social Portrait 1080×1350</option>
+          <option value="square">Social Square 1080×1080</option>
+          <option value="mailer-6x4">Mailer 6×4 (Print)</option>
+          <option value="mailer-85x55">Mailer 8.5×5.5 (Print)</option>
+        </select>
+      </div>
       <div class="sm-preview-frame">
         <canvas id="sm-canvas" width="1080" height="1350" style="width:100%;max-width:540px;border-radius:4px;"></canvas>
       </div>
-      <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center;">
-        <button class="btn btn-secondary" onclick="downloadSocialGraphic()">⬇️ Download PNG</button>
-        <button class="btn btn-secondary" onclick="downloadSocialSquare()">⬇️ Download Square (1080×1080)</button>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;margin-top:10px">
+        <button class="btn btn-secondary" onclick="downloadSocialGraphic()" style="font-size:12px">⬇️ Download</button>
+        <button class="btn btn-secondary" onclick="downloadSocialSquare()" style="font-size:12px;display:none" id="sm-dl-square">⬇️ Square</button>
+        <button class="btn btn-secondary" onclick="downloadMailer()" style="font-size:12px;display:none;background:rgba(200,168,75,0.12);border-color:rgba(200,168,75,0.35);color:#C8A84B" id="sm-dl-mailer">🖨️ Download Print-Ready</button>
       </div>
     </div>
   </div>
@@ -3536,7 +3550,8 @@ function setSocialPalette(name) {
 function onTemplateChange() {
   var val = document.getElementById('sm-heading').value;
   var isResidential = val.startsWith('res-');
-  var isNewCommercial = ['For Lease','Just Leased','Price Reduced','Investment Opportunity'].indexOf(val) !== -1;
+  var isPremiumComm = val.startsWith('comm-');
+  var isNewCommercial = isPremiumComm || ['For Lease','Just Leased','Price Reduced','Investment Opportunity'].indexOf(val) !== -1;
   var isJustSold = (val === 'Just Sold');
   var resFields = document.getElementById('sm-residential-fields');
   var commFields = document.getElementById('sm-commercial-fields');
@@ -4847,14 +4862,541 @@ async function drawCommercialTemplate(canvas, ctx, templateName) {
   ctx.fillStyle = pal.label;
   ctx.fillText('www.gatewayreadvisors.com  |  712-226-8000', W/2, H - 28);
 }
+// ── Format selector helpers ───────────────────────────────────────────────
+function smCurrentFormat() {
+  var sel = document.getElementById('sm-format');
+  return sel ? sel.value : 'portrait';
+}
+
+function onFormatChange() {
+  var fmt = smCurrentFormat();
+  var label = document.getElementById('sm-preview-label');
+  var dlSquare = document.getElementById('sm-dl-square');
+  var dlMailer = document.getElementById('sm-dl-mailer');
+  var dlPng   = document.querySelector('[onclick="downloadSocialGraphic()"]');
+  var isMailer = fmt === 'mailer-6x4' || fmt === 'mailer-85x55';
+  if (label) label.textContent = {
+    portrait: 'Live Preview (1080×1350)',
+    square:   'Live Preview (1080×1080)',
+    'mailer-6x4':   'Live Preview — Mailer 6×4',
+    'mailer-85x55': 'Live Preview — Mailer 8.5×5.5'
+  }[fmt] || 'Live Preview';
+  if (dlSquare) dlSquare.style.display = 'none';
+  if (dlMailer) dlMailer.style.display = isMailer ? '' : 'none';
+  updateSocialPreview();
+}
+
+// ── Collect commercial metric chips ──────────────────────────────────────
+function smGetMetrics(max) {
+  var defs = [
+    { key:'price-unit', label:'Price/Unit' }, { key:'price-sf', label:'Price/SF' },
+    { key:'units', label:'Units' },           { key:'cap', label:'Cap Rate' },
+    { key:'noi', label:'NOI' },               { key:'year-built', label:'Year Built' },
+    { key:'occupancy', label:'Occupancy' },   { key:'lot-size', label:'Lot Size' },
+    { key:'bldg-sf', label:'Bldg SF' },       { key:'zoning', label:'Zoning' },
+    { key:'financing', label:'Financing' },   { key:'sf', label:'SF/Acreage' },
+    { key:'submarket', label:'Market' },      { key:'prop-class', label:'Class' }
+  ];
+  var out = [];
+  defs.forEach(function(d) {
+    var tog = document.getElementById('sm-show-' + d.key);
+    var inp = document.getElementById('sm-' + d.key);
+    if (tog && tog.checked && inp && inp.value) out.push({ label: d.label, value: inp.value });
+  });
+  return max ? out.slice(0, max) : out;
+}
+
+// ── Shared field reads ────────────────────────────────────────────────────
+function smFields() {
+  return {
+    propName:   (document.getElementById('sm-prop-name')   || {}).value || '',
+    address:    (document.getElementById('sm-address')     || {}).value || '',
+    price:      (document.getElementById('sm-price')       || {}).value || '',
+    commSF:     (document.getElementById('sm-comm-sf')     || {}).value || '',
+    commRate:   (document.getElementById('sm-comm-rate')   || {}).value || '',
+    commDetail: (document.getElementById('sm-comm-detail') || {}).value || ''
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PREMIUM TEMPLATE 1 — EXCLUSIVELY OFFERED
+// Full-bleed photo · dark gradient overlay · editorial typography
+// ═══════════════════════════════════════════════════════════════════════════
+async function drawCommExclusive(canvas, ctx, heading) {
+  var W = canvas.width, H = canvas.height;
+  var f = smFields();
+  var metrics = smGetMetrics(5);
+  var GOLD = '#C8A84B'; var BLUE = '#A2B6C0'; var CREAM = '#E4E3D4'; var DARK = '#0A1419';
+
+  // Full-bleed photo or dark placeholder
+  var photoSrc = smPhotos[0];
+  if (photoSrc) {
+    try {
+      var img = await loadImageAsync(photoSrc);
+      ctx.save();
+      ctx.filter = smPhotoFilter();
+      var sc = Math.max(W / img.width, H / img.height);
+      var dw = img.width * sc, dh = img.height * sc;
+      ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      ctx.restore();
+    } catch(e) {}
+  } else {
+    ctx.fillStyle = '#0E1C24'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#1a2d38'; ctx.fillRect(0, 0, W, H * 0.6);
+  }
+
+  // Dark gradient overlay — transparent at top, very dark at bottom
+  var grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0,    'rgba(8,16,22,0.18)');
+  grad.addColorStop(0.45, 'rgba(8,16,22,0.35)');
+  grad.addColorStop(0.72, 'rgba(8,16,22,0.82)');
+  grad.addColorStop(1,    'rgba(8,16,22,0.97)');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+  // ── TOP BAR ───────────────────────────────────────────────────────────
+  // Thin gold top edge
+  ctx.fillStyle = GOLD; ctx.fillRect(0, 0, W, 5);
+
+  // Heading badge (top-left)
+  var badgeText = heading === 'comm-exclusive' ? 'EXCLUSIVELY OFFERED' :
+                  heading === 'comm-just-sold-premium' ? 'JUST SOLD' : heading.replace('comm-','').replace(/-/g,' ').toUpperCase();
+  ctx.textAlign = 'left';
+  ctx.font = '600 18px "Montserrat", sans-serif';
+  ctx.fillStyle = GOLD;
+  ctx.fillText(badgeText, 56, 58);
+  // Underline
+  ctx.strokeStyle = GOLD; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(56, 65); ctx.lineTo(56 + ctx.measureText(badgeText).width, 65); ctx.stroke();
+
+  // Gateway logo top right
+  try {
+    var lSrc = LOGO_WORDMARK_LIGHT || LOGO_CIRCLE_LIGHT;
+    var lImg = await loadImageAsync(lSrc);
+    var lH = 38, lW = lH * (lImg.width / lImg.height);
+    ctx.drawImage(lImg, W - 56 - lW, 32, lW, lH);
+  } catch(e) {}
+
+  // ── BOTTOM CONTENT ────────────────────────────────────────────────────
+  var baseY = H - 60;
+
+  // Contact line
+  ctx.textAlign = 'center';
+  ctx.font = '400 19px "Montserrat", sans-serif';
+  ctx.fillStyle = 'rgba(162,182,192,0.7)';
+  ctx.fillText('gatewayreadvisors.com  ·  712-226-8000', W / 2, baseY);
+
+  // Agent strip
+  var agentY = baseY - 30;
+  if (smAgents.length > 0 && smAgents[0].name) {
+    var totalAgents = Math.min(smAgents.length, 2);
+    var agSlotW = 420;
+    var agStartX = W / 2 - (totalAgents === 2 ? agSlotW : agSlotW / 2);
+    for (var ai = 0; ai < totalAgents; ai++) {
+      var ag = smAgents[ai]; if (!ag.name) continue;
+      var ax = agStartX + ai * agSlotW;
+      var photoSz = 62;
+      if (ag.photo) {
+        try {
+          var ap = await loadImageAsync(ag.photo);
+          ctx.save(); ctx.beginPath();
+          ctx.arc(ax + photoSz / 2, agentY - photoSz - 4, photoSz / 2, 0, Math.PI * 2);
+          ctx.clip();
+          var asc = Math.max(photoSz / ap.width, photoSz / ap.height);
+          ctx.drawImage(ap, ax, agentY - photoSz - 4 - photoSz / 2, ap.width * asc, ap.height * asc);
+          ctx.restore();
+          ctx.strokeStyle = GOLD; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(ax + photoSz / 2, agentY - photoSz - 4, photoSz / 2, 0, Math.PI * 2); ctx.stroke();
+        } catch(e) {}
+      }
+      var tAx = ag.photo ? ax + photoSz + 12 : ax;
+      ctx.textAlign = 'left';
+      ctx.font = '600 22px "Montserrat", sans-serif'; ctx.fillStyle = CREAM;
+      ctx.fillText(ag.name, tAx, agentY - (ag.photo ? photoSz + 8 : 0) - 28);
+      ctx.font = '400 17px "Montserrat", sans-serif'; ctx.fillStyle = BLUE;
+      if (ag.title) ctx.fillText(ag.title, tAx, agentY - (ag.photo ? photoSz + 8 : 0) - 6);
+      if (ag.phone) { ctx.fillStyle = GOLD; ctx.fillText(ag.phone, tAx, agentY - (ag.photo ? photoSz + 8 : 0) + 16); }
+    }
+    agentY -= 110;
+  } else {
+    agentY -= 20;
+  }
+
+  // Separator
+  ctx.strokeStyle = 'rgba(162,182,192,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(56, agentY); ctx.lineTo(W - 56, agentY); ctx.stroke();
+  agentY -= 22;
+
+  // Metrics row (up to 5)
+  if (metrics.length > 0) {
+    var mW = Math.min(200, (W - 112) / metrics.length - 8);
+    var mH = 68; var mGap = 8;
+    var totalMW = metrics.length * mW + (metrics.length - 1) * mGap;
+    var mX = (W - totalMW) / 2;
+    metrics.forEach(function(m) {
+      // Glass card
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      roundRect(ctx, mX, agentY - mH, mW, mH, 8); ctx.fill();
+      ctx.strokeStyle = 'rgba(162,182,192,0.2)'; ctx.lineWidth = 1;
+      roundRect(ctx, mX, agentY - mH, mW, mH, 8); ctx.stroke();
+      // Value
+      ctx.textAlign = 'center';
+      ctx.font = '700 22px "Montserrat", sans-serif'; ctx.fillStyle = GOLD;
+      ctx.fillText(m.value, mX + mW / 2, agentY - mH + 32);
+      // Label
+      ctx.font = '500 11px "Montserrat", sans-serif'; ctx.fillStyle = BLUE;
+      ctx.fillText(m.label.toUpperCase(), mX + mW / 2, agentY - mH + 52);
+      mX += mW + mGap;
+    });
+    agentY -= mH + 18;
+  }
+
+  // Price
+  if (f.price) {
+    ctx.textAlign = 'left';
+    ctx.font = '300 42px "Montserrat", sans-serif'; ctx.fillStyle = GOLD;
+    ctx.fillText(f.price, 56, agentY); agentY -= 52;
+  }
+
+  // Address
+  if (f.address) {
+    ctx.font = '500 20px "Montserrat", sans-serif'; ctx.fillStyle = BLUE;
+    ctx.fillText(f.address.toUpperCase(), 56, agentY); agentY -= 36;
+  }
+
+  // Property name
+  var nameText = f.propName || f.address || 'Property Name';
+  ctx.font = 'italic 600 52px "EB Garamond", Georgia, serif'; ctx.fillStyle = CREAM;
+  // Wrap if long
+  if (ctx.measureText(nameText).width > W - 112) {
+    var words = nameText.split(' '), line = '', lineY = agentY;
+    words.forEach(function(w) {
+      var test = line + (line ? ' ' : '') + w;
+      if (ctx.measureText(test).width > W - 112 && line) {
+        ctx.fillText(line, 56, lineY); line = w; lineY -= 62;
+      } else { line = test; }
+    });
+    ctx.fillText(line, 56, lineY);
+  } else {
+    ctx.fillText(nameText, 56, agentY);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PREMIUM TEMPLATE 2 — INVESTMENT ALERT (Split Panel)
+// Dark metrics panel left · Full-bleed photo right · Bold financial focus
+// ═══════════════════════════════════════════════════════════════════════════
+async function drawCommInvestmentAlert(canvas, ctx) {
+  var W = canvas.width, H = canvas.height;
+  var f = smFields();
+  var metrics = smGetMetrics(6);
+  var GOLD = '#C8A84B'; var BLUE = '#A2B6C0'; var CREAM = '#E4E3D4';
+  var PANEL_W = Math.round(W * 0.42);
+
+  // Left panel
+  ctx.fillStyle = '#08131A'; ctx.fillRect(0, 0, PANEL_W, H);
+  // Subtle texture lines
+  ctx.strokeStyle = 'rgba(162,182,192,0.04)'; ctx.lineWidth = 1;
+  for (var li = 0; li < H; li += 40) {
+    ctx.beginPath(); ctx.moveTo(0, li); ctx.lineTo(PANEL_W, li); ctx.stroke();
+  }
+
+  // Gold left edge accent
+  ctx.fillStyle = GOLD; ctx.fillRect(0, 0, 4, H);
+
+  // Right panel — photo
+  var photoSrc = smPhotos[0];
+  if (photoSrc) {
+    try {
+      var img = await loadImageAsync(photoSrc);
+      ctx.save(); ctx.rect(PANEL_W, 0, W - PANEL_W, H); ctx.clip();
+      ctx.filter = smPhotoFilter();
+      var sc = Math.max((W - PANEL_W) / img.width, H / img.height);
+      var dw = img.width * sc, dh = img.height * sc;
+      ctx.drawImage(img, PANEL_W + ((W - PANEL_W) - dw) / 2, (H - dh) / 2, dw, dh);
+      ctx.restore();
+    } catch(e) {
+      ctx.fillStyle = '#111d25'; ctx.fillRect(PANEL_W, 0, W - PANEL_W, H);
+    }
+  } else {
+    ctx.fillStyle = '#111d25'; ctx.fillRect(PANEL_W, 0, W - PANEL_W, H);
+    ctx.fillStyle = '#1e2f39'; ctx.font = '24px Montserrat'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#3a5060';
+    ctx.fillText('Property Photo', PANEL_W + (W - PANEL_W) / 2, H / 2);
+  }
+
+  // Photo right-side gradient (fade into panel)
+  var fadeGrad = ctx.createLinearGradient(PANEL_W, 0, PANEL_W + 80, 0);
+  fadeGrad.addColorStop(0, 'rgba(8,19,26,0.95)');
+  fadeGrad.addColorStop(1, 'rgba(8,19,26,0)');
+  ctx.fillStyle = fadeGrad; ctx.fillRect(PANEL_W, 0, 80, H);
+
+  // Bottom photo overlay for Gateway branding
+  var photoGrad = ctx.createLinearGradient(0, H - 160, 0, H);
+  photoGrad.addColorStop(0, 'rgba(8,19,26,0)');
+  photoGrad.addColorStop(1, 'rgba(8,19,26,0.88)');
+  ctx.fillStyle = photoGrad; ctx.fillRect(PANEL_W, H - 160, W - PANEL_W, 160);
+
+  // ── LEFT PANEL CONTENT ────────────────────────────────────────────────
+  var px = 32; var py = 50;
+
+  // Logo
+  try {
+    var lSrc = LOGO_WORDMARK_LIGHT || LOGO_CIRCLE_LIGHT;
+    var lImg = await loadImageAsync(lSrc);
+    var lH = 32; var lW = lH * (lImg.width / lImg.height);
+    ctx.drawImage(lImg, px, py, lW, lH);
+    py += lH + 36;
+  } catch(e) { py += 60; }
+
+  // "INVESTMENT ALERT" heading
+  ctx.textAlign = 'left';
+  ctx.font = '800 54px "Montserrat", sans-serif'; ctx.fillStyle = CREAM;
+  ctx.fillText('INVESTMENT', px, py); py += 60;
+  ctx.font = '300 54px "Montserrat", sans-serif'; ctx.fillStyle = GOLD;
+  ctx.fillText('ALERT', px, py); py += 22;
+
+  // Gold separator
+  ctx.fillStyle = GOLD; ctx.fillRect(px, py, PANEL_W - px * 2, 3); py += 24;
+
+  // Property name
+  if (f.propName) {
+    ctx.font = 'italic 500 24px "EB Garamond", Georgia, serif'; ctx.fillStyle = BLUE;
+    // Wrap text
+    var pnW = PANEL_W - px * 2;
+    var pnWords = f.propName.split(' '); var pnLine = ''; var pnY = py;
+    pnWords.forEach(function(w) {
+      var test = pnLine + (pnLine ? ' ' : '') + w;
+      if (ctx.measureText(test).width > pnW && pnLine) {
+        ctx.fillText(pnLine, px, pnY); pnLine = w; pnY += 30;
+      } else { pnLine = test; }
+    });
+    ctx.fillText(pnLine, px, pnY); py = pnY + 36;
+  }
+
+  // Address (shorter)
+  if (f.address) {
+    ctx.font = '400 15px "Montserrat", sans-serif'; ctx.fillStyle = 'rgba(162,182,192,0.6)';
+    var addrShort = f.address.length > 32 ? f.address.slice(0, 32) + '…' : f.address;
+    ctx.fillText(addrShort, px, py); py += 30;
+  }
+
+  // Price — featured
+  if (f.price) {
+    ctx.font = '600 30px "Montserrat", sans-serif'; ctx.fillStyle = GOLD;
+    ctx.fillText(f.price, px, py); py += 44;
+  }
+
+  // Metrics — stacked
+  if (metrics.length > 0) {
+    ctx.strokeStyle = 'rgba(162,182,192,0.1)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(px, py - 8); ctx.lineTo(PANEL_W - px, py - 8); ctx.stroke();
+    py += 10;
+
+    // Pair metrics side by side if panel is wide enough
+    var mCols = 2, mColW = (PANEL_W - px * 2 - 10) / 2;
+    var mCol = 0, rowStartY = py;
+    metrics.slice(0, 6).forEach(function(m, mi) {
+      var mx = px + (mCol % mCols) * (mColW + 10);
+      var my = rowStartY + Math.floor(mCol / mCols) * 80;
+      // Value
+      ctx.font = '700 26px "Montserrat", sans-serif'; ctx.fillStyle = GOLD; ctx.textAlign = 'left';
+      ctx.fillText(m.value.length > 10 ? m.value.slice(0,10) : m.value, mx, my + 26);
+      // Label
+      ctx.font = '400 12px "Montserrat", sans-serif'; ctx.fillStyle = 'rgba(162,182,192,0.65)';
+      ctx.fillText(m.label.toUpperCase(), mx, my + 44);
+      // Divider
+      ctx.strokeStyle = 'rgba(162,182,192,0.07)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(mx, my + 56); ctx.lineTo(mx + mColW, my + 56); ctx.stroke();
+      mCol++;
+    });
+    py = rowStartY + Math.ceil(Math.min(metrics.length, 6) / mCols) * 80 + 16;
+  }
+
+  // Agent info at bottom of left panel
+  var agentPY = H - 100;
+  ctx.strokeStyle = 'rgba(162,182,192,0.12)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(px, agentPY - 16); ctx.lineTo(PANEL_W - px, agentPY - 16); ctx.stroke();
+  if (smAgents.length > 0 && smAgents[0].name) {
+    var ag = smAgents[0];
+    if (ag.photo) {
+      try {
+        var apImg = await loadImageAsync(ag.photo);
+        ctx.save(); ctx.beginPath(); ctx.arc(px + 26, agentPY + 10, 26, 0, Math.PI * 2); ctx.clip();
+        var apSc = Math.max(52 / apImg.width, 52 / apImg.height);
+        ctx.drawImage(apImg, px, agentPY - 16, apImg.width * apSc, apImg.height * apSc); ctx.restore();
+        ctx.strokeStyle = GOLD; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(px + 26, agentPY + 10, 26, 0, Math.PI * 2); ctx.stroke();
+        px += 62;
+      } catch(e2) {}
+    }
+    ctx.textAlign = 'left'; ctx.font = '600 19px "Montserrat", sans-serif'; ctx.fillStyle = CREAM;
+    ctx.fillText(ag.name, px, agentPY);
+    ctx.font = '400 14px "Montserrat", sans-serif'; ctx.fillStyle = BLUE;
+    if (ag.title) ctx.fillText(ag.title, px, agentPY + 20);
+    if (ag.phone) { ctx.fillStyle = GOLD; ctx.fillText(ag.phone, px, agentPY + 40); }
+  }
+  px = 32;
+
+  // Gateway website on photo panel bottom
+  ctx.textAlign = 'center'; ctx.font = '400 17px "Montserrat", sans-serif'; ctx.fillStyle = 'rgba(228,227,212,0.55)';
+  ctx.fillText('gatewayreadvisors.com', PANEL_W + (W - PANEL_W) / 2, H - 28);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAILER LAYOUT — Renders at target print dimensions (6×4 or 8.5×5.5)
+// Landscape · Simple · High-impact · Print-ready
+// ═══════════════════════════════════════════════════════════════════════════
+async function drawMailerLayout(canvas, ctx, mailerW, mailerH) {
+  canvas.width  = mailerW;
+  canvas.height = mailerH;
+  var f = smFields();
+  var metrics = smGetMetrics(4);
+  var heading = document.getElementById('sm-heading').value;
+  var GOLD = '#C8A84B'; var BLUE = '#A2B6C0'; var CREAM = '#E4E3D4';
+  var splitX = Math.round(mailerW * 0.44);
+
+  // Left dark panel
+  ctx.fillStyle = '#0D1B22'; ctx.fillRect(0, 0, splitX, mailerH);
+  ctx.fillStyle = GOLD; ctx.fillRect(0, 0, 5, mailerH);
+
+  // Right — full bleed photo
+  var photoSrc = smPhotos[0];
+  if (photoSrc) {
+    try {
+      var img = await loadImageAsync(photoSrc);
+      ctx.save(); ctx.rect(splitX, 0, mailerW - splitX, mailerH); ctx.clip();
+      ctx.filter = smPhotoFilter();
+      var sc = Math.max((mailerW - splitX) / img.width, mailerH / img.height);
+      var dw = img.width * sc, dh = img.height * sc;
+      ctx.drawImage(img, splitX + ((mailerW - splitX) - dw) / 2, (mailerH - dh) / 2, dw, dh);
+      ctx.restore();
+    } catch(e) {}
+  } else {
+    ctx.fillStyle = '#1a2830'; ctx.fillRect(splitX, 0, mailerW - splitX, mailerH);
+  }
+
+  // Fade edge
+  var fd = ctx.createLinearGradient(splitX, 0, splitX + 60, 0);
+  fd.addColorStop(0, 'rgba(13,27,34,1)'); fd.addColorStop(1, 'rgba(13,27,34,0)');
+  ctx.fillStyle = fd; ctx.fillRect(splitX, 0, 60, mailerH);
+
+  // ── Left panel content ────────────────────────────────────────────────
+  var pad = Math.round(mailerW * 0.04);
+  var cy = pad + 30;
+
+  // Logo
+  try {
+    var lSrc = LOGO_WORDMARK_LIGHT || LOGO_CIRCLE_LIGHT;
+    var lImg = await loadImageAsync(lSrc);
+    var lH = Math.round(mailerH * 0.07), lW = lH * (lImg.width / lImg.height);
+    ctx.drawImage(lImg, pad, cy - 10, lW, lH); cy += lH + 18;
+  } catch(e) { cy += 40; }
+
+  // Heading badge
+  var badgeLabel = heading.replace('comm-','').replace(/-/g,' ').toUpperCase()
+    .replace('EXCLUSIVE','EXCLUSIVELY OFFERED')
+    .replace('INVESTMENT ALERT','INVESTMENT OPPORTUNITY');
+  ctx.textAlign = 'left'; ctx.font = '700 ' + Math.round(mailerH * 0.052) + 'px "Montserrat",sans-serif';
+  ctx.fillStyle = GOLD; ctx.fillText(badgeLabel, pad, cy); cy += Math.round(mailerH * 0.06);
+  ctx.fillStyle = GOLD; ctx.fillRect(pad, cy - 10, splitX - pad * 2, 2); cy += 14;
+
+  // Property name
+  var nameText = f.propName || f.address || '';
+  if (nameText) {
+    ctx.font = 'italic ' + Math.round(mailerH * 0.068) + 'px "EB Garamond",Georgia,serif';
+    ctx.fillStyle = CREAM;
+    var nmW = splitX - pad * 2;
+    var nmWords = nameText.split(' '), nmLine = '';
+    nmWords.forEach(function(w) {
+      var t = nmLine + (nmLine?' ':'')+w;
+      if (ctx.measureText(t).width > nmW && nmLine) { ctx.fillText(nmLine,pad,cy); nmLine=w; cy+=Math.round(mailerH*0.075); }
+      else nmLine = t;
+    });
+    ctx.fillText(nmLine, pad, cy); cy += Math.round(mailerH * 0.09);
+  }
+
+  // Price
+  if (f.price) {
+    ctx.font = '600 ' + Math.round(mailerH * 0.062) + 'px "Montserrat",sans-serif';
+    ctx.fillStyle = GOLD; ctx.fillText(f.price, pad, cy); cy += Math.round(mailerH * 0.075);
+  }
+
+  // Address
+  if (f.address) {
+    ctx.font = '400 ' + Math.round(mailerH * 0.038) + 'px "Montserrat",sans-serif';
+    ctx.fillStyle = BLUE;
+    var addrS = f.address.length > 36 ? f.address.slice(0,36)+'…' : f.address;
+    ctx.fillText(addrS, pad, cy); cy += Math.round(mailerH * 0.05);
+  }
+
+  // Metrics — compact 2-col
+  if (metrics.length > 0) {
+    cy += 10;
+    ctx.strokeStyle='rgba(162,182,192,0.15)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pad,cy-6); ctx.lineTo(splitX-pad,cy-6); ctx.stroke(); cy += 14;
+    var mColW2 = (splitX - pad * 2 - 10) / 2;
+    metrics.slice(0,4).forEach(function(m,mi) {
+      var mx2 = pad + (mi%2)*(mColW2+10);
+      var my2 = cy + Math.floor(mi/2) * Math.round(mailerH*0.1);
+      ctx.font='700 '+Math.round(mailerH*0.048)+'px "Montserrat",sans-serif'; ctx.fillStyle=GOLD; ctx.textAlign='left';
+      ctx.fillText(m.value.length>9?m.value.slice(0,9):m.value, mx2, my2+Math.round(mailerH*0.045));
+      ctx.font='400 '+Math.round(mailerH*0.032)+'px "Montserrat",sans-serif'; ctx.fillStyle='rgba(162,182,192,0.7)';
+      ctx.fillText(m.label.toUpperCase(), mx2, my2+Math.round(mailerH*0.075));
+    });
+    cy += Math.ceil(Math.min(metrics.length,4)/2)*Math.round(mailerH*0.1)+16;
+  }
+
+  // CTA — call to action
+  var ctaY = mailerH - pad - 8;
+  ctx.strokeStyle='rgba(162,182,192,0.12)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad,ctaY-50); ctx.lineTo(splitX-pad,ctaY-50); ctx.stroke();
+  ctx.textAlign='left'; ctx.font='700 '+Math.round(mailerH*0.048)+'px "Montserrat",sans-serif';
+  ctx.fillStyle=GOLD; ctx.fillText('Call Today', pad, ctaY-24);
+  ctx.font='600 '+Math.round(mailerH*0.058)+'px "Montserrat",sans-serif'; ctx.fillStyle=CREAM;
+  var agPhone = (smAgents.length>0&&smAgents[0].phone) ? smAgents[0].phone : '712-226-8000';
+  ctx.fillText(agPhone, pad, ctaY+4);
+  ctx.font='400 '+Math.round(mailerH*0.033)+'px "Montserrat",sans-serif'; ctx.fillStyle='rgba(162,182,192,0.55)';
+  ctx.fillText('gatewayreadvisors.com', pad, ctaY+26);
+}
+
+function downloadMailer() {
+  var fmt = smCurrentFormat();
+  var dims = fmt === 'mailer-85x55' ? [2550, 1650] : [1800, 1200];
+  var mc = document.createElement('canvas');
+  var mctx = mc.getContext('2d');
+  var heading = document.getElementById('sm-heading').value;
+  var addr = (document.getElementById('sm-address')||{}).value || 'Property';
+  drawMailerLayout(mc, mctx, dims[0], dims[1]).then(function() {
+    var link = document.createElement('a');
+    link.download = 'Gateway_Mailer_' + heading + '_' + addr.replace(/\s+/g,'_') + '.png';
+    link.href = mc.toDataURL('image/png'); link.click();
+    showGlobalStatus('✓ Print-ready mailer downloaded (' + dims[0] + '×' + dims[1] + 'px)');
+  });
+}
+
 async function updateSocialPreview() {
   var canvas = document.getElementById('sm-canvas');
   var ctx = canvas.getContext('2d');
-  var W = 1080, H = 1350;
-  canvas.width = W;
-  canvas.height = H;
+  var fmt = smCurrentFormat();
+  var W, H;
+  if (fmt === 'square')      { W = 1080; H = 1080; }
+  else if (fmt === 'mailer-6x4')   { W = 900; H = 600; }   // preview size (half of 1800×1200)
+  else if (fmt === 'mailer-85x55') { W = 850; H = 550; }   // preview size
+  else                             { W = 1080; H = 1350; }
+  canvas.width = W; canvas.height = H;
+  canvas.style.maxWidth = (fmt.startsWith('mailer') ? '680px' : '540px');
 
   var heading = document.getElementById('sm-heading').value;
+
+  // Mailer format — use mailer drawing function
+  if (fmt === 'mailer-6x4')   { await drawMailerLayout(canvas, ctx, W, H); return; }
+  if (fmt === 'mailer-85x55') { await drawMailerLayout(canvas, ctx, W, H); return; }
+
+  // Premium commercial templates
+  if (heading === 'comm-exclusive' || heading === 'comm-just-sold-premium') {
+    await drawCommExclusive(canvas, ctx, heading); return;
+  }
+  if (heading === 'comm-investment-alert') { await drawCommInvestmentAlert(canvas, ctx); return; }
 
   // Residential templates
   if (heading === 'res-new-listing') { await drawResidentialNewListing(canvas, ctx); return; }
@@ -4865,7 +5407,7 @@ async function updateSocialPreview() {
   if (heading === 'res-coming-soon') { await drawResidentialComingSoon(canvas, ctx); return; }
   // Just Sold commercial template
   if (heading === 'Just Sold') { await drawJustSoldTemplate(canvas, ctx); return; }
-  // New commercial templates
+  // Existing newer commercial templates
   if (['For Lease','Just Leased','Price Reduced','Investment Opportunity'].indexOf(heading) !== -1) {
     await drawCommercialTemplate(canvas, ctx, heading);
     return;
