@@ -1,0 +1,52 @@
+/* ========== LEASING OM BUILDER ========== */
+.leasing-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.leasing-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid var(--input-border);
+  padding-bottom: 4px;
+}
+.leasing-tab {
+  padding: 10px 18px;
+  background: none;
+  border: none;
+  color: var(--brand-gray);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  transition: all 0.2s;
+}
+.leasing-tab:hover { color: var(--brand-white); background: var(--card-bg); }
+.leasing-tab.active {
+  color: var(--brand-white);
+  background: var(--card-bg);
+  border-bottom: 2px solid var(--brand-blue);
+}
+.leasing-panel {
+  display: none;
+  background: var(--card-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 0 12px 12px 12px;
+  padding: 24px;
+}
+.leasing-panel.active { display: block; }
+
+.input-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.input-grid.three-col {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.input-grid .full-width {
+  grid-column: 1 / -1;
+}
+

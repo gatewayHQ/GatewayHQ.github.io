@@ -1,0 +1,31 @@
+/* ========== STATUS BAR ========== */
+.status-bar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--success);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  z-index: 9999;
+  display: none;
+  animation: slideUp 0.3s ease;
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 900px) {
+  .sm-container { grid-template-columns: 1fr; }
+  .tools-grid { grid-template-columns: 1fr; }
+  .val-grid { grid-template-columns: 1fr; }
+  .input-grid { grid-template-columns: 1fr; }
+  .vid-layout { grid-template-columns: 1fr; }
+}
+
