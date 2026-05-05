@@ -417,24 +417,25 @@ function generateOM() {
     var v = function(id) { var el = document.getElementById(id); return el ? el.value : ''; };
     var n = function(id) { var el = document.getElementById(id); return el ? (+el.value || 0) : 0; };
     var fmt = function(num) { return '$' + num.toLocaleString(); };
-    var sp = function(t) { return t.toUpperCase().split('').join(' '); };
-    var spw = function(t) { return t.toUpperCase().split('').join(' ').replace(/ {3}/g, '     '); };
     var fmtK = function(num) {
       if (Math.abs(num) >= 1000000) return '$' + (num/1000000).toFixed(1) + 'M';
       if (Math.abs(num) >= 1000) return '$' + Math.round(num/1000) + 'K';
       return '$' + num.toLocaleString();
     };
+    var sp = function(t) { return t.toUpperCase().split('').join(' '); };
 
-    // ── Brand Guidelines Color Palette ──
-    var DK  = '282828';  // Primary dark
-    var NV  = '1E2F39';  // Navy
-    var AC  = 'A2B6C0';  // Blue-gray accent
-    var GR  = '969694';  // Gray
-    var CR  = 'E4E3D4';  // Cream
-    var WH  = 'FFFFFF';  // White
-    var HD  = '282828';  // Heading text (on light bg)
-    var BD  = '4A4A4A';  // Body text
-    var LT  = 'FFFFFF';  // Light slide background
+    // ── Brand Color Palette ──
+    var GOLD = 'C8A84B';  // Gateway Gold — primary accent
+    var NV   = '1E2F39';  // Deep Navy
+    var NV2  = '162530';  // Darker Navy (inset panels)
+    var AC   = 'A2B6C0';  // Slate Blue
+    var DK   = '1A1A1A';  // Near Black
+    var GR   = '8A8A88';  // Warm Gray
+    var CR   = 'E4E3D4';  // Cream
+    var PL   = 'F4F1E8';  // Panel Light (warm off-white for light slides)
+    var PM   = 'E8E4D6';  // Panel Medium (alt rows on light slides)
+    var WH   = 'FFFFFF';  // White
+    var BD   = '3A3A3A';  // Body text
 
     var pptx = new PptxGenJS();
     pptx.defineLayout({ name: 'OM', width: 10, height: 5.625 });
@@ -443,44 +444,61 @@ function generateOM() {
     pptx.company = 'Gateway Real Estate Advisors';
     pptx.subject = (v('propName1') + ' ' + v('propName2')).trim() + ' - Offering Memorandum';
 
-    // ── Helper: Footer with logo on every slide ──
+    // ── Helper: thin gold rule ──
+    function addGoldLine(slide, x, y, w) {
+      slide.addShape('rect', {x:x, y:y, w:w, h:0.018, fill:{color:GOLD}});
+    }
+
+    // ── Helper: gold-accented metric box (for left panels & cover) ──
+    function addGoldMetricBox(slide, x, y, w, h, value, label) {
+      slide.addShape('rect', {x:x, y:y, w:w, h:h, fill:{color:NV2}});
+      slide.addShape('rect', {x:x, y:y, w:w, h:0.04, fill:{color:GOLD}});
+      slide.addText(value, {x:x, y:y+0.06, w:w, h:h*0.5, align:'center', fontSize:17, fontFace:'Georgia', color:WH, bold:true});
+      slide.addText(label, {x:x, y:y+h*0.62, w:w, h:h*0.34, align:'center', fontSize:5.5, fontFace:'Arial', color:GOLD, charSpacing:0.8});
+    }
+
+    // ── Helper: left navy panel (slides 3, 4, 6) ──
+    function addLeftPanel(slide, sectionNum, sectionTitle) {
+      slide.addShape('rect', {x:0, y:0, w:3.0, h:5.625, fill:{color:NV}});
+      slide.addShape('rect', {x:0, y:0, w:3.0, h:0.06, fill:{color:GOLD}});
+      slide.addText(sectionNum, {x:0, y:0.14, w:3.0, h:0.52, align:'center', fontSize:38, fontFace:'Georgia', color:GOLD, bold:true});
+      addGoldLine(slide, 0.3, 0.69, 2.4);
+      slide.addText(sectionTitle.replace(' ', '\n'), {x:0.15, y:0.76, w:2.7, h:0.88, align:'center', fontSize:13, fontFace:'Georgia', color:WH, bold:true, lineSpacingMultiple:1.15});
+    }
+
+    // ── Helper: footer strip ──
     function addFooter(slide, pageNum, isDark) {
-      var lineC = isDark ? NV : CR;
-      slide.addShape('rect', {x:0.6, y:5.1, w:8.8, h:0.004, fill:{color:lineC}});
-      slide.addText(sp('GATEWAY REAL ESTATE ADVISORS'), {x:0.15, y:5.15, w:5.5, h:0.3, fontSize:6, fontFace:'Arial', color:GR, align:'left'});
-      slide.addText('CONFIDENTIAL', {x:5.5, y:5.15, w:1.5, h:0.3, fontSize:6, fontFace:'Arial', color:AC, align:'center'});
-      slide.addText(pageNum, {x:7.0, y:5.15, w:0.5, h:0.3, fontSize:6, fontFace:'Arial', color:GR, align:'right'});
-      // Logo bottom-right on every slide
-      var logoData = isDark ? LOGO_PRIMARY_LIGHT : LOGO_PRIMARY_DARK;
+      var stripColor = isDark ? '0E181F' : PM;
+      slide.addShape('rect', {x:0, y:5.35, w:10, h:0.275, fill:{color:stripColor}});
+      addGoldLine(slide, 0, 5.35, 10);
+      slide.addText('GATEWAY REAL ESTATE ADVISORS', {x:0.25, y:5.37, w:4.5, h:0.22, fontSize:6, fontFace:'Arial', color:isDark ? AC : GR, bold:true, align:'left', charSpacing:1.5});
+      slide.addText('CONFIDENTIAL  ·  NOT FOR DISTRIBUTION', {x:3.8, y:5.37, w:3.2, h:0.22, fontSize:6, fontFace:'Arial', color:isDark ? '3A5A6A' : GR, align:'center'});
+      slide.addText(pageNum + ' / 08', {x:8.5, y:5.37, w:1.25, h:0.22, fontSize:7, fontFace:'Georgia', color:GOLD, align:'right'});
+      var logoData = isDark ? (typeof LOGO_PRIMARY_LIGHT !== 'undefined' ? LOGO_PRIMARY_LIGHT : null) : (typeof LOGO_PRIMARY_DARK !== 'undefined' ? LOGO_PRIMARY_DARK : null);
       if (logoData) {
-        slide.addImage({data:logoData, x:8.5, y:5.15, w:1.1, h:0.25});
+        slide.addImage({data:logoData, x:7.25, y:5.38, w:1.0, h:0.2, sizing:{type:'contain', w:1.0, h:0.2}});
       }
     }
 
-    // ── Helper: Dark stat box (large, with subtitle) ──
-    function addStatBox(slide, x, y, w, h, value, label, sub) {
-      slide.addShape('rect', {x:x, y:y, w:w, h:h, fill:{color:NV}});
-      slide.addText(value, {x:x, y:y+0.02, w:w, h:h*0.5, align:'center', fontSize:22, fontFace:'Georgia', color:WH, bold:true});
-      slide.addText(label, {x:x, y:y+h*0.52, w:w, h:h*0.22, align:'center', fontSize:6.5, fontFace:'Arial', color:AC});
-      if (sub) {
-        slide.addText(sub, {x:x, y:y+h*0.72, w:w, h:h*0.22, align:'center', fontSize:7, fontFace:'Arial', color:GR});
-      }
-    }
-
-    // ── Helper: Compact stat box (no subtitle, spaced label) ──
-    function addStatBoxCompact(slide, x, y, w, h, value, label) {
-      slide.addShape('rect', {x:x, y:y, w:w, h:h, fill:{color:NV}});
-      slide.addText(value, {x:x, y:y+0.02, w:w, h:h*0.55, align:'center', fontSize:20, fontFace:'Georgia', color:WH, bold:true});
-      slide.addText(spw(label), {x:x, y:y+h*0.58, w:w, h:h*0.35, align:'center', fontSize:5.5, fontFace:'Arial', color:AC});
-    }
-
-    // ── Helper: Data row ──
+    // ── Helper: data row (light-bg slides) ──
     function addDataRow(slide, x, y, w, h, label, value, isAlt, isBold, fs) {
-      var bg = isBold ? null : (isAlt ? CR : WH);
-      if (bg) slide.addShape('rect', {x:x, y:y, w:w, h:h, fill:{color:bg}});
-      var lc = isBold ? HD : BD;
-      slide.addText(label, {x:x+0.1, y:y, w:w*0.6, h:h, fontSize:(fs||8), fontFace:'Arial', color:lc, bold:!!isBold, align:'left', valign:'middle'});
-      slide.addText(value, {x:x+w*0.5, y:y, w:w*0.45, h:h, fontSize:(fs||8), fontFace:'Arial', color:HD, bold:true, align:'right', valign:'middle'});
+      if (isBold) {
+        slide.addShape('rect', {x:x, y:y, w:w, h:h, fill:{color:NV}});
+        slide.addText(label, {x:x+0.1, y:y, w:w*0.62, h:h, fontSize:(fs||8), fontFace:'Arial', color:WH, bold:true, align:'left', valign:'middle'});
+        slide.addText(value, {x:x+w*0.52, y:y, w:w*0.44, h:h, fontSize:(fs||8), fontFace:'Georgia', color:GOLD, bold:true, align:'right', valign:'middle'});
+      } else {
+        var bg = isAlt ? PM : PL;
+        slide.addShape('rect', {x:x, y:y, w:w, h:h, fill:{color:bg}});
+        slide.addText(label, {x:x+0.1, y:y, w:w*0.62, h:h, fontSize:(fs||8), fontFace:'Arial', color:BD, align:'left', valign:'middle'});
+        slide.addText(value, {x:x+w*0.52, y:y, w:w*0.44, h:h, fontSize:(fs||8), fontFace:'Arial', color:NV, bold:true, align:'right', valign:'middle'});
+      }
+    }
+
+    // ── Helper: NOI / total highlight row (gold) ──
+    function addNOIRow(slide, x, y, w, h, label, value, fs) {
+      slide.addShape('rect', {x:x, y:y, w:w, h:h, fill:{color:GOLD}});
+      slide.addText(label, {x:x+0.1, y:y, w:w*0.6, h:h, fontSize:(fs||8.5), fontFace:'Arial', color:NV, bold:true, align:'left', valign:'middle'});
+      slide.addText(value, {x:x+w*0.52, y:y, w:w*0.44, h:h, fontSize:(fs||8.5), fontFace:'Georgia', color:NV, bold:true, align:'right', valign:'middle'});
     }
 
     var stateFips = document.getElementById('mktState') ? document.getElementById('mktState').value : '';
@@ -492,424 +510,529 @@ function generateOM() {
     var s1 = pptx.addSlide();
     s1.background = {color:DK};
 
-    // Top bar
-    s1.addShape('rect', {x:0, y:0, w:10, h:0.45, fill:{color:NV}});
-    s1.addText(sp('GATEWAY REAL ESTATE ADVISORS'), {x:0, y:0, w:10, h:0.45, align:'center', fontSize:8, fontFace:'Arial', color:CR});
+    // Gold top cap
+    s1.addShape('rect', {x:0, y:0, w:10, h:0.06, fill:{color:GOLD}});
 
-    // Sub bar - accent
-    s1.addText(spw('OFFERING MEMORANDUM'), {x:0, y:0.45, w:10, h:0.30, align:'center', fontSize:7, fontFace:'Arial', color:AC});
+    // Brokerage name bar
+    s1.addShape('rect', {x:0, y:0.06, w:10, h:0.44, fill:{color:NV}});
+    s1.addText('GATEWAY REAL ESTATE ADVISORS', {x:0, y:0.06, w:10, h:0.44, align:'center', fontSize:8.5, fontFace:'Arial', color:AC, charSpacing:2.5, bold:true});
+    s1.addShape('rect', {x:0, y:0.5, w:10, h:0.004, fill:{color:'2A3F4D'}});
 
-    // Hero photo (left)
+    // Hero photo — left 53%
     if (photos[0]) {
-      s1.addImage({data:photos[0], x:0.6, y:1.0, w:4.3, h:3.2, sizing:{type:'cover', w:4.3, h:3.2}});
-      s1.addShape('rect', {x:0.6, y:1.0, w:4.3, h:3.2, fill:{type:'none'}, line:{color:AC, width:1}});
+      s1.addImage({data:photos[0], x:0, y:0.5, w:5.3, h:4.85, sizing:{type:'cover', w:5.3, h:4.85}});
+      s1.addShape('rect', {x:0, y:0.5, w:5.3, h:4.85, fill:{type:'none'}, line:{color:'2A3F4D', width:0.5}});
     } else {
-      s1.addShape('rect', {x:0.6, y:1.0, w:4.3, h:3.2, fill:{color:NV}, line:{color:AC, width:1}});
-      s1.addText(sp('PROPERTY HERO') + '\n' + sp('PHOTOGRAPHY'), {x:0.6, y:1.0, w:4.3, h:3.2, align:'center', valign:'middle', fontSize:11, fontFace:'Arial', color:GR});
+      s1.addShape('rect', {x:0, y:0.5, w:5.3, h:4.85, fill:{color:NV}});
+      s1.addText('PROPERTY\nPHOTOGRAPHY', {x:0, y:0.5, w:5.3, h:4.85, align:'center', valign:'middle', fontSize:14, fontFace:'Georgia', color:AC, italic:true, lineSpacingMultiple:1.3});
     }
 
-    // Property name & address (right)
-    s1.addText(v('propName1').toUpperCase(), {x:5.3, y:1.0, w:4.3, h:0.7, fontSize:36, fontFace:'Georgia', color:WH, bold:true, align:'left', shrinkText:true});
-    s1.addText(v('propName2').toUpperCase(), {x:5.3, y:1.65, w:4.3, h:0.55, fontSize:28, fontFace:'Georgia', color:AC, bold:true, align:'left', shrinkText:true});
-    s1.addText(v('address').toUpperCase(), {x:5.3, y:2.25, w:4.3, h:0.3, fontSize:9, fontFace:'Arial', color:GR, align:'left'});
+    // "OFFERING MEMORANDUM" label
+    s1.addText('OFFERING MEMORANDUM', {x:5.5, y:0.65, w:4.3, h:0.28, align:'left', fontSize:8, fontFace:'Arial', color:GOLD, charSpacing:2.0, bold:true});
 
-    // Metric boxes (2x2 grid)
+    // Property name
+    s1.addText(v('propName1').toUpperCase(), {x:5.5, y:0.98, w:4.3, h:0.72, fontSize:38, fontFace:'Georgia', color:WH, bold:true, align:'left', shrinkText:true});
+    s1.addText(v('propName2').toUpperCase(), {x:5.5, y:1.65, w:4.3, h:0.48, fontSize:26, fontFace:'Georgia', color:AC, bold:false, align:'left', shrinkText:true});
+
+    // Gold separator
+    addGoldLine(s1, 5.5, 2.18, 4.3);
+
+    // Address
+    s1.addText(v('address').toUpperCase(), {x:5.5, y:2.24, w:4.3, h:0.28, fontSize:8, fontFace:'Arial', color:GR, align:'left', charSpacing:0.5});
+
+    // Metric boxes (2×2)
     var mboxes = [
-      {x:5.3, y:2.85, l:'ASKING PRICE', val:fmtK(n('askingPrice'))},
-      {x:7.45, y:2.85, l:'TOTAL UNITS', val:''+n('totalUnits')},
-      {x:5.3, y:3.7, l:'CAP RATE', val:n('capRate').toFixed(1)+'%'},
-      {x:7.45, y:3.7, l:'PER UNIT', val:fmtK(n('pricePerUnit'))}
+      {x:5.5,  y:2.68, l:'ASKING PRICE', val:fmtK(n('askingPrice'))},
+      {x:7.85, y:2.68, l:'TOTAL UNITS',  val:''+n('totalUnits')},
+      {x:5.5,  y:3.58, l:'CAP RATE',     val:n('capRate').toFixed(1)+'%'},
+      {x:7.85, y:3.58, l:'PRICE / UNIT', val:fmtK(n('pricePerUnit'))}
     ];
     mboxes.forEach(function(b) {
-      s1.addShape('rect', {x:b.x, y:b.y, w:2.0, h:0.7, fill:{color:NV}, line:{color:AC, width:0.5}});
-      s1.addText(b.val, {x:b.x, y:b.y+0.05, w:2.0, h:0.35, align:'center', fontSize:20, fontFace:'Georgia', color:WH, bold:true});
-      s1.addText(sp(b.l), {x:b.x, y:b.y+0.42, w:2.0, h:0.25, align:'center', fontSize:5.5, fontFace:'Arial', color:AC});
+      addGoldMetricBox(s1, b.x, b.y, 2.2, 0.78, b.val, b.l);
     });
 
-    // Cover footer
-    s1.addShape('rect', {x:0.6, y:4.92, w:8.8, h:0.004, fill:{color:NV}});
-    s1.addText('Exclusively Offered By Gateway Real Estate Advisors', {x:0, y:4.95, w:7.5, h:0.35, fontSize:7, fontFace:'Arial', color:GR, italic:true, align:'left'});
-    s1.addText(sp('CONFIDENTIAL'), {x:7.5, y:4.95, w:2.5, h:0.35, fontSize:7, fontFace:'Arial', color:AC, align:'right'});
+    // Bottom strip
+    s1.addShape('rect', {x:0, y:5.35, w:10, h:0.275, fill:{color:'0A1218'}});
+    addGoldLine(s1, 0, 5.35, 10);
+    s1.addText('Exclusively Offered by Gateway Real Estate Advisors  ·  All information deemed reliable but not guaranteed', {x:0.3, y:5.37, w:7.5, h:0.22, fontSize:6.5, fontFace:'Arial', color:GR, italic:true, align:'left'});
+    s1.addText('01 / 08', {x:8.8, y:5.37, w:0.9, h:0.22, fontSize:7, fontFace:'Georgia', color:GOLD, align:'right'});
 
     // ════════════════════════════════════════════════
     // SLIDE 2: TABLE OF CONTENTS
     // ════════════════════════════════════════════════
     var s2 = pptx.addSlide();
-    s2.background = {color:DK};
+    s2.background = {color:NV};
 
-    s2.addText(sp('NAVIGATION'), {x:0.6, y:0.4, w:4, h:0.3, fontSize:8, fontFace:'Arial', color:AC});
-    s2.addText('TABLE OF\nCONTENTS', {x:0.6, y:0.75, w:4, h:1.2, fontSize:36, fontFace:'Georgia', color:WH, bold:true, lineSpacingMultiple:0.9});
+    // Left accent stripe
+    s2.addShape('rect', {x:0, y:0, w:0.28, h:5.625, fill:{color:NV2}});
+    s2.addShape('rect', {x:0, y:0, w:0.06, h:5.625, fill:{color:GOLD}});
+
+    // Heading
+    s2.addText('TABLE OF', {x:0.65, y:0.28, w:9, h:0.52, fontSize:40, fontFace:'Georgia', color:WH, bold:true, align:'left'});
+    s2.addText('CONTENTS', {x:0.65, y:0.78, w:9, h:0.52, fontSize:40, fontFace:'Georgia', color:GOLD, bold:false, align:'left'});
+    addGoldLine(s2, 0.65, 1.36, 9.1);
 
     var tocItems = [
-      {num:'01', title:'EXECUTIVE SUMMARY', desc:'Investment thesis, key metrics, and opportunity overview', pg:'03'},
-      {num:'02', title:'PROPERTY OVERVIEW', desc:'Building details, unit mix, features, and specifications', pg:'04'},
-      {num:'03', title:'FINANCIAL ANALYSIS', desc:'Current income, pro forma projections, and key assumptions', pg:'05'},
-      {num:'04', title:'MARKET OVERVIEW', desc:'Demographics, economic drivers, and market trends', pg:'06'},
-      {num:'05', title:'PHOTO GALLERY', desc:'Property photography and visual documentation', pg:'07'},
-      {num:'06', title:'CONTACT & DISCLAIMER', desc:'Agent information and confidentiality notice', pg:'08'}
+      {num:'01', title:'EXECUTIVE SUMMARY',    desc:'Investment thesis, key metrics, and opportunity overview',    pg:'03'},
+      {num:'02', title:'PROPERTY OVERVIEW',    desc:'Building details, unit mix, features, and specifications',    pg:'04'},
+      {num:'03', title:'FINANCIAL ANALYSIS',   desc:'Current income, pro forma projections, and key assumptions',  pg:'05'},
+      {num:'04', title:'MARKET OVERVIEW',      desc:'Demographics, economic drivers, and market trends',           pg:'06'},
+      {num:'05', title:'PHOTO GALLERY',        desc:'Property photography and visual documentation',               pg:'07'},
+      {num:'06', title:'CONTACT & DISCLAIMER', desc:'Agent information and confidentiality notice',                pg:'08'}
     ];
+
     tocItems.forEach(function(item, i) {
-      var y = 2.15 + i * 0.5;
-      s2.addText(item.num, {x:0.6, y:y, w:0.5, h:0.4, fontSize:14, fontFace:'Georgia', color:AC, bold:true, align:'left'});
-      s2.addText(item.title, {x:1.2, y:y, w:5.5, h:0.2, fontSize:11, fontFace:'Arial', color:WH, bold:true, align:'left'});
-      s2.addText(item.desc, {x:1.2, y:y+0.2, w:5.5, h:0.2, fontSize:8, fontFace:'Arial', color:GR, align:'left'});
-      s2.addText(item.pg, {x:8.6, y:y, w:0.8, h:0.4, fontSize:14, fontFace:'Georgia', color:GR, align:'right'});
+      var ty = 1.48 + i * 0.63;
+      // Gold number
+      s2.addText(item.num, {x:0.65, y:ty, w:0.6, h:0.55, fontSize:20, fontFace:'Georgia', color:GOLD, bold:true, align:'left', valign:'middle'});
+      // Thin divider
+      s2.addShape('rect', {x:1.3, y:ty+0.08, w:0.005, h:0.38, fill:{color:AC}});
+      // Title + description
+      s2.addText(item.title, {x:1.42, y:ty+0.04, w:6.5, h:0.24, fontSize:11, fontFace:'Arial', color:WH, bold:true, align:'left'});
+      s2.addText(item.desc,  {x:1.42, y:ty+0.28, w:6.5, h:0.2,  fontSize:8,  fontFace:'Arial', color:AC,  align:'left'});
+      // Page number
+      s2.addText('p.' + item.pg, {x:8.6, y:ty+0.1, w:1.0, h:0.3, fontSize:12, fontFace:'Georgia', color:GR, align:'right', valign:'middle'});
+      // Row separator
+      if (i < tocItems.length - 1) {
+        s2.addShape('rect', {x:0.65, y:ty+0.57, w:9.1, h:0.004, fill:{color:'2A3F4D'}});
+      }
     });
 
     addFooter(s2, '02', true);
 
     // ════════════════════════════════════════════════
-    // SLIDE 3: EXECUTIVE SUMMARY (light background)
+    // SLIDE 3: EXECUTIVE SUMMARY
     // ════════════════════════════════════════════════
     var s3 = pptx.addSlide();
-    s3.background = {color:LT};
+    s3.background = {color:PL};
 
-    s3.addText('01  EXECUTIVE SUMMARY', {x:0.6, y:0.35, w:9, h:0.35, fontSize:14, fontFace:'Georgia', color:HD, bold:true});
-    s3.addText(v('execDesc'), {x:0.6, y:0.8, w:8.8, h:0.7, fontSize:9, fontFace:'Arial', color:BD, lineSpacingMultiple:1.4});
+    addLeftPanel(s3, '01', 'EXECUTIVE SUMMARY');
+
+    // Key investment metrics in left panel (2×2 grid)
+    var inv_metrics = [
+      {val:fmtK(n('askingPrice')),         label:'ASKING PRICE'},
+      {val:fmtK(n('noi')),                 label:'CURRENT NOI'},
+      {val:n('capRate').toFixed(2) + '%',  label:'CAP RATE'},
+      {val:n('grm') + 'x',                 label:'GROSS RENT MULT.'}
+    ];
+    inv_metrics.forEach(function(m, i) {
+      var mRow = Math.floor(i / 2);
+      var mCol = i % 2;
+      addGoldMetricBox(s3, 0.2 + mCol * 1.3, 1.78 + mRow * 0.92, 1.25, 0.80, m.val, m.label);
+    });
+
+    addGoldLine(s3, 0.2, 3.54, 2.6);
+    s3.addText(n('totalUnits') + ' UNITS', {x:0, y:3.65, w:3.0, h:0.28, align:'center', fontSize:14, fontFace:'Georgia', color:WH, bold:true});
+    s3.addText((v('occupancy') || '100%') + ' OCCUPIED', {x:0, y:3.93, w:3.0, h:0.22, align:'center', fontSize:8, fontFace:'Arial', color:AC, charSpacing:1.0});
+
+    // Right content
+    var r3x = 3.2;
+    var r3w = 6.65;
+
+    s3.addText('Executive Summary', {x:r3x, y:0.22, w:r3w, h:0.4, fontSize:20, fontFace:'Georgia', color:NV, bold:true});
+    addGoldLine(s3, r3x, 0.64, r3w);
+    s3.addText(v('execDesc'), {x:r3x, y:0.74, w:r3w, h:0.78, fontSize:9, fontFace:'Arial', color:BD, lineSpacingMultiple:1.5});
 
     // Callout bar
-    s3.addShape('rect', {x:0.6, y:1.6, w:8.8, h:0.5, fill:{color:DK}});
-    s3.addText(v('callout'), {x:0.85, y:1.6, w:8.35, h:0.5, fontSize:8.5, fontFace:'Arial', color:AC, italic:true, valign:'middle'});
+    if (v('callout')) {
+      s3.addShape('rect', {x:r3x, y:1.6, w:r3w, h:0.44, fill:{color:NV}});
+      s3.addShape('rect', {x:r3x, y:1.6, w:0.06, h:0.44, fill:{color:GOLD}});
+      s3.addText(v('callout'), {x:r3x+0.15, y:1.6, w:r3w-0.2, h:0.44, fontSize:8.5, fontFace:'Arial', color:AC, italic:true, valign:'middle'});
+    }
 
-    // INVESTMENT SUMMARY (left)
-    s3.addText('INVESTMENT SUMMARY', {x:0.6, y:2.3, w:4.1, h:0.3, fontSize:10, fontFace:'Arial', color:HD, bold:true});
-    var invRows = [
-      ['Asking Price', fmt(n('askingPrice'))],
-      ['Price Per Unit', fmt(n('pricePerUnit'))],
-      ['Cap Rate', n('capRate').toFixed(2) + '%'],
-      ['Current NOI', fmt(n('noi'))],
-      ['GRM', n('grm') + 'x']
-    ];
-    invRows.forEach(function(row, i) {
-      addDataRow(s3, 0.6, 2.65 + i * 0.3, 4.1, 0.3, row[0], row[1], i % 2 !== 0, false);
-    });
+    // Investment highlights
+    s3.addText('INVESTMENT HIGHLIGHTS', {x:r3x, y:2.18, w:r3w, h:0.26, fontSize:10, fontFace:'Arial', color:NV, bold:true, charSpacing:0.5});
+    addGoldLine(s3, r3x, 2.44, r3w);
 
-    // PROPERTY SNAPSHOT (right)
-    s3.addText('PROPERTY SNAPSHOT', {x:5.3, y:2.3, w:4.1, h:0.3, fontSize:10, fontFace:'Arial', color:HD, bold:true});
-    var snapRows = [
-      ['Total Units', '' + n('totalUnits')],
-      ['Occupancy', v('occupancy')],
-      ['Building Type', v('propType')],
-      ['Year Built', v('yearBuilt')],
-      ['Lot Size', v('lotSize')]
-    ];
-    snapRows.forEach(function(row, i) {
-      addDataRow(s3, 5.3, 2.65 + i * 0.3, 4.1, 0.3, row[0], row[1], i % 2 !== 0, false);
-    });
-
-    // INVESTMENT HIGHLIGHTS
-    s3.addText('INVESTMENT HIGHLIGHTS', {x:0.6, y:4.15, w:9, h:0.25, fontSize:10, fontFace:'Arial', color:HD, bold:true});
     var highlights = [v('hl1'), v('hl2'), v('hl3'), v('hl4')];
     highlights.forEach(function(h, i) {
       if (!h) return;
-      var col = i < 2 ? 0.6 : 5.25;
-      var row = i % 2;
-      var hy = 4.42 + row * 0.32;
-      var titleEnd = h.indexOf(' - ') !== -1 ? h.indexOf(' - ') : (h.length > 35 ? 35 : h.length);
-      var hlTitle = h.substring(0, titleEnd).toUpperCase();
-      var hlDesc = h.substring(titleEnd).replace(/^ - /, '');
-      s3.addText(hlTitle, {x:col, y:hy, w:4.3, h:0.15, fontSize:7.5, fontFace:'Arial', color:AC, bold:true});
-      if (hlDesc) s3.addText(hlDesc, {x:col, y:hy+0.15, w:4.3, h:0.17, fontSize:7, fontFace:'Arial', color:BD});
+      var hCol = i < 2 ? r3x : r3x + r3w / 2 + 0.1;
+      var hRow = i % 2;
+      var hy = 2.54 + hRow * 0.7;
+      var sep = h.indexOf(' - ') !== -1 ? h.indexOf(' - ') : (h.length > 35 ? 35 : h.length);
+      var hlTitle = h.substring(0, sep).toUpperCase();
+      var hlDesc  = h.substring(sep).replace(/^ - /, '');
+      s3.addShape('rect', {x:hCol, y:hy, w:0.04, h:0.55, fill:{color:GOLD}});
+      s3.addText(hlTitle, {x:hCol+0.12, y:hy+0.02, w:r3w/2-0.3, h:0.2, fontSize:8, fontFace:'Arial', color:NV, bold:true});
+      if (hlDesc) {
+        s3.addText(hlDesc, {x:hCol+0.12, y:hy+0.22, w:r3w/2-0.3, h:0.28, fontSize:7.5, fontFace:'Arial', color:BD, lineSpacingMultiple:1.2});
+      }
     });
 
     addFooter(s3, '03', false);
 
     // ════════════════════════════════════════════════
-    // SLIDE 4: PROPERTY OVERVIEW (light background)
+    // SLIDE 4: PROPERTY OVERVIEW
     // ════════════════════════════════════════════════
     var s4 = pptx.addSlide();
-    s4.background = {color:LT};
+    s4.background = {color:PL};
 
-    s4.addText('02  PROPERTY OVERVIEW', {x:0.6, y:0.35, w:9, h:0.35, fontSize:14, fontFace:'Georgia', color:HD, bold:true});
+    addLeftPanel(s4, '02', 'PROPERTY OVERVIEW');
 
+    // Key specs list in left panel
     var totalSqFt = unitData.reduce(function(s,u){ return s + u.units * u.sqft; }, 0);
-    var propBoxes = [
-      {val:'' + n('totalUnits'), label:'TOTAL UNITS', sub:(unitData.length > 0 ? unitData.map(function(u){return u.type}).filter(function(t){return t}).join(' & ') : '') || 'Mix'},
-      {val:showSqFt && totalSqFt > 0 ? totalSqFt.toLocaleString() : '--', label:'TOTAL SQ FT', sub:showSqFt ? ('Avg ' + (n('totalUnits') > 0 ? Math.round(totalSqFt / n('totalUnits')).toLocaleString() : '--') + ' SF') : 'N/A'},
-      {val:v('lotSize') || '--', label:'LOT SIZE', sub:'Approx'},
-      {val:v('occupancy') || '100%', label:'OCCUPANCY', sub:n('totalUnits') + ' of ' + n('totalUnits') + ' Occupied'}
+    var specs = [
+      {label:'YEAR BUILT',   val:v('yearBuilt') || '—'},
+      {label:'BUILDING TYPE', val:v('propType') || '—'},
+      {label:'LOT SIZE',     val:v('lotSize') || '—'},
+      {label:'PARKING',      val:v('parking') || '—'},
+      {label:'OCCUPANCY',    val:v('occupancy') || '100%'}
     ];
-    propBoxes.forEach(function(b, i) {
-      var bx = 0.6 + i * 2.3;
-      addStatBox(s4, bx, 0.85, 2.05, 0.9, b.val, b.label, b.sub);
+    specs.forEach(function(spec, i) {
+      var sy = 1.78 + i * 0.44;
+      s4.addShape('rect', {x:0.2, y:sy, w:2.6, h:0.38, fill:{color:NV2}});
+      s4.addShape('rect', {x:0.2, y:sy, w:2.6, h:0.03, fill:{color:GOLD}});
+      s4.addText(spec.label, {x:0.28, y:sy+0.04, w:2.44, h:0.16, fontSize:6,   fontFace:'Arial', color:GOLD, charSpacing:0.8});
+      s4.addText(spec.val,   {x:0.28, y:sy+0.2,  w:2.44, h:0.17, fontSize:9,   fontFace:'Arial', color:WH,   bold:true});
     });
 
-    s4.addText(v('propDesc'), {x:0.6, y:2.0, w:8.8, h:0.65, fontSize:9, fontFace:'Arial', color:BD, lineSpacingMultiple:1.3});
+    // Right content
+    var r4x = 3.2;
+    var r4w = 6.65;
 
-    // Unit mix table - respects sqft toggle
-    s4.addText('UNIT MIX & RENT SCHEDULE', {x:0.6, y:2.8, w:9, h:0.3, fontSize:10, fontFace:'Arial', color:HD, bold:true});
+    s4.addText('Property Overview', {x:r4x, y:0.22, w:r4w, h:0.4, fontSize:20, fontFace:'Georgia', color:NV, bold:true});
+    addGoldLine(s4, r4x, 0.64, r4w);
+    s4.addText(v('propDesc'), {x:r4x, y:0.74, w:r4w, h:0.55, fontSize:8.5, fontFace:'Arial', color:BD, lineSpacingMultiple:1.4});
+
+    // Unit mix table
+    s4.addText('UNIT MIX & RENT SCHEDULE', {x:r4x, y:1.37, w:r4w, h:0.25, fontSize:9.5, fontFace:'Arial', color:NV, bold:true, charSpacing:0.3});
+    addGoldLine(s4, r4x, 1.62, r4w);
+
     var totalAllRent = unitData.reduce(function(s,r){ return s + r.units * r.rent; }, 0);
     var hasSqFt = showSqFt;
-    var headerCols = hasSqFt
-      ? ['Unit Type', 'Units', 'Sq Ft', 'Rent/Mo', '$/SqFt', 'Total Rent', '% Total']
-      : ['Unit Type', 'Units', 'Rent/Mo', 'Total Rent', '% Total'];
-    var colWidths = hasSqFt
-      ? [1.4, 0.7, 0.9, 1.0, 0.9, 1.2, 0.8]
-      : [2.2, 1.2, 1.6, 2.0, 1.2];
-    var tblHeader = [headerCols.map(function(h) {
-      return {text:h, options:{fontSize:8, fontFace:'Arial', color:WH, bold:true, fill:{color:NV}, align:'center', valign:'middle'}};
+    var umHeaderCols = hasSqFt
+      ? ['UNIT TYPE', 'UNITS', 'SQ FT', 'RENT/MO', '$/SQFT', 'TOTAL', '% MIX']
+      : ['UNIT TYPE', 'UNITS', 'RENT/MO', 'TOTAL RENT', '% MIX'];
+    var umColWidths = hasSqFt
+      ? [1.4, 0.65, 0.88, 1.0, 0.88, 1.1, 0.74]
+      : [2.2, 1.1, 1.5, 1.85, 1.0];
+    var tblHeader = [umHeaderCols.map(function(h) {
+      return {text:h, options:{fontSize:7.5, fontFace:'Arial', color:WH, bold:true, fill:{color:NV}, align:'center', valign:'middle', margin:[0,3,0,3]}};
     })];
     var tblRows = unitData.filter(function(u){ return u.type || u.units > 0; }).map(function(u, i) {
       var rpsf = u.sqft > 0 ? (u.rent / u.sqft).toFixed(2) : '0.00';
       var tr = u.units * u.rent;
       var pct = totalAllRent > 0 ? ((tr / totalAllRent) * 100).toFixed(0) : '0';
-      var bg = i % 2 === 0 ? WH : CR;
+      var bg = i % 2 === 0 ? PL : PM;
       var cells = hasSqFt
         ? [u.type, ''+u.units, u.sqft.toLocaleString(), '$'+u.rent, '$'+rpsf, '$'+tr.toLocaleString(), pct+'%']
         : [u.type, ''+u.units, '$'+u.rent, '$'+tr.toLocaleString(), pct+'%'];
-      return cells.map(function(c) {
-        return {text:c, options:{fontSize:8, fontFace:'Arial', color:BD, fill:{color:bg}, align:'center', valign:'middle'}};
+      return cells.map(function(c, ci) {
+        return {text:c, options:{fontSize:8, fontFace:'Arial', color:ci===0 ? NV : BD, fill:{color:bg}, align:'center', valign:'middle', bold:ci===0}};
       });
     });
-    if (tblRows.length > 0) {
-      s4.addTable(tblHeader.concat(tblRows), {x:0.6, y:3.15, w:8.8, colW:colWidths, rowH:0.28, border:{color:CR, pt:0.5}});
+    // Totals row
+    var totRow = hasSqFt
+      ? ['TOTAL', ''+unitData.reduce(function(s,u){return s+u.units;},0), '', '', '', '$'+totalAllRent.toLocaleString(), '100%']
+      : ['TOTAL', ''+unitData.reduce(function(s,u){return s+u.units;},0), '', '$'+totalAllRent.toLocaleString(), '100%'];
+    tblRows.push(totRow.map(function(c) {
+      return {text:c, options:{fontSize:8, fontFace:'Arial', color:WH, fill:{color:NV}, align:'center', valign:'middle', bold:true}};
+    }));
+
+    if (tblRows.length > 1) {
+      s4.addTable(tblHeader.concat(tblRows), {x:r4x, y:1.69, w:r4w, colW:umColWidths, rowH:0.28, border:{color:PM, pt:0.5}});
     }
 
+    // Features strip
     var feats = v('features');
     if (feats) {
-      s4.addText('PROPERTY FEATURES', {x:0.6, y:4.55, w:9, h:0.25, fontSize:10, fontFace:'Arial', color:HD, bold:true});
-      var featFormatted = feats.split(',').map(function(f){ return f.trim().toUpperCase(); }).join('    \u00B7    ');
-      s4.addText(featFormatted, {x:0.6, y:4.82, w:8.8, h:0.2, fontSize:8, fontFace:'Arial', color:BD, align:'center'});
+      s4.addShape('rect', {x:r4x, y:5.12, w:r4w, h:0.22, fill:{color:CR}});
+      var featFormatted = feats.split(',').map(function(f){ return f.trim().toUpperCase(); }).join('    ·    ');
+      s4.addText(featFormatted, {x:r4x, y:5.12, w:r4w, h:0.22, fontSize:7.5, fontFace:'Arial', color:NV, align:'center', valign:'middle', bold:true});
     }
 
     addFooter(s4, '04', false);
 
     // ════════════════════════════════════════════════
-    // SLIDE 5: FINANCIAL ANALYSIS (light background)
+    // SLIDE 5: FINANCIAL ANALYSIS (full-width, gold accents)
     // ════════════════════════════════════════════════
     var s5 = pptx.addSlide();
-    s5.background = {color:LT};
+    s5.background = {color:PL};
 
-    s5.addText('03  FINANCIAL ANALYSIS', {x:0.6, y:0.35, w:9, h:0.35, fontSize:14, fontFace:'Georgia', color:HD, bold:true});
+    // Header band
+    s5.addShape('rect', {x:0, y:0, w:10, h:0.7, fill:{color:NV}});
+    s5.addShape('rect', {x:0, y:0, w:0.06, h:0.7, fill:{color:GOLD}});
+    addGoldLine(s5, 0, 0.7, 10);
+    s5.addText('03  FINANCIAL ANALYSIS', {x:0.35, y:0.12, w:9, h:0.46, fontSize:20, fontFace:'Georgia', color:WH, bold:true, align:'left'});
 
-    // 4 compact stat boxes
+    // Summary stat boxes
     var curEGI = n('curIncome');
-    var pfEGI = n('pfIncome');
+    var pfEGI  = n('pfIncome');
     var curTotExp = curExpenses.reduce(function(s,e){ return s + e.amount; }, 0);
-    var pfTotExp = pfExpenses.reduce(function(s,e){ return s + e.amount; }, 0);
+    var pfTotExp  = pfExpenses.reduce(function(s,e){ return s + e.amount; }, 0);
     var curNOI = curEGI - curTotExp;
-    var pfNOI = pfEGI - pfTotExp;
+    var pfNOI  = pfEGI  - pfTotExp;
+    var noiGrowth = curNOI > 0 ? '+' + (((pfNOI - curNOI) / curNOI) * 100).toFixed(1) + '%' : '—';
 
     var finBoxes = [
-      {val:fmtK(curEGI), label:'CURRENT INCOME'},
-      {val:fmtK(curNOI), label:'CURRENT NOI'},
-      {val:fmtK(pfEGI), label:'PRO FORMA INCOME'},
-      {val:fmtK(pfNOI), label:'PRO FORMA NOI'}
+      {val:fmtK(curEGI),  label:'CURRENT INCOME',   sub:'Effective Gross',   accent:AC},
+      {val:fmtK(curNOI),  label:'CURRENT NOI',       sub:'Net Operating',     accent:AC},
+      {val:fmtK(pfEGI),   label:'PRO FORMA INCOME',  sub:'Stabilized Gross',  accent:GOLD},
+      {val:fmtK(pfNOI),   label:'PRO FORMA NOI',     sub:noiGrowth + ' vs Current', accent:GOLD}
     ];
     finBoxes.forEach(function(b, i) {
-      addStatBoxCompact(s5, 0.6 + i * 2.3, 0.85, 2.05, 0.75, b.val, b.label);
+      var bx = 0.35 + i * 2.35;
+      s5.addShape('rect', {x:bx, y:0.82, w:2.2, h:0.72, fill:{color:NV2}});
+      s5.addShape('rect', {x:bx, y:0.82, w:2.2, h:0.04, fill:{color:b.accent}});
+      s5.addText(b.val,   {x:bx, y:0.88, w:2.2, h:0.35, align:'center', fontSize:20, fontFace:'Georgia', color:WH,   bold:true});
+      s5.addText(b.label, {x:bx, y:1.26, w:2.2, h:0.16, align:'center', fontSize:6,  fontFace:'Arial',   color:b.accent, charSpacing:0.5});
+      s5.addText(b.sub,   {x:bx, y:1.43, w:2.2, h:0.12, align:'center', fontSize:5.5,fontFace:'Arial',   color:GR});
     });
 
-    // Dynamic row sizing — scales to fit many expenses
-    var curOI = curOtherIncome.filter(function(x){ return x.name && x.amount; });
-    var pfOI = pfOtherIncome.filter(function(x){ return x.name && x.amount; });
+    // Dynamic row sizing
+    var curOI  = curOtherIncome.filter(function(x){ return x.name && x.amount; });
+    var pfOI   = pfOtherIncome.filter(function(x){ return x.name && x.amount; });
     var curExp = curExpenses.filter(function(x){ return x.name && x.amount; });
-    var pfExp = pfExpenses.filter(function(x){ return x.name && x.amount; });
-    var leftDataRows = 1 + curOI.length + curExp.length;
-    var rightDataRows = 1 + pfOI.length + pfExp.length;
-    var dataRowCount = Math.max(leftDataRows, rightDataRows);
-    // Available: y=1.85 to y=5.05 = 3.2". Fixed overhead ~1.0" (headers/totals/gaps). Rest for data rows.
-    var rowH = Math.min(0.22, Math.max(0.14, 2.2 / Math.max(dataRowCount, 1)));
-    var totH = Math.min(0.24, rowH + 0.02);
-    var fs = rowH >= 0.19 ? 8 : (rowH >= 0.16 ? 7 : 6.5);
-    var secH = Math.min(0.20, rowH);
+    var pfExp  = pfExpenses.filter(function(x){ return x.name && x.amount; });
+    var dataRowCount = Math.max(1 + curOI.length + curExp.length, 1 + pfOI.length + pfExp.length);
+    var rowH = Math.min(0.22, Math.max(0.14, 2.1 / Math.max(dataRowCount, 1)));
+    var totH = Math.min(0.26, rowH + 0.04);
+    var fs5  = rowH >= 0.19 ? 8 : (rowH >= 0.16 ? 7 : 6.5);
+    var secH = Math.min(0.22, rowH);
+    var colStart = 1.72;
 
-    // -- CURRENT OPERATIONS (left) --
-    s5.addText('CURRENT OPERATIONS', {x:0.6, y:1.85, w:4.1, h:0.25, fontSize:10, fontFace:'Arial', color:HD, bold:true});
-    var cy = 2.10;
-    s5.addText('INCOME', {x:0.6, y:cy, w:4.1, h:secH, fontSize:fs, fontFace:'Arial', color:AC, bold:true}); cy += secH;
+    // Column headings
+    s5.addText('CURRENT OPERATIONS', {x:0.35, y:colStart, w:4.35, h:0.24, fontSize:10, fontFace:'Arial', color:NV, bold:true});
+    addGoldLine(s5, 0.35, colStart+0.25, 4.35);
+    s5.addText('PRO FORMA PROJECTIONS', {x:5.3, y:colStart, w:4.35, h:0.24, fontSize:10, fontFace:'Arial', color:NV, bold:true});
+    addGoldLine(s5, 5.3, colStart+0.25, 4.35);
+
+    // Center divider
+    s5.addShape('rect', {x:4.88, y:colStart, w:0.24, h:3.45, fill:{color:PM}});
+
+    // ─ Current Operations ─
+    var cy = colStart + 0.34;
+    s5.addText('INCOME', {x:0.35, y:cy, w:4.35, h:secH, fontSize:fs5, fontFace:'Arial', color:GOLD, bold:true, charSpacing:1.5}); cy += secH;
     var curGPI = n('curIncome');
     var curTotOI = curOtherIncome.reduce(function(s,e){ return s + e.amount; }, 0);
-    addDataRow(s5, 0.6, cy, 4.1, rowH, 'Gross Rent Income', fmt(curGPI - curTotOI), true, false, fs); cy += rowH;
+    addDataRow(s5, 0.35, cy, 4.35, rowH, 'Gross Rent Income', fmt(curGPI - curTotOI), true, false, fs5); cy += rowH;
     curOI.forEach(function(item, i) {
-      addDataRow(s5, 0.6, cy, 4.1, rowH, item.name, fmt(item.amount), (i+1)%2!==0, false, fs); cy += rowH;
+      addDataRow(s5, 0.35, cy, 4.35, rowH, item.name, fmt(item.amount), (i+1)%2!==0, false, fs5); cy += rowH;
     });
-    addDataRow(s5, 0.6, cy, 4.1, totH, 'EFFECTIVE GROSS INCOME', fmt(curEGI), false, true, fs); cy += totH + 0.04;
-
-    s5.addText('EXPENSES', {x:0.6, y:cy, w:4.1, h:secH, fontSize:fs, fontFace:'Arial', color:AC, bold:true}); cy += secH;
+    addDataRow(s5, 0.35, cy, 4.35, totH, 'EFFECTIVE GROSS INCOME', fmt(curEGI), false, true, fs5); cy += totH + 0.06;
+    s5.addText('EXPENSES', {x:0.35, y:cy, w:4.35, h:secH, fontSize:fs5, fontFace:'Arial', color:GOLD, bold:true, charSpacing:1.5}); cy += secH;
     curExp.forEach(function(exp, i) {
-      addDataRow(s5, 0.6, cy, 4.1, rowH, exp.name, fmt(exp.amount), i%2!==0, false, fs); cy += rowH;
+      addDataRow(s5, 0.35, cy, 4.35, rowH, exp.name, fmt(exp.amount), i%2!==0, false, fs5); cy += rowH;
     });
-    addDataRow(s5, 0.6, cy, 4.1, totH, 'TOTAL EXPENSES', fmt(curTotExp), false, true, fs); cy += totH + 0.04;
-    addDataRow(s5, 0.6, cy, 4.1, totH, 'NET OPERATING INCOME', fmt(curNOI), false, true, fs);
+    addDataRow(s5, 0.35, cy, 4.35, totH, 'TOTAL EXPENSES', fmt(curTotExp), false, true, fs5); cy += totH + 0.06;
+    addNOIRow(s5, 0.35, cy, 4.35, totH+0.02, 'NET OPERATING INCOME', fmt(curNOI), fs5);
 
-    // -- PRO FORMA PROJECTIONS (right) --
-    s5.addText('PRO FORMA PROJECTIONS', {x:5.3, y:1.85, w:4.1, h:0.25, fontSize:10, fontFace:'Arial', color:HD, bold:true});
-    var py = 2.10;
-    s5.addText('INCOME', {x:5.3, y:py, w:4.1, h:secH, fontSize:fs, fontFace:'Arial', color:AC, bold:true}); py += secH;
-    var pfGPI = n('pfIncome');
+    // ─ Pro Forma Projections ─
+    var py5 = colStart + 0.34;
+    s5.addText('INCOME', {x:5.3, y:py5, w:4.35, h:secH, fontSize:fs5, fontFace:'Arial', color:GOLD, bold:true, charSpacing:1.5}); py5 += secH;
+    var pfGPI   = n('pfIncome');
     var pfTotOI = pfOtherIncome.reduce(function(s,e){ return s + e.amount; }, 0);
-    addDataRow(s5, 5.3, py, 4.1, rowH, 'Gross Rent Income', fmt(pfGPI - pfTotOI), true, false, fs); py += rowH;
+    addDataRow(s5, 5.3, py5, 4.35, rowH, 'Gross Rent Income', fmt(pfGPI - pfTotOI), true, false, fs5); py5 += rowH;
     pfOI.forEach(function(item, i) {
-      addDataRow(s5, 5.3, py, 4.1, rowH, item.name, fmt(item.amount), (i+1)%2!==0, false, fs); py += rowH;
+      addDataRow(s5, 5.3, py5, 4.35, rowH, item.name, fmt(item.amount), (i+1)%2!==0, false, fs5); py5 += rowH;
     });
-    addDataRow(s5, 5.3, py, 4.1, totH, 'EFFECTIVE GROSS INCOME', fmt(pfEGI), false, true, fs); py += totH + 0.04;
-
-    s5.addText('EXPENSES', {x:5.3, y:py, w:4.1, h:secH, fontSize:fs, fontFace:'Arial', color:AC, bold:true}); py += secH;
+    addDataRow(s5, 5.3, py5, 4.35, totH, 'EFFECTIVE GROSS INCOME', fmt(pfEGI), false, true, fs5); py5 += totH + 0.06;
+    s5.addText('EXPENSES', {x:5.3, y:py5, w:4.35, h:secH, fontSize:fs5, fontFace:'Arial', color:GOLD, bold:true, charSpacing:1.5}); py5 += secH;
     pfExp.forEach(function(exp, i) {
-      addDataRow(s5, 5.3, py, 4.1, rowH, exp.name, fmt(exp.amount), i%2!==0, false, fs); py += rowH;
+      addDataRow(s5, 5.3, py5, 4.35, rowH, exp.name, fmt(exp.amount), i%2!==0, false, fs5); py5 += rowH;
     });
-    addDataRow(s5, 5.3, py, 4.1, totH, 'TOTAL EXPENSES', fmt(pfTotExp), false, true, fs); py += totH + 0.04;
-    addDataRow(s5, 5.3, py, 4.1, totH, 'NET OPERATING INCOME', fmt(pfNOI), false, true, fs);
+    addDataRow(s5, 5.3, py5, 4.35, totH, 'TOTAL EXPENSES', fmt(pfTotExp), false, true, fs5); py5 += totH + 0.06;
+    addNOIRow(s5, 5.3, py5, 4.35, totH+0.02, 'NET OPERATING INCOME', fmt(pfNOI), fs5);
 
     addFooter(s5, '05', false);
 
     // ════════════════════════════════════════════════
-    // SLIDE 6: MARKET OVERVIEW (light background)
+    // SLIDE 6: MARKET OVERVIEW
     // ════════════════════════════════════════════════
     var s6 = pptx.addSlide();
-    s6.background = {color:LT};
+    s6.background = {color:PL};
 
-    s6.addText('04  MARKET OVERVIEW', {x:0.6, y:0.35, w:9, h:0.35, fontSize:14, fontFace:'Georgia', color:HD, bold:true});
-    s6.addText(v('mktDesc'), {x:0.6, y:0.75, w:8.8, h:0.55, fontSize:9, fontFace:'Arial', color:BD, lineSpacingMultiple:1.3});
+    addLeftPanel(s6, '04', 'MARKET OVERVIEW');
 
-    // 4 stat boxes
-    var mktBoxes = [
-      {val:v('population') || '--', label:'CITY POPULATION', sub:'Regional hub'},
-      {val:v('unemployment') || '--', label:'UNEMPLOYMENT', sub:'Below national avg'},
-      {val:v('medianIncome') || '--', label:'MEDIAN INCOME', sub:'Household'},
-      {val:v('avgRent') || '--', label:'MEDIAN RENT', sub:'Gross rent'}
+    // Market key stats (2×2) in left panel
+    var mktStats = [
+      {val:v('population') || '—',   label:'CITY POP.'},
+      {val:v('medianIncome') || '—', label:'MEDIAN INCOME'},
+      {val:v('unemployment') || '—', label:'UNEMPLOYMENT'},
+      {val:v('avgRent') || '—',      label:'MEDIAN RENT'}
     ];
-    mktBoxes.forEach(function(b, i) {
-      var bx = 0.6 + i * 2.3;
-      addStatBox(s6, bx, 1.55, 2.05, 0.9, b.val, sp(b.label), b.sub);
+    mktStats.forEach(function(m, i) {
+      var mRow = Math.floor(i / 2);
+      var mCol = i % 2;
+      addGoldMetricBox(s6, 0.2 + mCol * 1.3, 1.78 + mRow * 0.92, 1.25, 0.80, m.val, m.label);
     });
 
-    // DEMOGRAPHICS & ECONOMICS - two-column alternating rows
-    s6.addText('DEMOGRAPHICS & ECONOMICS', {x:0.6, y:2.7, w:9, h:0.25, fontSize:10, fontFace:'Arial', color:HD, bold:true});
+    var cityState = [v('mktCity'), stateName].filter(Boolean).join(', ');
+    if (cityState) {
+      s6.addText(cityState.toUpperCase(), {x:0, y:3.65, w:3.0, h:0.28, align:'center', fontSize:9, fontFace:'Arial', color:WH, bold:true, shrinkText:true});
+    }
+
+    // Right content
+    var r6x = 3.2;
+    var r6w = 6.65;
+
+    s6.addText('Market Overview', {x:r6x, y:0.22, w:r6w, h:0.4, fontSize:20, fontFace:'Georgia', color:NV, bold:true});
+    addGoldLine(s6, r6x, 0.64, r6w);
+    s6.addText(v('mktDesc'), {x:r6x, y:0.74, w:r6w, h:0.48, fontSize:8.5, fontFace:'Arial', color:BD, lineSpacingMultiple:1.4});
+
+    // Demographics two-column
+    s6.addText('DEMOGRAPHICS & ECONOMICS', {x:r6x, y:1.3, w:r6w, h:0.24, fontSize:9.5, fontFace:'Arial', color:NV, bold:true, charSpacing:0.3});
+    addGoldLine(s6, r6x, 1.54, r6w);
 
     var demoLeft = [
-      ['City Population', v('population') || '--'],
-      ['County', v('mktCounty') || '--'],
-      ['Median Household Income', v('medianIncome') || '--'],
-      ['Median Age', v('medianAge') || '--'],
-      ['Median Gross Rent', v('avgRent') || '--']
+      ['County',                    v('mktCounty') || '—'],
+      ['Median Household Income',   v('medianIncome') || '—'],
+      ['Median Age',                v('medianAge') || '—'],
+      ['Median Gross Rent',         v('avgRent') || '—']
     ];
     var demoRight = [
-      ['Total Households', v('households') || '--'],
-      ['Owner Occupied', v('ownerOcc') || '--'],
-      ['Renter Occupied', v('renterOcc') || '--'],
-      ['Total Housing Units', v('housingUnits') || '--'],
-      ['Avg Household Size', v('hhSize') || '--']
+      ['Total Households',          v('households') || '—'],
+      ['Owner Occupied',            v('ownerOcc') || '—'],
+      ['Renter Occupied',           v('renterOcc') || '—'],
+      ['Avg Household Size',        v('hhSize') || '—']
     ];
-
+    var demoRH = 0.265;
     demoLeft.forEach(function(row, i) {
-      addDataRow(s6, 0.6, 2.95 + i * 0.24, 4.1, 0.24, row[0], row[1], i % 2 !== 0, false);
+      addDataRow(s6, r6x, 1.62 + i * demoRH, r6w/2 - 0.1, demoRH, row[0], row[1], i%2!==0, false, 7.5);
     });
     demoRight.forEach(function(row, i) {
-      addDataRow(s6, 5.3, 2.95 + i * 0.24, 4.1, 0.24, row[0], row[1], i % 2 !== 0, false);
+      addDataRow(s6, r6x + r6w/2 + 0.1, 1.62 + i * demoRH, r6w/2 - 0.1, demoRH, row[0], row[1], i%2!==0, false, 7.5);
     });
 
-    // MARKET DRIVERS - three columns
-    s6.addText('MARKET DRIVERS', {x:0.6, y:4.2, w:9, h:0.25, fontSize:10, fontFace:'Arial', color:HD, bold:true});
+    // Market drivers — 3 navy cards
+    s6.addText('MARKET DRIVERS', {x:r6x, y:2.78, w:r6w, h:0.24, fontSize:9.5, fontFace:'Arial', color:NV, bold:true, charSpacing:0.3});
+    addGoldLine(s6, r6x, 3.02, r6w);
+
     var drivers = [
-      {title:v('drv1Title') || 'REGIONAL HUB', desc:v('drv1Desc') || v('mktCity') + ' serves as the commercial and healthcare center for the surrounding area.'},
-      {title:v('drv2Title') || 'AFFORDABLE LIVING', desc:v('drv2Desc') || 'Low cost of living and affordable housing attract and retain working families.'},
-      {title:v('drv3Title') || 'STABLE ECONOMY', desc:v('drv3Desc') || 'Diversified base of healthcare, manufacturing, and retail provides consistent employment.'}
+      {title:v('drv1Title') || 'REGIONAL HUB',      desc:v('drv1Desc') || (v('mktCity') + ' serves as the commercial and healthcare center for the surrounding area.')},
+      {title:v('drv2Title') || 'AFFORDABLE LIVING',  desc:v('drv2Desc') || 'Low cost of living and affordable housing attract and retain working families.'},
+      {title:v('drv3Title') || 'STABLE ECONOMY',     desc:v('drv3Desc') || 'Diversified base of healthcare, manufacturing, and retail provides consistent employment.'}
     ];
+    var drvW = r6w / 3 - 0.07;
     drivers.forEach(function(d, i) {
-      var dx = 0.6 + i * 3.1;
-      s6.addText(d.title.toUpperCase(), {x:dx, y:4.5, w:2.8, h:0.2, fontSize:8, fontFace:'Arial', color:AC, bold:true});
-      s6.addText(d.desc, {x:dx, y:4.7, w:2.8, h:0.35, fontSize:7.5, fontFace:'Arial', color:BD, lineSpacingMultiple:1.2});
+      var dx = r6x + i * (drvW + 0.1);
+      s6.addShape('rect', {x:dx, y:3.1, w:drvW, h:1.1, fill:{color:NV}});
+      s6.addShape('rect', {x:dx, y:3.1, w:drvW, h:0.04, fill:{color:GOLD}});
+      s6.addText(d.title.toUpperCase(), {x:dx+0.1, y:3.15, w:drvW-0.15, h:0.2,  fontSize:7.5, fontFace:'Arial', color:GOLD, bold:true});
+      s6.addText(d.desc,                {x:dx+0.1, y:3.36, w:drvW-0.15, h:0.78, fontSize:7,   fontFace:'Arial', color:AC,   lineSpacingMultiple:1.25});
     });
 
     addFooter(s6, '06', false);
 
     // ════════════════════════════════════════════════
-    // SLIDE 7: PHOTO GALLERY (dark background)
+    // SLIDE 7: PHOTO GALLERY — Featured Layout
     // ════════════════════════════════════════════════
     var s7 = pptx.addSlide();
-    s7.background = {color:DK};
+    s7.background = {color:'0F1920'};
 
-    s7.addText('05  PHOTO GALLERY', {x:0.6, y:0.35, w:9, h:0.35, fontSize:14, fontFace:'Georgia', color:WH, bold:true});
-    s7.addShape('rect', {x:0.6, y:0.75, w:1.5, h:0.004, fill:{color:AC}});
+    // Header
+    s7.addShape('rect', {x:0, y:0, w:10, h:0.52, fill:{color:NV}});
+    addGoldLine(s7, 0, 0, 10);
+    s7.addText('05  PHOTO GALLERY', {x:0.35, y:0.07, w:9, h:0.4, fontSize:18, fontFace:'Georgia', color:WH, bold:true, align:'left'});
+    addGoldLine(s7, 0, 0.52, 10);
 
-    // 6 equal photo slots in a 3x2 grid
-    var gridCols = 3;
-    var gridRows = 2;
-    var gridGap = 0.12;
-    var gridX = 0.6;
-    var gridY = 0.95;
-    var gridW = 8.8;
-    var gridH = 3.95;
-    var cellW = (gridW - (gridCols - 1) * gridGap) / gridCols;
-    var cellH = (gridH - (gridRows - 1) * gridGap) / gridRows;
+    var galleryPhotos = photos.filter(function(p){ return !!p; });
 
-    for (var gi = 0; gi < gridCols * gridRows; gi++) {
-      var col = gi % gridCols;
-      var row = Math.floor(gi / gridCols);
-      var cx = gridX + col * (cellW + gridGap);
-      var cy2 = gridY + row * (cellH + gridGap);
-
-      if (photos[gi]) {
-        s7.addImage({data:photos[gi], x:cx, y:cy2, w:cellW, h:cellH, sizing:{type:'cover', w:cellW, h:cellH}});
-      } else {
-        s7.addShape('rect', {x:cx, y:cy2, w:cellW, h:cellH, fill:{color:NV}});
-        s7.addText('PHOTO ' + (gi + 1), {x:cx, y:cy2, w:cellW, h:cellH, align:'center', valign:'middle', fontSize:10, fontFace:'Arial', color:GR});
+    if (galleryPhotos.length === 0) {
+      // 3×2 placeholder grid
+      for (var pi = 0; pi < 6; pi++) {
+        var pgc = pi % 3;
+        var pgr = Math.floor(pi / 3);
+        var ppx = 0.2 + pgc * 3.25;
+        var ppy = 0.62 + pgr * 2.3;
+        s7.addShape('rect', {x:ppx, y:ppy, w:3.15, h:2.18, fill:{color:NV}});
+        s7.addShape('rect', {x:ppx, y:ppy, w:3.15, h:0.04, fill:{color:GOLD}});
+        s7.addText('PHOTO ' + (pi+1), {x:ppx, y:ppy, w:3.15, h:2.18, align:'center', valign:'middle', fontSize:10, fontFace:'Arial', color:GR});
       }
-      // Subtle border
-      s7.addShape('rect', {x:cx, y:cy2, w:cellW, h:cellH, fill:{type:'none'}, line:{color:NV, width:0.5}});
+    } else if (galleryPhotos.length === 1) {
+      s7.addImage({data:galleryPhotos[0], x:0.2, y:0.62, w:9.6, h:4.6, sizing:{type:'cover', w:9.6, h:4.6}});
+      s7.addShape('rect', {x:0.2, y:0.62, w:9.6, h:4.6, fill:{type:'none'}, line:{color:GOLD, width:0.5}});
+    } else {
+      // Featured: large photo left + thumbnails right
+      var featW = 5.65;
+      var featH = 4.58;
+      s7.addImage({data:galleryPhotos[0], x:0.2, y:0.62, w:featW, h:featH, sizing:{type:'cover', w:featW, h:featH}});
+      s7.addShape('rect', {x:0.2, y:0.62, w:featW, h:featH, fill:{type:'none'}, line:{color:GOLD, width:0.75}});
+
+      // Thumbnails right: up to 4 in 2×2
+      var tW = 1.95;
+      var tH = (featH - 0.1) / 2;
+      var tGap = 0.1;
+      var tStartX = 0.2 + featW + 0.15;
+      var tStartY = 0.62;
+      for (var ti = 1; ti <= Math.min(4, galleryPhotos.length - 1); ti++) {
+        var tc = (ti - 1) % 2;
+        var trow = Math.floor((ti - 1) / 2);
+        var tx = tStartX + tc * (tW + tGap);
+        var ty2 = tStartY + trow * (tH + tGap);
+        s7.addImage({data:galleryPhotos[ti], x:tx, y:ty2, w:tW, h:tH, sizing:{type:'cover', w:tW, h:tH}});
+        s7.addShape('rect', {x:tx, y:ty2, w:tW, h:tH, fill:{type:'none'}, line:{color:'2A3F4D', width:0.5}});
+      }
+
+      // "+N MORE" badge if extra photos
+      if (galleryPhotos.length > 5) {
+        s7.addShape('rect', {x:tStartX + tW + tGap, y:tStartY + tH + tGap, w:tW, h:tH, fill:{color:NV2}});
+        s7.addShape('rect', {x:tStartX + tW + tGap, y:tStartY + tH + tGap, w:tW, h:0.04, fill:{color:GOLD}});
+        s7.addText('+' + (galleryPhotos.length - 5) + '\nMORE', {x:tStartX + tW + tGap, y:tStartY + tH + tGap, w:tW, h:tH, align:'center', valign:'middle', fontSize:16, fontFace:'Georgia', color:GOLD, bold:true, lineSpacingMultiple:1.2});
+      }
     }
 
     addFooter(s7, '07', true);
 
     // ════════════════════════════════════════════════
-    // SLIDE 8: CONTACT (dark background, circle logo design)
+    // SLIDE 8: CONTACT
     // ════════════════════════════════════════════════
     var s8 = pptx.addSlide();
-    s8.background = {color:DK};
+    s8.background = {color:NV};
 
-    // Round submark logo centered at top
+    s8.addShape('rect', {x:0, y:0, w:10, h:0.06, fill:{color:GOLD}});
+    addGoldLine(s8, 0, 5.35, 10);
+
+    // Logo
     if (typeof LOGO_ROUND_SUBMARK !== 'undefined' && LOGO_ROUND_SUBMARK) {
-      s8.addImage({data:LOGO_ROUND_SUBMARK, x:3.75, y:0.3, w:2.5, h:2.5, sizing:{type:'contain', w:2.5, h:2.5}});
+      s8.addImage({data:LOGO_ROUND_SUBMARK, x:3.9, y:0.22, w:2.2, h:2.2, sizing:{type:'contain', w:2.2, h:2.2}});
     } else if (typeof LOGO_PRIMARY_LIGHT !== 'undefined' && LOGO_PRIMARY_LIGHT) {
-      s8.addImage({data:LOGO_PRIMARY_LIGHT, x:2.0, y:0.55, w:6.0, h:2.0, sizing:{type:'contain', w:6.0, h:2.0}});
+      s8.addImage({data:LOGO_PRIMARY_LIGHT, x:2.5, y:0.4, w:5.0, h:1.6, sizing:{type:'contain', w:5.0, h:1.6}});
     }
 
-    // "EXCLUSIVELY OFFERED BY"
-    s8.addText(sp('EXCLUSIVELY OFFERED BY'), {x:0, y:2.9, w:10, h:0.25, align:'center', fontSize:9, fontFace:'Arial', color:AC, bold:true});
+    addGoldLine(s8, 1.5, 2.55, 7.0);
+    s8.addText('EXCLUSIVELY OFFERED BY', {x:0, y:2.65, w:10, h:0.28, align:'center', fontSize:9, fontFace:'Arial', color:GOLD, charSpacing:2.5, bold:true});
+    addGoldLine(s8, 1.5, 2.93, 7.0);
 
-    // Agent cards — read from agents[] JS array directly
+    // Agent cards
     var numAgents = agents.length || 1;
-    var cardW = 2.5;
-    var cardGap = 0.3;
-    var totalCardsW = numAgents * cardW + (numAgents - 1) * cardGap;
-    var cardStartX = (10 - totalCardsW) / 2;
+    var agentCardW = Math.min(2.65, (8.4 / numAgents) - 0.35);
+    var agentGap = 0.38;
+    var totalAgentW = numAgents * agentCardW + (numAgents - 1) * agentGap;
+    var agentStartX = (10 - totalAgentW) / 2;
 
     agents.forEach(function(a, idx) {
-      var aName = a.name || '';
-      var aTitle = a.title || '';
-      var aCompany = a.company || '';
-      var aPhone = a.phone || '';
-      var aEmail = a.email || '';
-      var aLicense = a.licenses || '';
+      var ax = agentStartX + idx * (agentCardW + agentGap);
+      var ay = 3.06;
+      var ach = 2.0;
 
-      var ax = cardStartX + idx * (cardW + cardGap);
-      var ay = 3.20;
+      s8.addShape('rect', {x:ax, y:ay, w:agentCardW, h:ach, fill:{color:NV2}});
+      s8.addShape('rect', {x:ax, y:ay, w:agentCardW, h:0.045, fill:{color:GOLD}});
 
-      s8.addShape('rect', {x:ax, y:ay, w:cardW, h:1.75, fill:{color:NV}, rectRadius:0.05});
-      s8.addShape('rect', {x:ax+0.3, y:ay, w:cardW-0.6, h:0.025, fill:{color:AC}});
-
-      s8.addText(aName.toUpperCase(), {x:ax, y:ay+0.08, w:cardW, h:0.28, align:'center', fontSize:12, fontFace:'Georgia', color:WH, bold:true});
-      s8.addText(aTitle, {x:ax, y:ay+0.34, w:cardW, h:0.18, align:'center', fontSize:8, fontFace:'Arial', color:AC});
-      if (aCompany) {
-        s8.addText(aCompany, {x:ax, y:ay+0.52, w:cardW, h:0.18, align:'center', fontSize:7.5, fontFace:'Arial', color:WH});
+      s8.addText((a.name || '').toUpperCase(), {x:ax, y:ay+0.08, w:agentCardW, h:0.28, align:'center', fontSize:13, fontFace:'Georgia', color:WH, bold:true});
+      if (a.title) {
+        s8.addText(a.title, {x:ax+0.1, y:ay+0.37, w:agentCardW-0.2, h:0.18, align:'center', fontSize:8, fontFace:'Arial', color:GOLD});
       }
-      if (aPhone) {
-        s8.addText(aPhone, {x:ax, y:ay+0.74, w:cardW, h:0.18, align:'center', fontSize:8, fontFace:'Arial', color:GR});
+      s8.addShape('rect', {x:ax+0.28, y:ay+0.58, w:agentCardW-0.56, h:0.003, fill:{color:AC}});
+      if (a.company) {
+        s8.addText(a.company, {x:ax+0.1, y:ay+0.64, w:agentCardW-0.2, h:0.18, align:'center', fontSize:7.5, fontFace:'Arial', color:AC});
       }
-      if (aEmail) {
-        s8.addText(aEmail, {x:ax, y:ay+0.92, w:cardW, h:0.18, align:'center', fontSize:7.5, fontFace:'Arial', color:GR});
+      if (a.phone) {
+        s8.addText(a.phone, {x:ax+0.1, y:ay+0.86, w:agentCardW-0.2, h:0.18, align:'center', fontSize:8, fontFace:'Arial', color:WH});
       }
-      if (aLicense) {
-        s8.addText(aLicense, {x:ax, y:ay+1.12, w:cardW, h:0.18, align:'center', fontSize:6.5, fontFace:'Arial', color:GR, italic:true});
+      if (a.email) {
+        s8.addText(a.email, {x:ax+0.1, y:ay+1.06, w:agentCardW-0.2, h:0.18, align:'center', fontSize:7.5, fontFace:'Arial', color:AC});
+      }
+      if (a.licenses) {
+        s8.addText(a.licenses, {x:ax+0.1, y:ay+1.28, w:agentCardW-0.2, h:0.18, align:'center', fontSize:6.5, fontFace:'Arial', color:GR, italic:true});
       }
     });
 
     // Disclaimer
     var disc = document.getElementById('disclaimer') ? document.getElementById('disclaimer').value : '';
     if (disc) {
-      s8.addText(disc, {x:0.6, y:4.82, w:8.8, h:0.25, fontSize:7, fontFace:'Arial', color:GR, align:'center', valign:'bottom'});
+      s8.addText(disc, {x:0.6, y:5.06, w:8.8, h:0.26, fontSize:6.5, fontFace:'Arial', color:'3A5060', align:'center'});
     }
 
     addFooter(s8, '08', true);
@@ -928,6 +1051,7 @@ function generateOM() {
     alert('Error: ' + e.message + '\n\n' + e.stack);
   }
 }
+
 
 // ==== PAST OMs (localStorage) ====
 function gatherOMData() {
@@ -2735,7 +2859,7 @@ renderPastOMs();
 
   // ---- CLAUDE API HELPER ----
   function getClaudeKey() {
-    return (localStorage.getItem('gw_claude_api_key') || '').trim();
+    return (localStorage.getItem('gw_claude_api_key') || (window.CONFIG && window.CONFIG.claudeApiKey) || '').trim();
   }
 
   function claudeRequest(systemPrompt, userPrompt, onResult, onError) {
