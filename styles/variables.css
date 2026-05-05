@@ -1,0 +1,26 @@
+/* ========== GLOBAL RESETS & VARIABLES ========== */
+:root {
+  --brand-navy: #1E2F39;
+  --brand-navy-dark: #152229;
+  --brand-blue: #A2B6C0;
+  --brand-cream: #E4E3D4;
+  --brand-gray: #969694;
+  --brand-white: #FFFFFF;
+  --brand-black: #282828;
+  --card-bg: #1a2830;
+  --card-hover: #223742;
+  --input-bg: #152229;
+  --input-border: #2a3e4a;
+  --accent-blue: #5BA4CF;
+  --success: #4CAF50;
+  --warning: #FFC107;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
+  background: var(--brand-navy-dark);
+  color: var(--brand-white);
+  min-height: 100vh;
+}
+h1, h2, h3, h4 { font-family: 'EB Garamond', Georgia, serif; }
+
