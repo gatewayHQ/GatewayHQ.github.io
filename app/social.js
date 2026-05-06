@@ -2457,6 +2457,14 @@ async function updateSocialPreview() {
   ctx.fillRect(0, H - 3, W, 3);
 }
 
+// Debounce wrapper — prevents redundant canvas redraws on every keystroke.
+// All oninput/onchange handlers call updateSocialPreview() by name; this IIFE
+// replaces the global reference so callers automatically get the debounced version.
+(function() {
+  var _raw = updateSocialPreview, _t = null;
+  updateSocialPreview = function() { clearTimeout(_t); _t = setTimeout(_raw, 250); };
+})();
+
 function roundRect(ctx, x, y, w, h, r) {
   ctx.moveTo(x + r, y);
   ctx.lineTo(x + w - r, y);

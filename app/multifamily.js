@@ -212,6 +212,10 @@ var agents = [
   { name: '', title: '', company: 'Gateway Real Estate Advisors', email: '', phone: '', licenses: '' }
 ];
 function renderAgents() {
+  var savedPresets = JSON.parse(localStorage.getItem('gw_saved_agents') || '[]');
+  var savedOpts = savedPresets.map(function(p) {
+    return '<option value="' + encodeURIComponent(JSON.stringify(p)) + '">' + p.name + '</option>';
+  }).join('');
   var container = document.getElementById('agentCards');
   container.innerHTML = '';
   agents.forEach(function(a, i) {
@@ -229,11 +233,56 @@ function renderAgents() {
       '<div class="form-group"><label>Email</label><input value="'+a.email+'" onchange="agents['+i+'].email=this.value"></div>' +
       '<div class="form-group"><label>Phone</label><input value="'+a.phone+'" onchange="agents['+i+'].phone=this.value"></div>' +
       '<div class="form-group"><label>Licenses</label><input value="'+a.licenses+'" onchange="agents['+i+'].licenses=this.value"></div>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap;">' +
+      '<button class="btn-sm" style="font-size:12px;padding:4px 10px;background:#1E3040;border:1px solid #C8A84B;color:#C8A84B;white-space:nowrap;" onclick="saveOMAgentPreset('+i+')">💾 Save</button>' +
+      '<select id="om-agent-load-sel-'+i+'" style="flex:1;min-width:110px;font-size:12px;padding:4px 8px;background:#1a2830;color:#E4E3D4;border:1px solid #2a4050;border-radius:4px;" onchange="loadOMAgentPreset('+i+',this)">' +
+      '<option value="">Load saved agent…</option>' + savedOpts +
+      '</select>' +
+      '<button class="btn-sm" title="Delete selected agent from roster" style="font-size:12px;padding:4px 9px;background:#1E3040;border:1px solid #7a3030;color:#e07070;white-space:nowrap;" onclick="deleteOMSavedAgent(\'om-agent-load-sel-'+i+'\')">🗑️</button>' +
       '</div>';
     container.appendChild(card);
   });
 }
 function addAgent() { agents.push({ name:'', title:'', company:'Gateway Real Estate Advisors', email:'', phone:'', licenses:'' }); renderAgents(); }
+
+// ---- AGENT PRESET SAVE / LOAD (shares gw_saved_agents with social generator) ----
+function saveOMAgentPreset(i) {
+  var a = agents[i];
+  if (!a.name) { showGlobalStatus('Enter an agent name first.'); return; }
+  var saved = JSON.parse(localStorage.getItem('gw_saved_agents') || '[]');
+  var preset = { name:a.name, title:a.title, company:a.company, phone:a.phone, email:a.email, license:a.licenses };
+  var idx = -1;
+  for (var k = 0; k < saved.length; k++) { if (saved[k].name === a.name) { idx = k; break; } }
+  if (idx >= 0) saved[idx] = preset; else saved.push(preset);
+  localStorage.setItem('gw_saved_agents', JSON.stringify(saved));
+  renderAgents();
+  showGlobalStatus('Agent "' + a.name + '" saved to roster.');
+}
+
+function loadOMAgentPreset(i, sel) {
+  if (!sel.value) return;
+  var p = JSON.parse(decodeURIComponent(sel.value));
+  agents[i].name     = p.name    || '';
+  agents[i].title    = p.title   || '';
+  agents[i].company  = p.company || 'Gateway Real Estate Advisors';
+  agents[i].phone    = p.phone   || '';
+  agents[i].email    = p.email   || '';
+  agents[i].licenses = p.license || p.licenses || '';
+  renderAgents();
+}
+
+function deleteOMSavedAgent(selId) {
+  var sel = document.getElementById(selId);
+  if (!sel || !sel.value) { showGlobalStatus('Select a saved agent from the dropdown first.'); return; }
+  var p = JSON.parse(decodeURIComponent(sel.value));
+  if (!confirm('Remove "' + p.name + '" from the roster? This cannot be undone.')) return;
+  var saved = JSON.parse(localStorage.getItem('gw_saved_agents') || '[]');
+  saved = saved.filter(function(a) { return a.name !== p.name; });
+  localStorage.setItem('gw_saved_agents', JSON.stringify(saved));
+  renderAgents();
+}
+
 renderAgents();
 
 // ==== MARKET DATA AUTO-FILL ====
@@ -708,31 +757,53 @@ function generateOM() {
     var umColWidths = hasSqFt
       ? [1.4, 0.65, 0.88, 1.0, 0.88, 1.1, 0.74]
       : [1.9, 0.95, 1.3, 1.6, 0.9];
-    var tblHeader = [umHeaderCols.map(function(h) {
-      return {text:h, options:{fontSize:7.5, fontFace:'Arial', color:WH, bold:true, fill:{color:NV}, align:'center', valign:'middle', margin:[0,3,0,3]}};
-    })];
-    var tblRows = unitData.filter(function(u){ return u.type || u.units > 0; }).map(function(u, i) {
+    // Manual table render — bypasses PptxGenJS addTable rendering artifacts
+    var umRowH  = 0.28;
+    var umTblY  = 1.86;
+    var umCurX;
+
+    // Header row
+    umCurX = r4x;
+    umHeaderCols.forEach(function(h, ci) {
+      var cw = umColWidths[ci];
+      s4.addShape('rect', {x:umCurX, y:umTblY, w:cw, h:umRowH, fill:{color:NV}});
+      s4.addText(h, {x:umCurX+0.04, y:umTblY, w:cw-0.08, h:umRowH, align:'center', valign:'middle', fontSize:7, fontFace:'Arial', color:WH, bold:true});
+      umCurX += cw;
+    });
+
+    // Data rows
+    var umVisRows = unitData.filter(function(u){ return u.type || u.units > 0; });
+    umVisRows.forEach(function(u, ri) {
+      var ry   = umTblY + (ri + 1) * umRowH;
+      var bg   = ri % 2 === 0 ? PL : PM;
       var rpsf = u.sqft > 0 ? (u.rent / u.sqft).toFixed(2) : '0.00';
-      var tr = u.units * u.rent;
-      var pct = totalAllRent > 0 ? ((tr / totalAllRent) * 100).toFixed(0) : '0';
-      var bg = i % 2 === 0 ? PL : PM;
+      var tr2  = u.units * u.rent;
+      var pct  = totalAllRent > 0 ? ((tr2 / totalAllRent) * 100).toFixed(0) : '0';
       var cells = hasSqFt
-        ? [u.type, ''+u.units, u.sqft.toLocaleString(), '$'+u.rent, '$'+rpsf, '$'+tr.toLocaleString(), pct+'%']
-        : [u.type, ''+u.units, '$'+u.rent, '$'+tr.toLocaleString(), pct+'%'];
-      return cells.map(function(c, ci) {
-        return {text:c, options:{fontSize:8, fontFace:'Arial', color:ci===0 ? NV : BD, fill:{color:bg}, align:'center', valign:'middle', bold:ci===0}};
+        ? [u.type, ''+u.units, u.sqft.toLocaleString(), '$'+u.rent, '$'+rpsf, '$'+tr2.toLocaleString(), pct+'%']
+        : [u.type, ''+u.units, '$'+u.rent, '$'+tr2.toLocaleString(), pct+'%'];
+      umCurX = r4x;
+      cells.forEach(function(c, ci) {
+        var cw = umColWidths[ci];
+        s4.addShape('rect', {x:umCurX, y:ry, w:cw, h:umRowH, fill:{color:bg}});
+        s4.addText(c, {x:umCurX+0.04, y:ry, w:cw-0.08, h:umRowH, align:ci===0?'left':'center', valign:'middle', fontSize:7.5, fontFace:'Arial', color:ci===0?NV:BD, bold:ci===0});
+        umCurX += cw;
       });
     });
-    // Totals row
-    var totRow = hasSqFt
-      ? ['TOTAL', ''+unitData.reduce(function(s,u){return s+u.units;},0), '', '', '', '$'+totalAllRent.toLocaleString(), '100%']
-      : ['TOTAL', ''+unitData.reduce(function(s,u){return s+u.units;},0), '', '$'+totalAllRent.toLocaleString(), '100%'];
-    tblRows.push(totRow.map(function(c) {
-      return {text:c, options:{fontSize:8, fontFace:'Arial', color:WH, fill:{color:NV}, align:'center', valign:'middle', bold:true}};
-    }));
 
-    if (tblRows.length > 1) {
-      s4.addTable(tblHeader.concat(tblRows), {x:r4x, y:1.86, w:r4w, colW:umColWidths, rowH:0.28, border:{color:PM, pt:0.5}});
+    // Totals row
+    if (umVisRows.length > 0) {
+      var totRowY  = umTblY + (umVisRows.length + 1) * umRowH;
+      var totCells = hasSqFt
+        ? ['TOTAL', ''+unitData.reduce(function(s,u){return s+u.units;},0), '', '', '', '$'+totalAllRent.toLocaleString(), '100%']
+        : ['TOTAL', ''+unitData.reduce(function(s,u){return s+u.units;},0), '', '$'+totalAllRent.toLocaleString(), '100%'];
+      umCurX = r4x;
+      totCells.forEach(function(c, ci) {
+        var cw = umColWidths[ci];
+        s4.addShape('rect', {x:umCurX, y:totRowY, w:cw, h:umRowH, fill:{color:NV2}});
+        s4.addText(c, {x:umCurX+0.04, y:totRowY, w:cw-0.08, h:umRowH, align:'center', valign:'middle', fontSize:7.5, fontFace:'Arial', color:WH, bold:true});
+        umCurX += cw;
+      });
     }
 
     // Features strip
