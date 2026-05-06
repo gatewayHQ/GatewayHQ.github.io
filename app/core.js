@@ -45,7 +45,8 @@ function renderAIStatusBadge() {
   var badge = document.getElementById('ai-status-badge');
   if (!badge) return;
   var key = getClaudeKeyGlobal();
-  if (key) {
+  var proxyActive = !!(window.GatewayAPI && window.GatewayAPI.claudeAvailable && window.GatewayAPI.claudeAvailable());
+  if (key || proxyActive) {
     badge.title = 'AI Connected — Claude API key is active';
     badge.style.background = 'rgba(76,175,80,0.15)';
     badge.style.color = '#4CAF50';

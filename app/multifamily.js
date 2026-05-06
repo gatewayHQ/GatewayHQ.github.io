@@ -212,6 +212,10 @@ var agents = [
   { name: '', title: '', company: 'Gateway Real Estate Advisors', email: '', phone: '', licenses: '' }
 ];
 function renderAgents() {
+  var savedPresets = JSON.parse(localStorage.getItem('gw_saved_agents') || '[]');
+  var savedOpts = savedPresets.map(function(p) {
+    return '<option value="' + encodeURIComponent(JSON.stringify(p)) + '">' + p.name + '</option>';
+  }).join('');
   var container = document.getElementById('agentCards');
   container.innerHTML = '';
   agents.forEach(function(a, i) {
@@ -229,11 +233,56 @@ function renderAgents() {
       '<div class="form-group"><label>Email</label><input value="'+a.email+'" onchange="agents['+i+'].email=this.value"></div>' +
       '<div class="form-group"><label>Phone</label><input value="'+a.phone+'" onchange="agents['+i+'].phone=this.value"></div>' +
       '<div class="form-group"><label>Licenses</label><input value="'+a.licenses+'" onchange="agents['+i+'].licenses=this.value"></div>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap;">' +
+      '<button class="btn-sm" style="font-size:12px;padding:4px 10px;background:#1E3040;border:1px solid #C8A84B;color:#C8A84B;white-space:nowrap;" onclick="saveOMAgentPreset('+i+')">💾 Save</button>' +
+      '<select id="om-agent-load-sel-'+i+'" style="flex:1;min-width:110px;font-size:12px;padding:4px 8px;background:#1a2830;color:#E4E3D4;border:1px solid #2a4050;border-radius:4px;" onchange="loadOMAgentPreset('+i+',this)">' +
+      '<option value="">Load saved agent…</option>' + savedOpts +
+      '</select>' +
+      '<button class="btn-sm" title="Delete selected agent from roster" style="font-size:12px;padding:4px 9px;background:#1E3040;border:1px solid #7a3030;color:#e07070;white-space:nowrap;" onclick="deleteOMSavedAgent(\'om-agent-load-sel-'+i+'\')">🗑️</button>' +
       '</div>';
     container.appendChild(card);
   });
 }
 function addAgent() { agents.push({ name:'', title:'', company:'Gateway Real Estate Advisors', email:'', phone:'', licenses:'' }); renderAgents(); }
+
+// ---- AGENT PRESET SAVE / LOAD (shares gw_saved_agents with social generator) ----
+function saveOMAgentPreset(i) {
+  var a = agents[i];
+  if (!a.name) { showGlobalStatus('Enter an agent name first.'); return; }
+  var saved = JSON.parse(localStorage.getItem('gw_saved_agents') || '[]');
+  var preset = { name:a.name, title:a.title, company:a.company, phone:a.phone, email:a.email, license:a.licenses };
+  var idx = -1;
+  for (var k = 0; k < saved.length; k++) { if (saved[k].name === a.name) { idx = k; break; } }
+  if (idx >= 0) saved[idx] = preset; else saved.push(preset);
+  localStorage.setItem('gw_saved_agents', JSON.stringify(saved));
+  renderAgents();
+  showGlobalStatus('Agent "' + a.name + '" saved to roster.');
+}
+
+function loadOMAgentPreset(i, sel) {
+  if (!sel.value) return;
+  var p = JSON.parse(decodeURIComponent(sel.value));
+  agents[i].name     = p.name    || '';
+  agents[i].title    = p.title   || '';
+  agents[i].company  = p.company || 'Gateway Real Estate Advisors';
+  agents[i].phone    = p.phone   || '';
+  agents[i].email    = p.email   || '';
+  agents[i].licenses = p.license || p.licenses || '';
+  renderAgents();
+}
+
+function deleteOMSavedAgent(selId) {
+  var sel = document.getElementById(selId);
+  if (!sel || !sel.value) { showGlobalStatus('Select a saved agent from the dropdown first.'); return; }
+  var p = JSON.parse(decodeURIComponent(sel.value));
+  if (!confirm('Remove "' + p.name + '" from the roster? This cannot be undone.')) return;
+  var saved = JSON.parse(localStorage.getItem('gw_saved_agents') || '[]');
+  saved = saved.filter(function(a) { return a.name !== p.name; });
+  localStorage.setItem('gw_saved_agents', JSON.stringify(saved));
+  renderAgents();
+}
+
 renderAgents();
 
 // ==== MARKET DATA AUTO-FILL ====
@@ -376,13 +425,14 @@ function generateGatewaySignature() {
   var curIncome=n('curIncome'),pfIncome=n('pfIncome');
   var mktCity=v('mktCity')||'',mktDesc=v('mktDesc')||'',population=v('population')||'';
   var medIncome=v('medianIncome')||'',unemployment=v('unemployment')||'',avgRent=v('avgRent')||'';
+  var drv1T=v('drv1Title')||'',drv1D=v('drv1Desc')||'',drv2T=v('drv2Title')||'',drv2D=v('drv2Desc')||'',drv3T=v('drv3Title')||'',drv3D=v('drv3Desc')||'';
   var gwData={};try{gwData=JSON.parse(localStorage.getItem('gateway_about_company')||'{}');}catch(e){}
   var agentProfiles=[];Object.keys(localStorage).forEach(function(k){if(k.startsWith('gateway_agent_profile_')&&agentProfiles.length<4){try{agentProfiles.push(JSON.parse(localStorage.getItem(k)));}catch(e){}}});
   var ph=photos||[],coverPhoto=ph[0]||'',galleryPhotos=[ph[1],ph[2],ph[3],ph[4],ph[5]].filter(Boolean);
   var unitMixRows='',totalUnitsCalc=0,totalRentCalc=0;
   (unitData||[]).forEach(function(u){if(!u.type&&!u.units)return;var mo=(u.units||0)*(u.rent||0);totalUnitsCalc+=(u.units||0);totalRentCalc+=mo;unitMixRows+='<tr><td>'+(u.type||'')+'</td><td>'+(u.units||0)+'</td><td>'+(u.sqft||0)+' sf</td><td>'+fmt(u.rent)+'</td><td class="num">'+fmt(mo)+'</td></tr>';});
-  var annualRent=totalRentCalc*12,curExpRows='',curExpTotal=0;
-  (curExpenses||[]).forEach(function(e){if(!e.name)return;curExpTotal+=(e.amount||0);curExpRows+='<tr><td>'+e.name+'</td><td class="num">'+fmt(e.amount)+'</td><td class="num">'+fmt(e.amount)+'</td></tr>';});
+  var annualRent=totalRentCalc*12,curExpRows='',curExpTotal=0,pfExpTotal=0;
+  (curExpenses||[]).forEach(function(e,i){if(!e.name)return;var pfAmt=(pfExpenses[i]&&pfExpenses[i].amount)||e.amount;curExpTotal+=(e.amount||0);pfExpTotal+=pfAmt;curExpRows+='<tr><td>'+e.name+'</td><td class="num">'+fmt(e.amount)+'</td><td class="num">'+fmt(pfAmt)+'</td></tr>';});
   var curOtherRows='';(curOtherIncome||[]).forEach(function(o){if(!o.name)return;curOtherRows+='<tr><td>'+o.name+'</td><td class="num">'+fmt(o.amount)+'</td><td class="num">'+fmt(o.pfAmount||o.amount)+'</td></tr>';});
   var hlHTML=[hl1,hl2,hl3,hl4].filter(Boolean).map(function(h){return'<div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px;"><span style="color:#C8A84B;font-size:14px;flex-shrink:0;margin-top:2px;">&#10022;</span><p style="font-size:12px;line-height:1.75;color:#2C2C2C;margin:0;">'+h+'</p></div>';}).join('');
   var photoGallery=galleryPhotos.length?'<div style="display:grid;grid-template-columns:repeat('+Math.min(galleryPhotos.length,3)+',1fr);gap:8px;">'+galleryPhotos.map(function(p){return'<img src="'+p+'" style="width:100%;height:178px;object-fit:cover;border-radius:4px;">';}).join('')+'</div>':'<p style="color:#A09A8E;font-style:italic;margin-top:40px;">No photos uploaded.</p>';
@@ -398,9 +448,9 @@ function generateGatewaySignature() {
   +'<div class="page" style="display:block;position:relative;"><div style="position:absolute;top:0;left:0;width:40%;height:100%;background:#2B3A42;z-index:2;display:flex;flex-direction:column;padding:50px 38px;"><div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#C8A84B;margin-bottom:auto;">GATEWAY<br>REAL ESTATE ADVISORS</div><div>'+(propType?'<div class="prop-tag">'+propType+'</div>':'')+'<div style="font-family:\'Playfair Display\',serif;font-size:36px;font-weight:700;color:#E8E0D0;line-height:1.1;margin-bottom:6px;">'+propName1+'</div>'+(propName2?'<div style="font-family:\'Playfair Display\',serif;font-size:26px;font-weight:400;color:#A09A8E;margin-bottom:14px;">'+propName2+'</div>':'')+'<div style="height:1px;background:rgba(196,191,181,0.3);margin:14px 0;"></div><div style="font-size:12px;color:#A09A8E;line-height:1.6;margin-bottom:24px;">'+address+'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:28px;">'+pill('Asking Price',fmtK(askingPrice))+pill('Cap Rate',(capRate||'—')+(capRate&&capRate.indexOf('%')===-1?'%':''))+pill('Total Units',totalUnits||'—')+pill('Price / Unit',fmtK(pricePerUnit))+'</div></div><div style="font-size:9px;color:#6B6458;text-transform:uppercase;letter-spacing:1.5px;">'+prepared+' · Confidential Offering</div></div>'+(coverPhoto?'<img src="'+coverPhoto+'" style="position:absolute;top:0;right:0;width:61%;height:100%;object-fit:cover;z-index:1;">':'<div style="position:absolute;top:0;right:0;width:61%;height:100%;background:linear-gradient(135deg,#3A4D56,#2B3A42);z-index:1;"></div>')+'<div style="position:absolute;top:0;right:0;width:61%;height:100%;background:linear-gradient(to right,#2B3A42 0%,transparent 20%);z-index:2;pointer-events:none;"></div></div>'
   +'<div class="page">'+LP('Executive<br>Summary',(callout?'<div style="font-family:\'Playfair Display\',serif;font-size:14px;color:#C8A84B;line-height:1.6;font-style:italic;margin-bottom:16px;">"'+callout+'"</div>':'')+'<div style="margin-top:auto;">'+pill('NOI',fmtK(noi))+pill('GRM',grm||'—')+pill('Occupancy',occupancy||'—')+'</div>','Executive Summary','02')+'<div class="rp"><div class="sec-label">Investment Overview</div><div style="font-family:\'Playfair Display\',serif;font-size:20px;color:#2B3A42;margin-bottom:12px;">'+propName1+(propName2?' '+propName2:'')+'</div><div class="rule"></div><p style="font-size:12px;line-height:1.8;color:#2C2C2C;margin-top:10px;margin-bottom:20px;">'+(execDesc||'No executive description provided.')+'</p>'+(hlHTML?'<div class="sec-label" style="margin-bottom:10px;">Investment Highlights</div>'+hlHTML:'')+'</div></div>'
   +'<div class="page">'+LP('Property<br>Overview',stat('Year Built',yearBuilt)+stat('Total Units',totalUnits||'')+stat('Property Type',propType)+stat('Buildings',buildings)+stat('Lot Size',lotSize)+stat('Parking',parking)+stat('Occupancy',occupancy),'Property Overview','03')+'<div class="rp"><div class="sec-label">Property Description</div><div style="font-family:\'Playfair Display\',serif;font-size:18px;color:#2B3A42;margin-bottom:12px;">'+address+'</div><div class="rule"></div><p style="font-size:12px;line-height:1.8;color:#2C2C2C;margin-top:10px;margin-bottom:18px;">'+(propDesc||'No property description provided.')+'</p>'+(features?'<div class="sec-label" style="margin-bottom:6px;">Features &amp; Amenities</div><p style="font-size:11.5px;line-height:1.8;color:#6B6458;">'+features+'</p>':'')+'</div></div>'
-  +'<div class="page">'+LP('Unit Mix &amp;<br>Rent Roll','<div style="margin-top:auto;">'+pill('Total Units',totalUnits||totalUnitsCalc||'—')+pill('Monthly Rent',fmtK(totalRentCalc))+pill('Annual Rent',fmtK(annualRent))+'</div>','Unit Mix','04')+'<div class="rp"><div class="sec-label">Unit Mix Summary</div><div class="rule"></div><table style="margin-top:8px;"><thead><tr><th>Unit Type</th><th>Units</th><th>Avg SF</th><th>Market Rent</th><th class="num">Monthly Total</th></tr></thead><tbody>'+(unitMixRows||'<tr><td colspan="5" style="color:#A09A8E;font-style:italic;">No unit data entered.</td></tr>')+'</tbody><tfoot><tr class="tr-total"><td>Total</td><td>'+(totalUnits||totalUnitsCalc)+'</td><td>—</td><td>—</td><td class="num">'+fmt(totalRentCalc)+'/mo</td></tr></tfoot></table></div></div>'
-  +'<div class="page">'+LP('Financial<br>Summary','<div style="margin-top:auto;">'+pill('Gross Income (Cur)',fmtK(curIncome))+pill('Gross Income (PF)',fmtK(pfIncome))+pill('NOI',fmtK(noi))+pill('Cap Rate',(capRate||'—')+(capRate&&capRate.indexOf('%')===-1?'%':''))+'</div>','Financial Summary','05')+'<div class="rp"><div class="sec-label">Income &amp; Expense Statement</div><div class="rule"></div><table style="margin-top:8px;"><thead><tr><th>Line Item</th><th class="num">Current</th><th class="num">Pro Forma</th></tr></thead><tbody><tr class="tr-head"><td colspan="3">Income</td></tr><tr><td>Gross Scheduled Rent</td><td class="num">'+fmt(curIncome)+'</td><td class="num">'+fmt(pfIncome)+'</td></tr>'+(curOtherRows||'')+'<tr class="tr-total"><td>Effective Gross Income</td><td class="num">'+fmt(curIncome)+'</td><td class="num">'+fmt(pfIncome)+'</td></tr><tr class="tr-head"><td colspan="3">Expenses</td></tr>'+(curExpRows||'<tr><td colspan="3" style="color:#A09A8E;font-style:italic;">No expense data.</td></tr>')+'<tr class="tr-total"><td>Total Expenses</td><td class="num">'+fmt(curExpTotal)+'</td><td class="num">'+fmt(curExpTotal)+'</td></tr><tr class="tr-total" style="background:rgba(43,58,66,0.1)!important;"><td>Net Operating Income</td><td class="num" style="color:#2B3A42;">'+fmt(noi)+'</td><td class="num" style="color:#2B3A42;">'+fmt(noi)+'</td></tr></tbody></table></div></div>'
-  +'<div class="page">'+LP('Market<br>Overview',(mktCity?'<div style="font-size:13px;color:#C8A84B;font-weight:600;margin-bottom:14px;">'+mktCity+'</div>':'')+stat('Population',population)+stat('Median HH Income',medIncome)+stat('Unemployment',unemployment)+stat('Avg Market Rent',avgRent),'Market Overview','06')+'<div class="rp"><div class="sec-label">Market Analysis</div><div class="rule"></div><p style="font-size:12px;line-height:1.8;color:#2C2C2C;margin-top:12px;">'+(mktDesc||'No market description provided.')+'</p></div></div>'
+  +'<div class="page">'+LP('Unit Mix &amp;<br>Rent Roll','<div style="margin-top:auto;">'+pill('Total Units',totalUnits||totalUnitsCalc||'—')+pill('Monthly Rent',fmtK(totalRentCalc))+pill('Annual Rent',fmtK(annualRent))+'</div>','Unit Mix','04')+'<div class="rp"><div class="sec-label">Unit Mix Summary</div><div class="rule"></div><table style="margin-top:8px;"><thead><tr><th>Unit Type</th><th>Units</th><th>Avg SF</th><th>Market Rent</th><th class="num">Monthly Total</th></tr></thead><tbody>'+(unitMixRows||'<tr><td colspan="5" style="color:#A09A8E;font-style:italic;">No unit data entered.</td></tr>')+'</tbody><tfoot><tr class="tr-total"><td>Total</td><td>'+(totalUnits||totalUnitsCalc)+'</td><td>—</td><td>—</td><td class="num">'+fmt(totalRentCalc)+'/mo</td></tr></tfoot></table><div style="margin-top:auto;padding-top:14px;border-top:1px solid #C4BFB5;"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center;"><div><div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#6B6458;margin-bottom:5px;">Avg. Rent / Unit</div><div style="font-size:18px;font-weight:700;font-family:\'Playfair Display\',serif;color:#2B3A42;">'+(totalUnitsCalc>0?fmt(Math.round(totalRentCalc/totalUnitsCalc)):'—')+'</div></div><div><div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#6B6458;margin-bottom:5px;">Monthly Income</div><div style="font-size:18px;font-weight:700;font-family:\'Playfair Display\',serif;color:#2B3A42;">'+fmt(totalRentCalc)+'</div></div><div><div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#6B6458;margin-bottom:5px;">Annual Income</div><div style="font-size:18px;font-weight:700;font-family:\'Playfair Display\',serif;color:#2B3A42;">'+fmt(annualRent)+'</div></div></div></div></div></div>'
+  +'<div class="page">'+LP('Financial<br>Summary','<div style="margin-top:auto;">'+pill('Gross Income (Cur)',fmtK(curIncome))+pill('Gross Income (PF)',fmtK(pfIncome))+pill('NOI',fmtK(noi))+pill('Cap Rate',(capRate||'—')+(capRate&&capRate.indexOf('%')===-1?'%':''))+'</div>','Financial Summary','05')+'<div class="rp"><div class="sec-label">Income &amp; Expense Statement</div><div class="rule"></div><table style="margin-top:8px;"><thead><tr><th>Line Item</th><th class="num">Current</th><th class="num">Pro Forma</th></tr></thead><tbody><tr class="tr-head"><td colspan="3">Income</td></tr><tr><td>Gross Scheduled Rent</td><td class="num">'+fmt(curIncome)+'</td><td class="num">'+fmt(pfIncome)+'</td></tr>'+(curOtherRows||'')+'<tr class="tr-total"><td>Effective Gross Income</td><td class="num">'+fmt(curIncome)+'</td><td class="num">'+fmt(pfIncome)+'</td></tr><tr class="tr-head"><td colspan="3">Expenses</td></tr>'+(curExpRows||'<tr><td colspan="3" style="color:#A09A8E;font-style:italic;">No expense data.</td></tr>')+'<tr class="tr-total"><td>Total Expenses</td><td class="num">'+fmt(curExpTotal)+'</td><td class="num">'+fmt(pfExpTotal)+'</td></tr><tr class="tr-total" style="background:rgba(43,58,66,0.1)!important;"><td>Net Operating Income</td><td class="num" style="color:#2B3A42;">'+fmt(noi)+'</td><td class="num" style="color:#2B3A42;">'+fmt(pfIncome-pfExpTotal)+'</td></tr></tbody></table><div style="margin-top:auto;padding-top:14px;border-top:1px solid #C4BFB5;"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;text-align:center;"><div><div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#6B6458;margin-bottom:5px;">Cap Rate</div><div style="font-size:18px;font-weight:700;font-family:\'Playfair Display\',serif;color:#2B3A42;">'+(capRate?(capRate+(capRate.indexOf('%')===-1?'%':'')):'—')+'</div></div><div><div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#6B6458;margin-bottom:5px;">GRM</div><div style="font-size:18px;font-weight:700;font-family:\'Playfair Display\',serif;color:#2B3A42;">'+(grm||'—')+'</div></div><div><div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#6B6458;margin-bottom:5px;">Price / Unit</div><div style="font-size:18px;font-weight:700;font-family:\'Playfair Display\',serif;color:#2B3A42;">'+fmtK(pricePerUnit)+'</div></div><div><div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#6B6458;margin-bottom:5px;">Asking Price</div><div style="font-size:18px;font-weight:700;font-family:\'Playfair Display\',serif;color:#2B3A42;">'+fmtK(askingPrice)+'</div></div></div></div></div></div>'
+  +'<div class="page">'+LP('Market<br>Overview',(mktCity?'<div style="font-size:13px;color:#C8A84B;font-weight:600;margin-bottom:14px;">'+mktCity+'</div>':'')+stat('Population',population)+stat('Median HH Income',medIncome)+stat('Unemployment',unemployment)+stat('Avg Market Rent',avgRent),'Market Overview','06')+'<div class="rp"><div class="sec-label">Market Analysis</div><div class="rule"></div><p style="font-size:12px;line-height:1.8;color:#2C2C2C;margin-top:12px;margin-bottom:0;">'+(mktDesc||'No market description provided.')+'</p><div style="margin-top:auto;padding-top:16px;"><div class="sec-label" style="margin-bottom:10px;">Economic &amp; Market Drivers</div><div class="rule" style="margin-top:0;margin-bottom:12px;"></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">'+'<div style="background:#2B3A42;border-radius:4px;padding:12px;"><div style="height:2px;background:#C8A84B;border-radius:1px;margin-bottom:8px;"></div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#C8A84B;margin-bottom:6px;">'+(drv1T||'Regional Hub')+'</div><p style="font-size:10px;line-height:1.65;color:#A09A8E;margin:0;">'+(drv1D||'&nbsp;')+'</p></div>'+'<div style="background:#2B3A42;border-radius:4px;padding:12px;"><div style="height:2px;background:#C8A84B;border-radius:1px;margin-bottom:8px;"></div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#C8A84B;margin-bottom:6px;">'+(drv2T||'Stable Economy')+'</div><p style="font-size:10px;line-height:1.65;color:#A09A8E;margin:0;">'+(drv2D||'&nbsp;')+'</p></div>'+'<div style="background:#2B3A42;border-radius:4px;padding:12px;"><div style="height:2px;background:#C8A84B;border-radius:1px;margin-bottom:8px;"></div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#C8A84B;margin-bottom:6px;">'+(drv3T||'Affordable Market')+'</div><p style="font-size:10px;line-height:1.65;color:#A09A8E;margin:0;">'+(drv3D||'&nbsp;')+'</p></div>'+'</div></div></div></div>'
   +'<div class="page"><div style="width:30%;height:100%;background:#2B3A42;padding:44px 34px;display:flex;flex-direction:column;flex-shrink:0;position:relative;"><div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#C8A84B;margin-bottom:28px;">GATEWAY<br>REAL ESTATE ADVISORS</div><div style="font-family:\'Playfair Display\',serif;font-size:26px;color:#E8E0D0;line-height:1.2;">Property<br>Photos</div><div style="height:1px;background:rgba(196,191,181,0.25);margin:16px 0;"></div><div style="font-size:11px;color:#A09A8E;line-height:1.7;">'+address+'</div><div style="position:absolute;bottom:22px;right:34px;font-size:9px;color:#6B6458;">07</div></div><div class="rp" style="padding:24px 26px;">'+photoGallery+'</div></div>'
   +'<div class="page">'+LP('About the<br>Agents','<div style="margin-top:auto;font-size:10.5px;color:#A09A8E;line-height:1.7;">Contact the listing agent(s) for information on this offering.</div>','Listing Agents','08')+'<div class="rp" style="overflow:auto;">'+agentCardsHTML+'</div></div>'
   +'<div class="page">'+LP('About<br>Gateway','<div style="margin-top:auto;">'+(gwData.stat1val?pill(gwData.stat1lbl||'Transactions',gwData.stat1val):'')+(gwData.stat2val?pill(gwData.stat2lbl||'Volume',gwData.stat2val):'')+(gwData.stat3val?pill(gwData.stat3lbl||'Years',gwData.stat3val):'')+'</div>','About Gateway','09')+'<div class="rp"><div class="sec-label">Who We Are</div><div class="rule"></div><p style="font-size:12px;line-height:1.8;color:#2C2C2C;margin-top:12px;">'+(gwData.para1||'Gateway Real Estate Advisors is a premier commercial real estate brokerage specializing in multifamily investment properties.')+'</p>'+(gwData.para2?'<p style="font-size:12px;line-height:1.8;color:#2C2C2C;margin-top:14px;">'+gwData.para2+'</p>':'')+(svcTags?'<div class="sec-label" style="margin-top:20px;margin-bottom:10px;">Our Services</div><div style="display:flex;flex-wrap:wrap;gap:8px;">'+svcTags+'</div>':'')+'</div></div>'
@@ -693,11 +743,11 @@ function generateOM() {
 
     s4.addText('Property Overview', {x:r4x, y:0.22, w:r4w, h:0.4, fontSize:20, fontFace:'Georgia', color:NV, bold:true});
     addGoldLine(s4, r4x, 0.64, r4w);
-    s4.addText(v('propDesc'), {x:r4x, y:0.74, w:r4w, h:0.55, fontSize:8.5, fontFace:'Arial', color:BD, lineSpacingMultiple:1.4});
+    s4.addText(v('propDesc'), {x:r4x, y:0.74, w:r4w, h:0.70, fontSize:8, fontFace:'Arial', color:BD, lineSpacingMultiple:1.35});
 
     // Unit mix table
-    s4.addText('UNIT MIX & RENT SCHEDULE', {x:r4x, y:1.37, w:r4w, h:0.25, fontSize:9.5, fontFace:'Arial', color:NV, bold:true, charSpacing:0.3});
-    addGoldLine(s4, r4x, 1.62, r4w);
+    s4.addText('UNIT MIX & RENT SCHEDULE', {x:r4x, y:1.54, w:r4w, h:0.25, fontSize:9.5, fontFace:'Arial', color:NV, bold:true, charSpacing:0.3});
+    addGoldLine(s4, r4x, 1.79, r4w);
 
     var totalAllRent = unitData.reduce(function(s,r){ return s + r.units * r.rent; }, 0);
     var hasSqFt = showSqFt;
@@ -706,32 +756,54 @@ function generateOM() {
       : ['UNIT TYPE', 'UNITS', 'RENT/MO', 'TOTAL RENT', '% MIX'];
     var umColWidths = hasSqFt
       ? [1.4, 0.65, 0.88, 1.0, 0.88, 1.1, 0.74]
-      : [2.2, 1.1, 1.5, 1.85, 1.0];
-    var tblHeader = [umHeaderCols.map(function(h) {
-      return {text:h, options:{fontSize:7.5, fontFace:'Arial', color:WH, bold:true, fill:{color:NV}, align:'center', valign:'middle', margin:[0,3,0,3]}};
-    })];
-    var tblRows = unitData.filter(function(u){ return u.type || u.units > 0; }).map(function(u, i) {
+      : [1.9, 0.95, 1.3, 1.6, 0.9];
+    // Manual table render — bypasses PptxGenJS addTable rendering artifacts
+    var umRowH  = 0.28;
+    var umTblY  = 1.86;
+    var umCurX;
+
+    // Header row
+    umCurX = r4x;
+    umHeaderCols.forEach(function(h, ci) {
+      var cw = umColWidths[ci];
+      s4.addShape('rect', {x:umCurX, y:umTblY, w:cw, h:umRowH, fill:{color:NV}});
+      s4.addText(h, {x:umCurX+0.04, y:umTblY, w:cw-0.08, h:umRowH, align:'center', valign:'middle', fontSize:7, fontFace:'Arial', color:WH, bold:true});
+      umCurX += cw;
+    });
+
+    // Data rows
+    var umVisRows = unitData.filter(function(u){ return u.type || u.units > 0; });
+    umVisRows.forEach(function(u, ri) {
+      var ry   = umTblY + (ri + 1) * umRowH;
+      var bg   = ri % 2 === 0 ? PL : PM;
       var rpsf = u.sqft > 0 ? (u.rent / u.sqft).toFixed(2) : '0.00';
-      var tr = u.units * u.rent;
-      var pct = totalAllRent > 0 ? ((tr / totalAllRent) * 100).toFixed(0) : '0';
-      var bg = i % 2 === 0 ? PL : PM;
+      var tr2  = u.units * u.rent;
+      var pct  = totalAllRent > 0 ? ((tr2 / totalAllRent) * 100).toFixed(0) : '0';
       var cells = hasSqFt
-        ? [u.type, ''+u.units, u.sqft.toLocaleString(), '$'+u.rent, '$'+rpsf, '$'+tr.toLocaleString(), pct+'%']
-        : [u.type, ''+u.units, '$'+u.rent, '$'+tr.toLocaleString(), pct+'%'];
-      return cells.map(function(c, ci) {
-        return {text:c, options:{fontSize:8, fontFace:'Arial', color:ci===0 ? NV : BD, fill:{color:bg}, align:'center', valign:'middle', bold:ci===0}};
+        ? [u.type, ''+u.units, u.sqft.toLocaleString(), '$'+u.rent, '$'+rpsf, '$'+tr2.toLocaleString(), pct+'%']
+        : [u.type, ''+u.units, '$'+u.rent, '$'+tr2.toLocaleString(), pct+'%'];
+      umCurX = r4x;
+      cells.forEach(function(c, ci) {
+        var cw = umColWidths[ci];
+        s4.addShape('rect', {x:umCurX, y:ry, w:cw, h:umRowH, fill:{color:bg}});
+        s4.addText(c, {x:umCurX+0.04, y:ry, w:cw-0.08, h:umRowH, align:ci===0?'left':'center', valign:'middle', fontSize:7.5, fontFace:'Arial', color:ci===0?NV:BD, bold:ci===0});
+        umCurX += cw;
       });
     });
-    // Totals row
-    var totRow = hasSqFt
-      ? ['TOTAL', ''+unitData.reduce(function(s,u){return s+u.units;},0), '', '', '', '$'+totalAllRent.toLocaleString(), '100%']
-      : ['TOTAL', ''+unitData.reduce(function(s,u){return s+u.units;},0), '', '$'+totalAllRent.toLocaleString(), '100%'];
-    tblRows.push(totRow.map(function(c) {
-      return {text:c, options:{fontSize:8, fontFace:'Arial', color:WH, fill:{color:NV}, align:'center', valign:'middle', bold:true}};
-    }));
 
-    if (tblRows.length > 1) {
-      s4.addTable(tblHeader.concat(tblRows), {x:r4x, y:1.69, w:r4w, colW:umColWidths, rowH:0.28, border:{color:PM, pt:0.5}});
+    // Totals row
+    if (umVisRows.length > 0) {
+      var totRowY  = umTblY + (umVisRows.length + 1) * umRowH;
+      var totCells = hasSqFt
+        ? ['TOTAL', ''+unitData.reduce(function(s,u){return s+u.units;},0), '', '', '', '$'+totalAllRent.toLocaleString(), '100%']
+        : ['TOTAL', ''+unitData.reduce(function(s,u){return s+u.units;},0), '', '$'+totalAllRent.toLocaleString(), '100%'];
+      umCurX = r4x;
+      totCells.forEach(function(c, ci) {
+        var cw = umColWidths[ci];
+        s4.addShape('rect', {x:umCurX, y:totRowY, w:cw, h:umRowH, fill:{color:NV2}});
+        s4.addText(c, {x:umCurX+0.04, y:totRowY, w:cw-0.08, h:umRowH, align:'center', valign:'middle', fontSize:7.5, fontFace:'Arial', color:WH, bold:true});
+        umCurX += cw;
+      });
     }
 
     // Features strip
@@ -759,8 +831,9 @@ function generateOM() {
     // Summary stat boxes
     var curEGI = n('curIncome');
     var pfEGI  = n('pfIncome');
-    var curTotExp = curExpenses.reduce(function(s,e){ return s + e.amount; }, 0);
-    var pfTotExp  = pfExpenses.reduce(function(s,e){ return s + e.amount; }, 0);
+    var curTotExp   = curExpenses.reduce(function(s,e){ return s + e.amount; }, 0);
+    var pfTotExpRaw = pfExpenses.reduce(function(s,e){ return s + e.amount; }, 0);
+    var pfTotExp    = pfTotExpRaw || curTotExp;
     var curNOI = curEGI - curTotExp;
     var pfNOI  = pfEGI  - pfTotExp;
     var noiGrowth = curNOI > 0 ? '+' + (((pfNOI - curNOI) / curNOI) * 100).toFixed(1) + '%' : '—';
@@ -783,8 +856,10 @@ function generateOM() {
     // Dynamic row sizing
     var curOI  = curOtherIncome.filter(function(x){ return x.name && x.amount; });
     var pfOI   = pfOtherIncome.filter(function(x){ return x.name && x.amount; });
-    var curExp = curExpenses.filter(function(x){ return x.name && x.amount; });
-    var pfExp  = pfExpenses.filter(function(x){ return x.name && x.amount; });
+    var curExp      = curExpenses.filter(function(x){ return x.name && x.amount; });
+    var pfHasValues = pfExpenses.some(function(x){ return x.amount > 0; });
+    var pfExpBase   = pfHasValues ? pfExpenses : curExpenses;
+    var pfExp       = pfExpBase.filter(function(x){ return x.name && x.amount; });
     var dataRowCount = Math.max(1 + curOI.length + curExp.length, 1 + pfOI.length + pfExp.length);
     var rowH = Math.min(0.22, Math.max(0.14, 2.1 / Math.max(dataRowCount, 1)));
     var totH = Math.min(0.26, rowH + 0.04);
@@ -996,13 +1071,14 @@ function generateOM() {
     addGoldLine(s8, 1.5, 2.93, 7.0);
 
     // Agent cards
-    var numAgents = agents.length || 1;
-    var agentCardW = Math.min(2.65, (8.4 / numAgents) - 0.35);
-    var agentGap = 0.38;
+    var visAgents   = agents.filter(function(a){ return (a.name || '').trim(); });
+    var numAgents   = visAgents.length || 1;
+    var agentCardW  = Math.min(2.65, (8.4 / numAgents) - 0.35);
+    var agentGap    = 0.38;
     var totalAgentW = numAgents * agentCardW + (numAgents - 1) * agentGap;
     var agentStartX = (10 - totalAgentW) / 2;
 
-    agents.forEach(function(a, idx) {
+    visAgents.forEach(function(a, idx) {
       var ax = agentStartX + idx * (agentCardW + agentGap);
       var ay = 3.06;
       var ach = 2.0;
@@ -3285,7 +3361,7 @@ renderPastOMs();
 
   window.wizAIDraft = function() {
     if (!window.GatewayAPI || !window.GatewayAPI.claudeAvailable()) {
-      alert('AI not configured. Add claudeApiKey to config.js or set up the proxy.');
+      if (typeof openAISetup === 'function') openAISetup();
       return;
     }
     var btn = document.getElementById('wz-ai-btn');
@@ -3342,7 +3418,7 @@ renderPastOMs();
       }
     }).catch(function(err) {
       alert('AI error: ' + err);
-    }).finally ? window.GatewayAPI.claude(systemPrompt, userPrompt).then(function(){}).catch(function(){}) : null;
+    });
     // Re-enable button after a delay
     setTimeout(function() {
       var b = document.getElementById('wz-ai-btn');
