@@ -1,9 +1,4 @@
-// POST /api/claude
-// Proxies requests to Anthropic's API — keeps the API key server-side.
-// All agents share one key stored in Vercel env vars.
-
-export default async function handler(req, res) {
-  // CORS — allow requests from the toolkit domain
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN || 'https://gatewayhq.github.io');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-gateway-secret');
@@ -11,7 +6,6 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Verify shared secret
   const secret = req.headers['x-gateway-secret'];
   if (process.env.GATEWAY_SECRET && secret !== process.env.GATEWAY_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -35,15 +29,12 @@ export default async function handler(req, res) {
         messages: [{ role: 'user', content: user }]
       })
     });
-
     const data = await response.json();
-
     if (!response.ok) {
       return res.status(response.status).json({ error: data.error?.message || 'Claude API error' });
     }
-
     res.status(200).json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-}
+};

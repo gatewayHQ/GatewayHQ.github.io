@@ -1,8 +1,4 @@
-// GET /api/health
-// Returns configuration status. Use this to verify the proxy is running
-// and check which services are configured without exposing key values.
-
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN || 'https://gatewayhq.github.io');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-gateway-secret');
@@ -22,4 +18,4 @@ export default async function handler(req, res) {
     },
     version: '1.0.0'
   });
-}
+};
