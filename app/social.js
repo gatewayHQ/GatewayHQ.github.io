@@ -345,8 +345,8 @@ function onTemplateChange() {
 async function drawResidentialNewListing(canvas, ctx) {
   var W = canvas.width, H = canvas.height;
   var pal = PALETTES[smPalette] || PALETTES.navy;
-  // Residential New Listing uses a light/dark split:
-  // top portion = near-white (light) or near-black (dark palette)
+  var isSquare = (H <= 1080);
+
   var topBg = pal.logoKey === 'dark' ? '#f4f4f0' : '#0D1B22';
   ctx.fillStyle = topBg;
   ctx.fillRect(0, 0, W, H);
@@ -360,73 +360,92 @@ async function drawResidentialNewListing(canvas, ctx) {
   var garage = document.getElementById('sm-res-garage').value || '';
   var year = document.getElementById('sm-res-year').value || '';
 
+  // Responsive scale based on canvas height
+  var headingFontSz = isSquare ? 72 : 100;
+  var addrFontSz    = isSquare ? 22 : 28;
+  var priceFontSz   = isSquare ? 26 : 34;
+  var detailFontSz  = isSquare ? 18 : 22;
+  var agPhotoW      = isSquare ? 110 : 150;
+  var agPhotoH      = isSquare ? 140 : 190;
+  var agSpacing     = isSquare ? 430 : 480;
+  var agNameFontSz  = isSquare ? 22 : 29;
+  var agInfoFontSz  = isSquare ? 17 : 22;
+  var agLineH       = isSquare ? 22 : 26;
+  var logoSz        = isSquare ? 90 : 130;
+
   // "NEW LISTING" heading
   ctx.fillStyle = pal.logoKey === 'dark' ? '#1E2F39' : '#E4E3D4';
-  ctx.font = 'bold 100px "EB Garamond", Georgia, serif';
+  ctx.font = 'bold ' + headingFontSz + 'px "EB Garamond", Georgia, serif';
   ctx.textAlign = 'center';
-  ctx.fillText('NEW LISTING', W/2, 135);
+  var headingY = isSquare ? 88 : 135;
+  ctx.fillText('NEW LISTING', W/2, headingY);
 
-  // Address in spaced uppercase
-  ctx.font = '600 28px "Montserrat", sans-serif';
+  // Address
+  ctx.font = '600 ' + addrFontSz + 'px "Montserrat", sans-serif';
   ctx.fillStyle = pal.logoKey === 'dark' ? '#3a4e5a' : '#A2B6C0';
-  ctx.fillText(address.toUpperCase(), W/2, 192);
+  var addrY = headingY + (isSquare ? 44 : 57);
+  ctx.fillText(address.toUpperCase(), W/2, addrY);
 
   // Price
+  var priceY = addrY + (isSquare ? 44 : 56);
   if (price) {
-    ctx.font = '500 34px "Montserrat", sans-serif';
+    ctx.font = '500 ' + priceFontSz + 'px "Montserrat", sans-serif';
     ctx.fillStyle = '#C8A84B';
-    ctx.fillText(price, W/2, 248);
+    ctx.fillText(price, W/2, priceY);
   }
 
-  // Property photo (slightly smaller to make room for agents)
-  var photoY = price ? 280 : 246, photoH = 560;
+  // Responsive photo height — leave room for banner + agents + logo + footer
+  var photoMargin = 60;
+  var photoTopY = price ? priceY + (isSquare ? 22 : 32) : addrY + (isSquare ? 22 : 32);
+  var bannerReserve = isSquare ? 230 : 300;
+  var photoH = Math.max(isSquare ? 340 : 480, H - photoTopY - bannerReserve);
+  photoH = Math.min(photoH, isSquare ? 430 : 560);
+
   var photoSrc = smPhotos[0];
   if (photoSrc) {
     try {
       var img = await loadImageAsync(photoSrc);
-      var margin = 60;
       ctx.save();
       ctx.beginPath();
-      roundRect(ctx, margin, photoY, W - margin*2, photoH, 12);
+      roundRect(ctx, photoMargin, photoTopY, W - photoMargin*2, photoH, 12);
       ctx.clip();
-      var scale = Math.max((W - margin*2)/img.width, photoH/img.height);
+      var scale = Math.max((W - photoMargin*2)/img.width, photoH/img.height);
       var dw = img.width * scale, dh = img.height * scale;
       ctx.filter = smPhotoFilter();
-      ctx.drawImage(img, margin + (W - margin*2 - dw)/2, photoY + (photoH - dh)/2, dw, dh);
+      ctx.drawImage(img, photoMargin + (W - photoMargin*2 - dw)/2, photoTopY + (photoH - dh)/2, dw, dh);
       ctx.restore();
     } catch(e) {}
   } else {
     ctx.fillStyle = '#ddddd8';
     ctx.beginPath();
-    roundRect(ctx, 60, photoY, W - 120, photoH, 12);
+    roundRect(ctx, photoMargin, photoTopY, W - photoMargin*2, photoH, 12);
     ctx.fill();
     ctx.fillStyle = '#aaa';
     ctx.font = '26px Montserrat';
-    ctx.fillText('Property Photo', W/2, photoY + photoH/2);
+    ctx.textAlign = 'center';
+    ctx.fillText('Property Photo', W/2, photoTopY + photoH/2);
   }
 
-  // Banner — uses palette bg
-  var bannerY = photoY + photoH + 14;
+  // Banner — palette bg fills everything below photo
+  var bannerY = photoTopY + photoH + 12;
   ctx.fillStyle = pal.bg1;
   ctx.fillRect(0, bannerY, W, H - bannerY);
-
-  // Thin accent line top of banner
   ctx.fillStyle = '#C8A84B';
   ctx.fillRect(0, bannerY, W, 3);
 
   // Property details row
   var details = [];
-  if (beds) details.push({ icon:'🛏', val: beds + ' Bed' });
-  if (baths) details.push({ icon:'🚿', val: baths + ' Bath' });
-  if (sqft) details.push({ icon:'📐', val: sqft });
+  if (beds)   details.push({ icon:'🛏', val: beds + ' Bed' });
+  if (baths)  details.push({ icon:'🚿', val: baths + ' Bath' });
+  if (sqft)   details.push({ icon:'📐', val: sqft });
   if (garage) details.push({ icon:'🚗', val: garage });
-  if (lot) details.push({ icon:'🌿', val: lot });
-  if (year) details.push({ icon:'🏗', val: year });
+  if (lot)    details.push({ icon:'🌿', val: lot });
+  if (year)   details.push({ icon:'🏗', val: year });
 
-  var dY = bannerY + 54;
+  var dY = bannerY + (isSquare ? 36 : 50);
   if (details.length > 0) {
     ctx.textAlign = 'center';
-    ctx.font = '600 22px "Montserrat", sans-serif';
+    ctx.font = '600 ' + detailFontSz + 'px "Montserrat", sans-serif';
     ctx.fillStyle = pal.text;
     var spacing = W / (details.length + 1);
     details.forEach(function(d, i) {
@@ -434,72 +453,65 @@ async function drawResidentialNewListing(canvas, ctx) {
     });
   }
 
-  // Thin separator
-  dY += 22;
+  dY += isSquare ? 16 : 22;
   ctx.strokeStyle = pal.accent + '44';
   ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(60, dY);
-  ctx.lineTo(W - 60, dY);
-  ctx.stroke();
-  dY += 30;
+  ctx.beginPath(); ctx.moveTo(60, dY); ctx.lineTo(W - 60, dY); ctx.stroke();
+  dY += isSquare ? 20 : 28;
 
-  // Agent section
+  // Agent section — sized to canvas
   ctx.textAlign = 'left';
-  var agentY = dY;
+  var agentStartY = dY;
   var hasAgent = smAgents.length > 0 && smAgents[0].name;
   if (hasAgent) {
     for (var ai = 0; ai < Math.min(smAgents.length, 2); ai++) {
       var ag = smAgents[ai];
       if (!ag.name) continue;
-      var agX = 80 + ai * 480;
-      // Photo circle
+      var agX = 80 + ai * agSpacing;
       if (ag.photo) {
         try {
           var agImg = await loadImageAsync(ag.photo);
           ctx.save();
           ctx.beginPath();
-          roundRect(ctx, agX, agentY, 150, 190, 10);
+          roundRect(ctx, agX, agentStartY, agPhotoW, agPhotoH, 10);
           ctx.clip();
-          var _scagImg = Math.max(150/agImg.width, 190/agImg.height);
-          var _dwagImg = agImg.width * _scagImg, _dhagImg = agImg.height * _scagImg;
-          ctx.drawImage(agImg, agX + (150 - _dwagImg)/2, agentY + (190 - _dhagImg)/2, _dwagImg, _dhagImg);
+          var _scag = Math.max(agPhotoW/agImg.width, agPhotoH/agImg.height);
+          var _dwag = agImg.width * _scag, _dhag = agImg.height * _scag;
+          ctx.drawImage(agImg, agX + (agPhotoW - _dwag)/2, agentStartY + (agPhotoH - _dhag)/2, _dwag, _dhag);
           ctx.restore();
-          ctx.strokeStyle = '#C8A84B';
-          ctx.lineWidth = 2.5;
-          ctx.beginPath();
-          roundRect(ctx, agX, agentY, 150, 190, 10);
-          ctx.stroke();
+          ctx.strokeStyle = '#C8A84B'; ctx.lineWidth = 2.5;
+          ctx.beginPath(); roundRect(ctx, agX, agentStartY, agPhotoW, agPhotoH, 10); ctx.stroke();
         } catch(e) {}
       }
-      var tX = ag.photo ? agX + 166 : agX;
-      ctx.font = '700 29px "Montserrat", sans-serif';
+      var tX = ag.photo ? agX + agPhotoW + 14 : agX;
+      var lineY = agentStartY + agNameFontSz;
+      ctx.font = '700 ' + agNameFontSz + 'px "Montserrat", sans-serif';
       ctx.fillStyle = pal.text;
-      ctx.fillText(ag.name, tX, agentY + 29);
-      ctx.font = '400 22px "Montserrat", sans-serif';
+      ctx.fillText(ag.name, tX, lineY);
+      lineY += agLineH;
+      ctx.font = '400 ' + agInfoFontSz + 'px "Montserrat", sans-serif';
       ctx.fillStyle = pal.accent;
-      if (ag.title) ctx.fillText(ag.title, tX, agentY + 56);
-      if (ag.phone) ctx.fillText(ag.phone, tX, agentY + 82);
-      if (ag.email) { ctx.font = '400 20px "Montserrat"'; ctx.fillStyle = pal.accent; ctx.fillText(ag.email, tX, agentY + 106); }
-      if (ag.license) { ctx.font = '400 18px "Montserrat"'; ctx.fillStyle = pal.logoKey === 'dark' ? '#5a4832' : '#B8CED8'; ctx.fillText(ag.license, tX, agentY + 128); }
+      if (ag.title)   { ctx.fillText(ag.title, tX, lineY);   lineY += agLineH; }
+      if (ag.phone)   { ctx.fillText(ag.phone, tX, lineY);   lineY += agLineH; }
+      if (ag.email)   { ctx.font = '400 ' + (agInfoFontSz - 2) + 'px "Montserrat"'; ctx.fillStyle = pal.accent; ctx.fillText(ag.email, tX, lineY); lineY += agLineH; }
+      if (ag.license) { ctx.font = '400 ' + (agInfoFontSz - 4) + 'px "Montserrat"'; ctx.fillStyle = pal.logoKey === 'dark' ? '#5a4832' : '#B8CED8'; ctx.fillText(ag.license, tX, lineY); }
     }
-    agentY += 118;
   }
 
-  // Gateway logo — below agent info, centered
+  // Gateway logo — always drawn, clamped above website footer
+  var logoY = agentStartY + agPhotoH + 10;
+  logoY = Math.min(logoY, H - logoSz - 38);
   try {
     var logoSrc = (pal && pal.logoKey === 'dark') ? (LOGO_ROUND_SUBMARK || 'https://res.cloudinary.com/dnmrgpubz/image/upload/v1748440952/GWlogo_circle_o4vvuv.png') : (LOGO_CIRCLE_LIGHT || 'https://res.cloudinary.com/dnmrgpubz/image/upload/v1748440952/GWlogo_circle_o4vvuv.png');
     var logoImg = await loadImageAsync(logoSrc);
-    var sz = 130;
-    var logoY = agentY + 8;
-    if (logoY + sz < H - 40) ctx.drawImage(logoImg, W/2 - sz/2, logoY, sz, sz);
+    ctx.drawImage(logoImg, W/2 - logoSz/2, logoY, logoSz, logoSz);
   } catch(e) {}
 
-  // Website and phone
+  // Website footer
   ctx.textAlign = 'center';
-  ctx.font = '500 20px "Montserrat", sans-serif';
+  ctx.font = '500 ' + (isSquare ? 16 : 20) + 'px "Montserrat", sans-serif';
   ctx.fillStyle = pal.label;
-  ctx.fillText('www.gatewayreadvisors.com  |  712-226-8000', W/2, H - 22);
+  ctx.fillText('www.gatewayreadvisors.com  |  712-226-8000', W/2, H - 18);
 }
 
 async function drawResidentialJustSold(canvas, ctx) {
@@ -1081,10 +1093,10 @@ async function drawJustSoldTemplate(canvas, ctx) {
   ctx.fillStyle = GOLD;
   ctx.fillRect(0, 0, W, 6);
 
-  // ── TOP LEFT: "JUST SOLD" — bold red, dominant ──────────────────────────
+  // ── TOP LEFT: "JUST SOLD" — bold gold, dominant ─────────────────────────
   ctx.textAlign = 'left';
   ctx.font = '900 62px "Montserrat", sans-serif';
-  ctx.fillStyle = '#CC2200';
+  ctx.fillStyle = GOLD;
   ctx.fillText('JUST SOLD', 60, 84);
 
   // Price under the heading
@@ -1349,25 +1361,29 @@ async function drawJustSoldTemplate(canvas, ctx) {
     if (ag3.email) { ctx.fillText(ag3.email, ftX, fY + 86); }
   }
 
-  // Company info (right)
-  ctx.textAlign = 'right';
-  ctx.font = 'bold 18px "Montserrat", sans-serif';
-  ctx.fillStyle = CREAM;
-  ctx.fillText('GATEWAY REAL ESTATE ADVISORS', W - 60, footerY + 44);
-  ctx.font = '400 14px "Montserrat", sans-serif';
-  ctx.fillStyle = LABEL;
-  ctx.fillText('gatewayrealtyadvisors.com', W - 60, footerY + 66);
-  ctx.fillText('info@gatewayrealtyadvisors.com', W - 60, footerY + 86);
-  ctx.fillText('700 Nebraska St  \u2022  Sioux City, IA 51101', W - 60, footerY + 106);
-
-  // Gateway logo — bottom right
+  // Gateway logo — anchored top-right of footer, sized 80×80
+  var jsLogoSz = 80;
+  var jsLogoX  = W - 60 - jsLogoSz;
+  var jsLogoY  = footerY + 14;
   try {
     var lSrc = (pal.logoKey === 'dark') ? (LOGO_ROUND_SUBMARK || '') : (LOGO_CIRCLE_LIGHT || '');
     if (lSrc) {
       var lImg = await loadImageAsync(lSrc);
-      ctx.drawImage(lImg, W - 60 - 85, H - 85 - 16, 85, 85);
+      ctx.drawImage(lImg, jsLogoX, jsLogoY, jsLogoSz, jsLogoSz);
     }
   } catch(e) {}
+
+  // Company info — right-aligned, sitting left of the logo
+  var jsCompX = jsLogoX - 16;
+  ctx.textAlign = 'right';
+  ctx.font = 'bold 17px "Montserrat", sans-serif';
+  ctx.fillStyle = CREAM;
+  ctx.fillText('GATEWAY REAL ESTATE ADVISORS', jsCompX, footerY + 38);
+  ctx.font = '400 13px "Montserrat", sans-serif';
+  ctx.fillStyle = LABEL;
+  ctx.fillText('gatewayrealtyadvisors.com', jsCompX, footerY + 58);
+  ctx.fillText('info@gatewayrealtyadvisors.com', jsCompX, footerY + 76);
+  ctx.fillText('700 Nebraska St  \u2022  Sioux City, IA 51101', jsCompX, footerY + 94);
 }
 
 async function drawCommercialTemplate(canvas, ctx, templateName) {
@@ -1852,184 +1868,169 @@ async function drawCommExclusive(canvas, ctx, heading) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PREMIUM TEMPLATE 2 — INVESTMENT ALERT (Split Panel)
-// Dark metrics panel left · Full-bleed photo right · Bold financial focus
+// PREMIUM TEMPLATE 2 — INVESTMENT ALERT
+// Full-bleed photo · Dark gradient overlay · Bold 3-column metrics grid
+// Works cleanly across portrait, square, and mailer formats
 // ═══════════════════════════════════════════════════════════════════════════
 async function drawCommInvestmentAlert(canvas, ctx) {
   var W = canvas.width, H = canvas.height;
   var f = smFields();
   var metrics = smGetMetrics(6);
-  var GOLD = '#C8A84B'; var BLUE = '#A2B6C0'; var CREAM = '#E4E3D4';
-  var PANEL_W = Math.round(W * 0.42);
-  var PAD = 36;
-  // Reserve space for agent strip at bottom of left panel
-  var AGENT_ZONE = 120;
+  var GOLD = '#C8A84B', BLUE = '#A2B6C0', CREAM = '#E4E3D4', LEFT = 56;
 
-  // ── LEFT PANEL background ──────────────────────────────────────────────
-  ctx.fillStyle = '#08131A'; ctx.fillRect(0, 0, PANEL_W, H);
-  ctx.strokeStyle = 'rgba(162,182,192,0.04)'; ctx.lineWidth = 1;
-  for (var li = 0; li < H; li += 40) {
-    ctx.beginPath(); ctx.moveTo(0, li); ctx.lineTo(PANEL_W, li); ctx.stroke();
-  }
-  // Gold left accent bar
-  ctx.fillStyle = GOLD; ctx.fillRect(0, 0, 5, H);
-
-  // ── RIGHT PANEL — photo ────────────────────────────────────────────────
+  // ── Full-bleed photo ───────────────────────────────────────────────────
   var photoSrc = smPhotos[0];
   if (photoSrc) {
     try {
       var img = await loadImageAsync(photoSrc);
-      ctx.save(); ctx.rect(PANEL_W, 0, W - PANEL_W, H); ctx.clip();
-      ctx.filter = smPhotoFilter();
-      var sc = Math.max((W - PANEL_W) / img.width, H / img.height);
-      var dw = img.width * sc, dh = img.height * sc;
-      ctx.drawImage(img, PANEL_W + ((W - PANEL_W) - dw) / 2, (H - dh) / 2, dw, dh);
+      ctx.save(); ctx.filter = smPhotoFilter();
+      var sc = Math.max(W / img.width, H / img.height);
+      ctx.drawImage(img, (W - img.width*sc)/2, (H - img.height*sc)/2, img.width*sc, img.height*sc);
       ctx.restore();
-    } catch(e) {
-      ctx.fillStyle = '#111d25'; ctx.fillRect(PANEL_W, 0, W - PANEL_W, H);
-      ctx.fillStyle = '#3a5060'; ctx.textAlign = 'center'; ctx.font = '24px Montserrat';
-      ctx.fillText('Property Photo', PANEL_W + (W - PANEL_W) / 2, H / 2);
-    }
+    } catch(e) {}
   } else {
-    ctx.fillStyle = '#111d25'; ctx.fillRect(PANEL_W, 0, W - PANEL_W, H);
-    ctx.fillStyle = '#3a5060'; ctx.textAlign = 'center'; ctx.font = '24px Montserrat';
-    ctx.fillText('Property Photo', PANEL_W + (W - PANEL_W) / 2, H / 2);
+    ctx.fillStyle = '#0E1C24'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#1a3040'; ctx.textAlign = 'center'; ctx.font = '28px Montserrat';
+    ctx.fillText('Property Photo', W/2, H/2);
   }
 
-  // Fade photo edge into left panel
-  var fadeGrad = ctx.createLinearGradient(PANEL_W, 0, PANEL_W + 90, 0);
-  fadeGrad.addColorStop(0, 'rgba(8,19,26,1)');
-  fadeGrad.addColorStop(1, 'rgba(8,19,26,0)');
-  ctx.fillStyle = fadeGrad; ctx.fillRect(PANEL_W, 0, 90, H);
+  // ── Dark gradient — clears top, heavy bottom ───────────────────────────
+  var grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0,    'rgba(6,13,18,0.10)');
+  grad.addColorStop(0.28, 'rgba(6,13,18,0.22)');
+  grad.addColorStop(0.52, 'rgba(6,13,18,0.78)');
+  grad.addColorStop(1,    'rgba(6,13,18,0.97)');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
 
-  // Dark fade at bottom of photo for website line
-  var photoGrad = ctx.createLinearGradient(0, H - 100, 0, H);
-  photoGrad.addColorStop(0, 'rgba(8,19,26,0)');
-  photoGrad.addColorStop(1, 'rgba(8,19,26,0.9)');
-  ctx.fillStyle = photoGrad; ctx.fillRect(PANEL_W, H - 100, W - PANEL_W, 100);
+  // ── TOP: gold accent bar + badge + logo ────────────────────────────────
+  ctx.fillStyle = GOLD; ctx.fillRect(0, 0, W, 6);
 
-  // ── LEFT PANEL CONTENT (top → bottom) ────────────────────────────────
-  var py = 40;
   ctx.textAlign = 'left';
+  ctx.font = '800 34px "Montserrat", sans-serif'; ctx.fillStyle = GOLD;
+  ctx.fillText('INVESTMENT ALERT', LEFT, 66);
+  ctx.strokeStyle = GOLD; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(LEFT, 75); ctx.lineTo(LEFT + ctx.measureText('INVESTMENT ALERT').width, 75); ctx.stroke();
 
-  // LOGO — prominent, bigger
   try {
     var lSrc = LOGO_WORDMARK_LIGHT || LOGO_CIRCLE_LIGHT;
     var lImg = await loadImageAsync(lSrc);
-    var lH = 50, lW = lH * (lImg.width / lImg.height);
-    ctx.drawImage(lImg, PAD, py, lW, lH);
-    py += lH + 32;
-  } catch(e) {
-    ctx.font = '800 28px "Montserrat", sans-serif'; ctx.fillStyle = CREAM;
-    ctx.fillText('GATEWAY', PAD, py + 28);
-    ctx.font = '600 13px "Montserrat", sans-serif'; ctx.fillStyle = 'rgba(162,182,192,0.55)';
-    ctx.fillText('REAL ESTATE ADVISORS', PAD, py + 46);
-    py += 68;
-  }
+    var lH = 60, lW = lH * (lImg.width / lImg.height);
+    ctx.drawImage(lImg, W - LEFT - lW, 14, lW, lH);
+  } catch(e) {}
 
-  // INVESTMENT / ALERT heading
-  ctx.font = '800 50px "Montserrat", sans-serif'; ctx.fillStyle = CREAM;
-  ctx.fillText('INVESTMENT', PAD, py); py += 54;
-  ctx.font = '300 50px "Montserrat", sans-serif'; ctx.fillStyle = GOLD;
-  ctx.fillText('ALERT', PAD, py); py += 22;
+  // ── BOTTOM CONTENT — built bottom → top ───────────────────────────────
+  var y = H - 50;
 
-  // Gold separator
-  ctx.fillStyle = GOLD; ctx.fillRect(PAD, py, PANEL_W - PAD * 2, 2); py += 22;
+  // Website / contact line
+  ctx.textAlign = 'center';
+  ctx.font = '400 18px "Montserrat", sans-serif'; ctx.fillStyle = 'rgba(162,182,192,0.6)';
+  ctx.fillText('gatewayreadvisors.com  ·  712-226-8000', W/2, y);
+  y -= 48;
 
-  // Property name — word-wrapped italic
-  var pnText = f.propName || f.address || '';
-  if (pnText) {
-    ctx.textAlign = 'left';
-    ctx.font = 'italic 600 24px "EB Garamond", Georgia, serif'; ctx.fillStyle = CREAM;
-    var pnW = PANEL_W - PAD * 2 - 8, pnLine = '';
-    pnText.split(' ').forEach(function(w) {
-      var test = pnLine + (pnLine ? ' ' : '') + w;
-      if (ctx.measureText(test).width > pnW && pnLine) { ctx.fillText(pnLine, PAD, py); pnLine = w; py += 30; }
-      else { pnLine = test; }
-    });
-    if (pnLine) { ctx.fillText(pnLine, PAD, py); py += 30; }
-  }
+  // ── Agents ────────────────────────────────────────────────────────────
+  var validAgents = smAgents.filter(function(a, idx) {
+    if (!a || !a.name || !a.name.trim()) return false;
+    return smAgents.findIndex(function(b) { return b && b.name === a.name; }) === idx;
+  }).slice(0, 2);
 
-  // Address — only if different from property name
-  if (f.address && f.address !== f.propName) {
-    ctx.textAlign = 'left';
-    ctx.font = '400 14px "Montserrat", sans-serif'; ctx.fillStyle = 'rgba(162,182,192,0.6)';
-    var addrS = f.address.length > 36 ? f.address.slice(0, 36) + '…' : f.address;
-    ctx.fillText(addrS, PAD, py); py += 22;
-  }
-
-  // Price
-  if (f.price) {
-    ctx.textAlign = 'left';
-    ctx.font = '700 30px "Montserrat", sans-serif'; ctx.fillStyle = GOLD;
-    ctx.fillText(f.price, PAD, py); py += 40;
-  }
-
-  // ── Metrics — 2-col grid ──────────────────────────────────────────────
-  if (metrics.length > 0) {
-    ctx.strokeStyle = 'rgba(162,182,192,0.12)'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(PAD, py - 4); ctx.lineTo(PANEL_W - PAD, py - 4); ctx.stroke();
-    py += 14;
-    var mCols = 2, mColW = Math.floor((PANEL_W - PAD * 2 - 10) / 2), mRowH = 76;
-    // Only show rows that fit above the agent zone
-    var maxRows = Math.floor((H - AGENT_ZONE - py) / mRowH);
-    var mSlice = Math.min(metrics.length, mCols * maxRows);
-    metrics.slice(0, mSlice).forEach(function(m, mi) {
-      var mx = PAD + (mi % mCols) * (mColW + 10);
-      var my = py + Math.floor(mi / mCols) * mRowH;
+  if (validAgents.length > 0) {
+    var agSlotW = validAgents.length === 2 ? Math.floor((W - 112 - 24) / 2) : W - 112;
+    var photoSz = 80;
+    for (var ai = 0; ai < validAgents.length; ai++) {
+      var ag = validAgents[ai];
+      var axBase = LEFT + ai * (agSlotW + 24);
+      var textX = axBase;
+      if (ag.photo) {
+        try {
+          var apImg = await loadImageAsync(ag.photo);
+          var cxC = axBase + photoSz/2, cyC = y - photoSz/2 - 4;
+          ctx.save(); ctx.beginPath(); ctx.arc(cxC, cyC, photoSz/2, 0, Math.PI*2); ctx.clip();
+          var apSc = Math.max(photoSz/apImg.width, photoSz/apImg.height);
+          ctx.drawImage(apImg, cxC - apImg.width*apSc/2, cyC - apImg.height*apSc/2, apImg.width*apSc, apImg.height*apSc);
+          ctx.restore();
+          ctx.strokeStyle = GOLD; ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.arc(cxC, cyC, photoSz/2, 0, Math.PI*2); ctx.stroke();
+          textX = axBase + photoSz + 18;
+        } catch(e) {}
+      }
       ctx.textAlign = 'left';
-      ctx.font = '700 26px "Montserrat", sans-serif'; ctx.fillStyle = GOLD;
-      ctx.fillText(m.value.length > 12 ? m.value.slice(0, 12) : m.value, mx, my + 28);
-      ctx.font = '600 12px "Montserrat", sans-serif'; ctx.fillStyle = 'rgba(162,182,192,0.7)';
-      ctx.fillText(m.label.toUpperCase(), mx, my + 48);
-      ctx.strokeStyle = 'rgba(162,182,192,0.07)'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(mx, my + 60); ctx.lineTo(mx + mColW, my + 60); ctx.stroke();
+      var lBase = y - 8;
+      ctx.font = '700 28px "Montserrat", sans-serif'; ctx.fillStyle = CREAM;
+      ctx.fillText(ag.name, textX, lBase - 48);
+      ctx.font = '400 20px "Montserrat", sans-serif'; ctx.fillStyle = BLUE;
+      if (ag.title) ctx.fillText(ag.title, textX, lBase - 22);
+      if (ag.phone) { ctx.font = '600 20px "Montserrat", sans-serif'; ctx.fillStyle = GOLD; ctx.fillText(ag.phone, textX, lBase + 4); }
+    }
+    y -= (validAgents[0].photo ? photoSz + 26 : 82);
+  }
+
+  // Separator above agents
+  ctx.strokeStyle = 'rgba(162,182,192,0.30)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(LEFT, y); ctx.lineTo(W - LEFT, y); ctx.stroke();
+  y -= 26;
+
+  // ── Metrics — 3-column cards, up to 6 metrics (2 rows) ────────────────
+  if (metrics.length > 0) {
+    var mPerRow = 3;
+    var mCount  = Math.min(metrics.length, 6);
+    var numRows = Math.ceil(mCount / mPerRow);
+    var mGap    = 10;
+    var mH      = 90;
+    var mW      = Math.floor((W - LEFT * 2 - mGap * (mPerRow - 1)) / mPerRow);
+    var totalMetH = numRows * (mH + mGap) - mGap;
+
+    for (var ri = 0; ri < numRows; ri++) {
+      var rowSlice = metrics.slice(ri * mPerRow, (ri + 1) * mPerRow);
+      var rowTopY  = y - totalMetH + ri * (mH + mGap);
+      var mX = LEFT;
+      rowSlice.forEach(function(m) {
+        // Card
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        ctx.beginPath(); roundRect(ctx, mX, rowTopY, mW, mH, 10); ctx.fill();
+        ctx.strokeStyle = 'rgba(200,168,75,0.55)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); roundRect(ctx, mX, rowTopY, mW, mH, 10); ctx.stroke();
+        // Value
+        ctx.textAlign = 'center';
+        ctx.font = '700 30px "Montserrat", sans-serif'; ctx.fillStyle = GOLD;
+        ctx.fillText(m.value.length > 10 ? m.value.slice(0, 10) : m.value, mX + mW/2, rowTopY + 44);
+        // Label
+        ctx.font = '600 12px "Montserrat", sans-serif'; ctx.fillStyle = BLUE;
+        ctx.fillText(m.label.toUpperCase(), mX + mW/2, rowTopY + 68);
+        mX += mW + mGap;
+      });
+    }
+    y -= totalMetH + 26;
+  }
+
+  // ── Price ─────────────────────────────────────────────────────────────
+  ctx.textAlign = 'left';
+  if (f.price) {
+    ctx.font = '300 52px "Montserrat", sans-serif'; ctx.fillStyle = GOLD;
+    ctx.fillText(f.price, LEFT, y); y -= 66;
+  }
+
+  // ── Address (if different from name) ──────────────────────────────────
+  if (f.address && f.address !== f.propName) {
+    ctx.font = '500 22px "Montserrat", sans-serif'; ctx.fillStyle = BLUE;
+    ctx.fillText(f.address.toUpperCase(), LEFT, y); y -= 46;
+  }
+
+  // ── Property name — large serif italic ────────────────────────────────
+  var nameText = f.propName || f.address || 'Property Name';
+  ctx.textAlign = 'left';
+  ctx.font = 'italic 600 60px "EB Garamond", Georgia, serif'; ctx.fillStyle = CREAM;
+  var nmW = W - LEFT * 2;
+  if (ctx.measureText(nameText).width > nmW) {
+    var words = nameText.split(' '), line = '';
+    words.forEach(function(w) {
+      var test = line + (line ? ' ' : '') + w;
+      if (ctx.measureText(test).width > nmW && line) { ctx.fillText(line, LEFT, y); line = w; y -= 70; }
+      else line = test;
     });
+    ctx.fillText(line, LEFT, y);
+  } else {
+    ctx.fillText(nameText, LEFT, y);
   }
-
-  // ── AGENT ZONE — anchored to bottom of left panel ─────────────────────
-  var agTopY = H - AGENT_ZONE;
-  ctx.strokeStyle = 'rgba(200,168,75,0.3)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(PAD, agTopY); ctx.lineTo(PANEL_W - PAD, agTopY); ctx.stroke();
-
-  var firstAgent = smAgents.find(function(a) { return a && a.name && a.name.trim(); });
-  if (firstAgent) {
-    var ciR = 34;
-    var ciX = PAD + ciR;
-    var ciY = agTopY + AGENT_ZONE / 2;
-    var agTX = PAD;
-
-    if (firstAgent.photo) {
-      try {
-        var apImg = await loadImageAsync(firstAgent.photo);
-        ctx.save(); ctx.beginPath(); ctx.arc(ciX, ciY, ciR, 0, Math.PI * 2); ctx.clip();
-        var apSc = Math.max(ciR * 2 / apImg.width, ciR * 2 / apImg.height);
-        ctx.drawImage(apImg, ciX - apImg.width * apSc / 2, ciY - apImg.height * apSc / 2, apImg.width * apSc, apImg.height * apSc);
-        ctx.restore();
-        ctx.strokeStyle = GOLD; ctx.lineWidth = 2.5;
-        ctx.beginPath(); ctx.arc(ciX, ciY, ciR, 0, Math.PI * 2); ctx.stroke();
-        agTX = PAD + ciR * 2 + 16;
-      } catch(e2) {}
-    }
-
-    var nameBaseY = agTopY + 26;
-    ctx.textAlign = 'left';
-    ctx.font = '700 22px "Montserrat", sans-serif'; ctx.fillStyle = CREAM;
-    ctx.fillText(firstAgent.name, agTX, nameBaseY);
-    if (firstAgent.title) {
-      ctx.font = '400 14px "Montserrat", sans-serif'; ctx.fillStyle = BLUE;
-      ctx.fillText(firstAgent.title, agTX, nameBaseY + 22);
-    }
-    if (firstAgent.phone) {
-      ctx.font = '600 14px "Montserrat", sans-serif'; ctx.fillStyle = GOLD;
-      ctx.fillText(firstAgent.phone, agTX, nameBaseY + 42);
-    }
-  }
-
-  // Website line on photo panel
-  ctx.textAlign = 'center'; ctx.font = '400 17px "Montserrat", sans-serif';
-  ctx.fillStyle = 'rgba(228,227,212,0.5)';
-  ctx.fillText('gatewayreadvisors.com  ·  712-226-8000', PANEL_W + (W - PANEL_W) / 2, H - 28);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2383,52 +2384,52 @@ async function updateSocialPreview() {
 
   // Agent info section
   if (smAgents.length > 0 && smAgents[0].name) {
-    y += 10;
+    y += 14;
     for (var ai = 0; ai < smAgents.length; ai++) {
       var ag = smAgents[ai];
       if (!ag.name) continue;
-      var agX = 60 + ai * 350;
-      if (agX + 300 > W) break; // Don't overflow
+      var agX = 60 + ai * 420;
+      if (agX + 380 > W) break; // Don't overflow
 
-      // Agent headshot
+      // Agent headshot — 54px radius circle
       if (ag.photo) {
         try {
           var agImg = await loadImageAsync(ag.photo);
           ctx.save();
           ctx.beginPath();
-          ctx.arc(agX + 35, y + 35, 35, 0, Math.PI * 2);
+          ctx.arc(agX + 54, y + 54, 54, 0, Math.PI * 2);
           ctx.clip();
-          ctx.drawImage(agImg, agX, y, 70, 70);
+          var _scOrig = Math.max(108 / agImg.width, 108 / agImg.height);
+          ctx.drawImage(agImg, agX + 54 - agImg.width*_scOrig/2, y + 54 - agImg.height*_scOrig/2, agImg.width*_scOrig, agImg.height*_scOrig);
           ctx.restore();
-          // Circle border
-          ctx.strokeStyle = pal.accent;
-          ctx.lineWidth = 2;
+          ctx.strokeStyle = '#C8A84B';
+          ctx.lineWidth = 2.5;
           ctx.beginPath();
-          ctx.arc(agX + 35, y + 35, 35, 0, Math.PI * 2);
+          ctx.arc(agX + 54, y + 54, 54, 0, Math.PI * 2);
           ctx.stroke();
         } catch(e) {}
       }
 
-      var textX = ag.photo ? agX + 85 : agX;
-      ctx.font = '700 18px "Montserrat", sans-serif';
+      var textX = ag.photo ? agX + 124 : agX;
+      ctx.font = '700 28px "Montserrat", sans-serif';
+      ctx.fillStyle = pal.text;
+      ctx.fillText(ag.name, textX, y + 28);
+      ctx.font = '400 20px "Montserrat", sans-serif';
       ctx.fillStyle = pal.accent;
-      ctx.fillText(ag.name, textX, y + 20);
-      
-      ctx.font = '400 14px "Montserrat", sans-serif';
-      ctx.fillStyle = pal.label;
-      if (ag.title) ctx.fillText(ag.title, textX, y + 40);
-      if (ag.phone) ctx.fillText(ag.phone, textX, y + 58);
+      if (ag.title) ctx.fillText(ag.title, textX, y + 54);
+      if (ag.phone) { ctx.font = '600 20px "Montserrat", sans-serif'; ctx.fillStyle = '#C8A84B'; ctx.fillText(ag.phone, textX, y + 78); }
       if (ag.email) {
-        ctx.font = '400 13px "Montserrat", sans-serif';
-        ctx.fillText(ag.email, textX, y + 76);
+        ctx.font = '400 18px "Montserrat", sans-serif';
+        ctx.fillStyle = pal.accent;
+        ctx.fillText(ag.email, textX, y + 100);
       }
       if (ag.license) {
-        ctx.font = '400 11px "Montserrat", sans-serif';
+        ctx.font = '400 16px "Montserrat", sans-serif';
         ctx.fillStyle = '#5a6a72';
-        ctx.fillText(ag.license, textX, y + 94);
+        ctx.fillText(ag.license, textX, y + 120);
       }
     }
-    y += 110;
+    y += 140;
   }
 
   // Broker of Record
