@@ -1,22 +1,26 @@
 // ================================================================
 // Gateway AI Config — committed to repo, safe to do so because:
-//   • proxyUrl + proxySecret route through YOUR Vercel proxy only
-//   • The actual Claude API key lives in Vercel env vars, never here
-//   • If this secret is ever compromised, rotate it in Vercel — done
+//   • The actual Claude API key lives in Supabase secrets, never here
+//   • Access is controlled by Supabase user accounts — only agents
+//     with a Supabase login can use the shared Claude key
+//   • Revoking an agent's access: delete their account in Supabase
+//
+// HOW IT WORKS
+//   Agents log in via the ☁ Sync button → they get a Supabase JWT →
+//   that JWT authorises Claude API calls through the Edge Function.
+//   Not logged in → falls back to a personal Claude key via ✦ AI.
 //
 // SETUP (one-time):
-//   1. Deploy gateway-proxy/ to Vercel
-//   2. In Vercel project settings → Environment Variables, add:
-//        ANTHROPIC_API_KEY = sk-ant-...  (your Claude key)
-//        GATEWAY_SECRET    = (any strong random string you choose)
-//        BUFFER_ACCESS_TOKEN = (optional, for social scheduling)
-//   3. Paste your Vercel deploy URL and your chosen secret below
-//   4. Commit this file — all agents get AI automatically
+//   1. Deploy the Edge Function:
+//        supabase functions deploy gateway-api
+//   2. Add the Claude API key as a Supabase secret:
+//        supabase secrets set CLAUDE_API_KEY=sk-ant-...
+//   3. Create a Supabase user account for each agent:
+//        Supabase dashboard → Authentication → Users → Add user
+//   4. Commit this file — done. No secrets here.
 //
-// Without a proxy: leave proxyUrl empty and agents enter their own
-// Claude API key via the ✦ AI button. Both modes work simultaneously.
+// Edge Function: supabase/functions/gateway-api/index.ts
 // ================================================================
 window.AI_CONFIG = {
-  proxyUrl:    '',   // e.g. 'https://gateway-proxy.vercel.app'
-  proxySecret: ''    // must match GATEWAY_SECRET in Vercel env vars
+  proxyUrl: 'https://jrtaxhfglcymipncwmvu.supabase.co/functions/v1/gateway-api'
 };

@@ -62,17 +62,36 @@ var GatewayAPI = (function () {
     ).trim();
   }
 
+  function supabaseJwt() {
+    // Pull the live JWT from GatewaySync session (set after ☁ Sync login)
+    var sync = window.GatewaySync;
+    return (sync && sync._session && sync._session.access_token) || '';
+  }
+
   function proxyHeaders() {
     var h = { 'Content-Type': 'application/json' };
     var secret = proxySecret();
     if (secret) h['x-gateway-secret'] = secret;
+    // When the proxy is a Supabase Edge Function, include the agent's
+    // JWT so Supabase's built-in JWT verification passes.
+    var jwt = supabaseJwt();
+    if (jwt && proxyUrl().indexOf('supabase.co') !== -1) {
+      h['Authorization'] = 'Bearer ' + jwt;
+    }
     return h;
   }
 
   // ── Availability checks ─────────────────────────────────────────
 
   function claudeAvailable() {
-    return !!(proxyUrl() || localClaudeKey());
+    if (proxyUrl()) {
+      // Supabase Edge Function proxy requires an active sync session (JWT)
+      if (proxyUrl().indexOf('supabase.co') !== -1) {
+        return !!(supabaseJwt() || localClaudeKey());
+      }
+      return true;
+    }
+    return !!localClaudeKey();
   }
 
   function bufferAvailable() {

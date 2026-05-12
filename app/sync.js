@@ -197,6 +197,21 @@
             return;
           }
           var rows = res.data || [];
+
+          // Cloud is empty — if this device has local data, upload it automatically.
+          // This handles first-login on the device that already has all your work.
+          if (rows.length === 0) {
+            var hasLocal = SYNC_KEYS.some(function (k) {
+              return localStorage.getItem(k) !== null;
+            });
+            if (hasLocal) {
+              self._showToast('Cloud is empty — uploading your data now…');
+              return self._pushAll();
+            }
+            self._showToast('Signed in. No cloud data yet.');
+            return;
+          }
+
           var count = 0;
           rows.forEach(function (row) {
             if (!row.data_key || !isSyncable(row.data_key)) return;

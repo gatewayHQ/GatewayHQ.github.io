@@ -1669,17 +1669,17 @@
         <div class="sync-user-icon">✓</div>
         <div>
           <div class="sync-user-email" id="sync-modal-user"></div>
-          <div class="sync-user-status">Sync active</div>
+          <div class="sync-user-status">Signed in — sync active</div>
         </div>
       </div>
       <div id="sync-last-time"></div>
       <div class="sync-actions-grid">
-        <button class="sync-btn-primary" id="sync-pull-btn" onclick="doSyncPull()">↓ Pull from Cloud</button>
-        <button class="sync-btn-ghost" id="sync-push-btn" onclick="doSyncPush()">↑ Push to Cloud</button>
+        <button class="sync-btn-primary" id="sync-push-btn" onclick="doSyncPush()">↑ Upload This Device</button>
+        <button class="sync-btn-ghost"   id="sync-pull-btn" onclick="doSyncPull()">↓ Download to This Device</button>
       </div>
       <div class="sync-info-note">
-        <strong>Pull</strong> — load the latest data from cloud into this device.<br>
-        <strong>Push</strong> — upload this device's data to cloud (overwrites cloud copy).
+        <strong>Upload</strong> — save everything on this device to your account.<br>
+        <strong>Download</strong> — load your account data onto this device.
       </div>
       <div class="sync-divider"></div>
       <div class="sync-signout-row">
