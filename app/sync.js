@@ -131,9 +131,8 @@
         if (res.data && res.data.session) {
           self._session = res.data.session;
           self._updateUI(res.data.session.user.email);
-          // JWT is now live — update AI badge immediately so ✦ AI On shows
-          if (typeof window.renderAIStatusBadge === 'function') window.renderAIStatusBadge();
           self._pullAll();
+          self._fetchTeamKey();
         }
       });
 
@@ -144,6 +143,7 @@
           self._updateUI(session.user.email);
         } else {
           self._updateUI(null);
+          window._gwTeamClaudeKey = '';
         }
         if (typeof window.renderAIStatusBadge === 'function') window.renderAIStatusBadge();
       });
@@ -158,6 +158,9 @@
           self._session = res.data.session;
           self._updateUI(email);
           return self._pullAll();
+        })
+        .then(function () {
+          return self._fetchTeamKey();
         });
     },
 
@@ -174,6 +177,33 @@
             return self._pushAll();
           }
           return Promise.resolve();
+        })
+        .then(function () {
+          return self._fetchTeamKey();
+        });
+    },
+
+    // ── Fetch shared Claude API key from team_secrets table ───────
+    // RLS ensures only authenticated users can read this.
+    // Key is kept in memory only — never written to localStorage.
+    _fetchTeamKey: function () {
+      var self = this;
+      if (!this.isLoggedIn()) return Promise.resolve();
+
+      return this._client
+        .from('team_secrets')
+        .select('value')
+        .eq('key', 'claude_api_key')
+        .single()
+        .then(function (res) {
+          if (res.error || !res.data) {
+            // Table may not exist yet or key not inserted — fail silently
+            console.warn('[Sync] team_secrets fetch:', res.error ? res.error.message : 'no row');
+            return;
+          }
+          window._gwTeamClaudeKey = res.data.value || '';
+          console.log('[Sync] Team Claude key loaded ✓');
+          if (typeof window.renderAIStatusBadge === 'function') window.renderAIStatusBadge();
         });
     },
 
@@ -182,6 +212,7 @@
       return this._client.auth.signOut().then(function () {
         self._session = null;
         self._updateUI(null);
+        window._gwTeamClaudeKey = '';
       });
     },
 

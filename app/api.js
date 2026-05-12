@@ -48,8 +48,9 @@ var GatewayAPI = (function () {
     var ai  = window.AI_CONFIG || {};
     var cfg = window.CONFIG    || {};
     return (
-      localStorage.getItem('gw_claude_api_key') ||
-      ai.claudeApiKey ||
+      window._gwTeamClaudeKey  ||          // shared key from Supabase team_secrets (login required)
+      localStorage.getItem('gw_claude_api_key') ||  // personal key entered via ✦ AI
+      ai.claudeApiKey  ||
       cfg.claudeApiKey || ''
     ).trim();
   }

@@ -1,26 +1,22 @@
 // ================================================================
-// Gateway AI Config — committed to repo, safe to do so because:
-//   • The actual Claude API key lives in Supabase secrets, never here
-//   • Access is controlled by Supabase user accounts — only agents
-//     with a Supabase login can use the shared Claude key
-//   • Revoking an agent's access: delete their account in Supabase
+// Gateway AI Config
 //
-// HOW IT WORKS
-//   Agents log in via the ☁ Sync button → they get a Supabase JWT →
-//   that JWT authorises Claude API calls through the Edge Function.
-//   Not logged in → falls back to a personal Claude key via ✦ AI.
+// HOW AI WORKS
+//   The shared Claude API key lives in the Supabase database
+//   (team_secrets table, RLS-protected). Agents log in via ☁ Sync
+//   → key is fetched automatically → ✦ AI On → all features work.
 //
-// SETUP (one-time):
-//   1. Deploy the Edge Function:
-//        supabase functions deploy gateway-api
-//   2. Add the Claude API key as a Supabase secret:
-//        supabase secrets set CLAUDE_API_KEY=sk-ant-...
-//   3. Create a Supabase user account for each agent:
-//        Supabase dashboard → Authentication → Users → Add user
-//   4. Commit this file — done. No secrets here.
+//   No key is ever committed to this file or any code file.
 //
-// Edge Function: supabase/functions/gateway-api/index.ts
+// SETUP (run once in Supabase SQL Editor):
+//   INSERT INTO team_secrets (key, value)
+//   VALUES ('claude_api_key', 'sk-ant-...')
+//   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+//
+// FALLBACK
+//   Agents without a Supabase login can still enter a personal
+//   Claude API key via the ✦ AI button in the nav.
 // ================================================================
 window.AI_CONFIG = {
-  proxyUrl: 'https://jrtaxhfglcymipncwmvu.supabase.co/functions/v1/gateway-api'
+  proxyUrl: ''   // not needed — key is served from Supabase DB at login
 };
