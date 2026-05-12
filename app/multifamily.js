@@ -403,7 +403,7 @@ function showStatus(msg) {
 // ==== TEMPLATE PICKER ====
 function selectOMTemplate(n) {
   localStorage.setItem('gateway_om_template_selection', n);
-  for (var i = 1; i <= 3; i++) {
+  for (var i = 1; i <= 4; i++) {
     var card = document.getElementById('tpl-card-' + i);
     if (card) {
       card.classList.toggle('tpl-active', i === n);
@@ -421,7 +421,8 @@ function selectOMTemplate(n) {
 
 function exportOM() {
   var tpl = parseInt(localStorage.getItem('gateway_om_template_selection') || '1', 10);
-  if (tpl === 3) generateGatewayCanvas();
+  if (tpl === 4) generateGatewayInstitutional();
+  else if (tpl === 3) generateGatewayCanvas();
   else if (tpl === 2) generateGatewaySignature();
   else generateOM();
 }
@@ -900,6 +901,431 @@ function generateGatewayCanvas() {
   var win=window.open('','_blank');
   if(!win){alert('Please allow pop-ups to view the Offering Memorandum.');return;}
   win.document.write(html);win.document.close();
+}
+
+// ==== GATEWAY INSTITUTIONAL TEMPLATE (13.3×7.5 · Navy+Gold · 10 slides) ====
+function generateGatewayInstitutional() {
+  try {
+    var pptx = new PptxGenJS();
+    pptx.defineLayout({ name: 'INST', width: 13.3, height: 7.5 });
+    pptx.layout = 'INST';
+    pptx.author  = 'Gateway Real Estate Advisors';
+    pptx.company = 'Gateway Real Estate Advisors';
+
+    // ── Color palette (from brand guide) ──────────────────────────
+    var N  = '1E2F39', N2 = '243545', N3 = '0D1820';
+    var G  = 'C8A84B', W  = 'FFFFFF', C  = 'F4F1E8', C2 = 'E8E4D6';
+    var ST = 'A2B6C0', GR = '8A8A88', CH = '3A3A3A', DC = '162530';
+
+    var WORDMARK_RATIO = 799 / 183;  // 4.366 — never change w/h independently
+    var wm   = (typeof LOGO_WORDMARK_LIGHT  !== 'undefined' && LOGO_WORDMARK_LIGHT)  ? LOGO_WORDMARK_LIGHT  : null;
+    var circ = (typeof LOGO_ROUND_SUBMARK   !== 'undefined' && LOGO_ROUND_SUBMARK)   ? LOGO_ROUND_SUBMARK   : null;
+
+    // ── Helpers ───────────────────────────────────────────────────
+    function vv(id) { var el = document.getElementById(id); return el ? (el.value || '') : ''; }
+    function nn(id) { return parseFloat(vv(id)) || 0; }
+    function fmt(x) { return '$' + Math.round(x).toLocaleString(); }
+    function box(s, x, y, w, h, color) { s.addShape('rect', { x:x, y:y, w:w, h:h, fill:{ color:color }, line:{ type:'none' } }); }
+    function txt(s, text, x, y, w, h, opts) { s.addText(String(text||''), Object.assign({ x:x, y:y, w:w, h:h }, opts)); }
+
+    function sectionHeader(s, num, label) {
+      box(s, 0, 0, 0.1, 7.5, G);
+      box(s, 0.1, 0, 13.2, 0.78, C2);
+      box(s, 0.1, 0.78, 13.2, 0.022, G);
+      box(s, 0.24, 0.12, 0.52, 0.52, N);
+      box(s, 0.24, 0.12, 0.52, 0.052, G);
+      txt(s, num, 0.24, 0.12, 0.52, 0.52, { fontSize:17, color:W, fontFace:'Cambria', bold:true, align:'center', valign:'middle' });
+      txt(s, label, 0.9, 0.27, 10, 0.26, { fontSize:8, color:GR, fontFace:'Calibri', charSpacing:3 });
+    }
+
+    function footer(s, pg) {
+      var lh = 0.25, lw = lh * WORDMARK_RATIO;
+      box(s, 0, 7.12, 13.3, 0.38, N3);
+      txt(s, 'GATEWAY REAL ESTATE ADVISORS', 0.42, 7.23, 5, 0.18, { fontSize:6.5, color:ST, charSpacing:2.5, fontFace:'Calibri' });
+      txt(s, 'CONFIDENTIAL  ·  NOT FOR DISTRIBUTION', 4.5, 7.23, 4.3, 0.18, { fontSize:6.5, color:GR, charSpacing:1.5, fontFace:'Calibri', align:'center' });
+      txt(s, String(pg), 13.3-0.4, 7.23, 0.28, 0.18, { fontSize:7.5, color:G, fontFace:'Cambria', align:'right' });
+      if (wm) s.addImage({ data:wm, x:13.3-lw-0.18, y:7.18, w:lw, h:lh });
+    }
+
+    // ── Form data ─────────────────────────────────────────────────
+    var propName = (vv('propName1') + ' ' + vv('propName2')).trim() || 'Property';
+    var addr  = vv('address');
+    var asks  = vv('askingPrice');
+    var cap   = vv('capRate');
+    var units = vv('totalUnits');
+    var ppu   = vv('pricePerUnit');
+    var noi   = vv('noi');
+    var grm   = vv('grm');
+    var occ   = vv('occupancy') || '100%';
+    var yb    = vv('yearBuilt');
+    var exec  = vv('execDesc');
+    var hls   = [vv('hl1'), vv('hl2'), vv('hl3'), vv('hl4')].filter(Boolean);
+
+    // Financials
+    var cvp = parseFloat((document.getElementById('curVacancy')||{}).value)||0;
+    var pvp = parseFloat((document.getElementById('pfVacancy') ||{}).value)||0;
+    var curGRI = nn('curIncome'), pfGRI = nn('pfIncome');
+    var curOtherArr = (typeof curOtherIncome !== 'undefined') ? curOtherIncome : [];
+    var pfOtherArr  = (typeof pfOtherIncome  !== 'undefined') ? pfOtherIncome  : [];
+    var curOtherTot = curOtherArr.reduce(function(s,o){ return s+(+o.amount||0); },0);
+    var pfOtherTot  = pfOtherArr.reduce(function(s,o){ return s+(+(o.pfAmount||o.amount)||0); },0);
+    var curVacLoss  = Math.round(curGRI * cvp / 100);
+    var pfVacLoss   = Math.round(pfGRI  * pvp / 100);
+    var curEGI = curGRI - curVacLoss + curOtherTot;
+    var pfEGI  = pfGRI  - pfVacLoss  + pfOtherTot;
+    var curExpArr = (typeof curExpenses !== 'undefined') ? curExpenses : [];
+    var pfExpArr  = (typeof pfExpenses  !== 'undefined') ? pfExpenses  : [];
+    var curExpTot = curExpArr.reduce(function(s,e){ return s+(+e.amount||0); },0);
+    var pfExpTot  = pfExpArr.reduce(function(s,e){ return s+(+(e.pfAmount||e.amount)||0); },0);
+    var curNOI = curEGI - curExpTot, pfNOI = pfEGI - pfExpTot;
+    var agts  = (typeof agents !== 'undefined') ? agents.filter(function(a){ return a.name; }) : [];
+    var uds   = (typeof unitData !== 'undefined') ? unitData : [];
+
+    // ── SLIDE 1: COVER ────────────────────────────────────────────
+    var s1 = pptx.addSlide();
+    if (photos[0]) {
+      s1.addImage({ data:photos[0], x:0, y:0, w:7.32, h:7.5, sizing:{ type:'cover', w:7.32, h:7.5 } });
+    } else {
+      box(s1, 0, 0, 7.32, 7.5, N);
+      txt(s1, 'PROPERTY\nPHOTOGRAPHY', 0, 0, 7.32, 7.5, { fontSize:18, color:ST, fontFace:'Cambria', italic:true, align:'center', valign:'middle', lineSpacingMultiple:1.4 });
+    }
+    box(s1, 7.32, 0, 0.06, 7.5, G);  // gold divider
+    box(s1, 7.38, 0, 5.92, 7.5, N);  // right navy panel
+    var RX = 7.38 + 0.38;
+    var lh1 = 0.34, lw1 = lh1 * WORDMARK_RATIO;
+    if (wm) s1.addImage({ data:wm, x:RX, y:0.28, w:lw1, h:lh1 });
+    txt(s1, 'OFFERING MEMORANDUM', RX, 0.82, 5.1, 0.22, { fontSize:7.5, color:G, fontFace:'Calibri', charSpacing:3 });
+    box(s1, RX, 1.1, 4.8, 0.022, G);
+    txt(s1, propName, RX, 1.22, 5.1, 1.4, { fontSize:48, color:W, fontFace:'Cambria', bold:true, lineSpacingMultiple:1.1 });
+    txt(s1, 'APARTMENTS', RX, 2.72, 5.1, 0.56, { fontSize:30, color:G, fontFace:'Cambria' });
+    txt(s1, addr + (vv('mktCity') ? '\n' + vv('mktCity') : ''), RX, 3.44, 5.1, 0.56, { fontSize:10, color:ST, fontFace:'Calibri', lineSpacingMultiple:1.35 });
+    var kpis1 = [{ v:asks, l:'ASKING PRICE' },{ v:cap, l:'CAP RATE' },{ v:units, l:'TOTAL UNITS' },{ v:ppu, l:'PRICE / UNIT' }];
+    var kpiW1 = 2.3, kpiH1 = 0.82, kpiY1 = 4.2;
+    [0,1].forEach(function(col) {
+      [0,1].forEach(function(row) {
+        var idx = row*2+col, kx = RX+col*(kpiW1+0.12), ky = kpiY1+row*(kpiH1+0.1);
+        box(s1, kx, ky, kpiW1, kpiH1, N2);
+        box(s1, kx, ky, kpiW1, 0.052, G);
+        txt(s1, kpis1[idx].l, kx, ky+0.08, kpiW1, 0.18, { fontSize:7, color:ST, fontFace:'Calibri', align:'center', charSpacing:1 });
+        txt(s1, kpis1[idx].v||'—', kx, ky+0.28, kpiW1, 0.46, { fontSize:28, color:W, fontFace:'Cambria', align:'center', valign:'middle' });
+      });
+    });
+    footer(s1, '1');
+
+    // ── SLIDE 2: TABLE OF CONTENTS ────────────────────────────────
+    var s2 = pptx.addSlide();
+    box(s2, 0, 0, 4.2, 7.5, N);
+    var lh2 = 0.32, lw2 = lh2 * WORDMARK_RATIO;
+    if (wm) s2.addImage({ data:wm, x:0.36, y:0.38, w:lw2, h:lh2 });
+    txt(s2, 'TABLE OF', 0.36, 1.1, 3.5, 0.68, { fontSize:42, color:W, fontFace:'Cambria', bold:true });
+    txt(s2, 'CONTENTS', 0.36, 1.82, 3.5, 0.68, { fontSize:42, color:G, fontFace:'Cambria', bold:true });
+    box(s2, 0.36, 2.68, 3.12, 0.022, G);
+    txt(s2, propName + '\n' + addr, 0.36, 2.82, 3.4, 0.6, { fontSize:9.5, color:ST, fontFace:'Calibri', lineSpacingMultiple:1.35 });
+    var tocItems = [
+      { n:'01', t:'Executive Summary',  s:'Investment overview & highlights' },
+      { n:'02', t:'Property Overview',  s:'Features, unit mix & specifications' },
+      { n:'03', t:'Financial Analysis', s:'Income, expenses & returns' },
+      { n:'04', t:'Market Overview',    s:'Demographics & economic drivers' },
+      { n:'05', t:'Photo Gallery',      s:'Exterior & interior photos' },
+      { n:'06', t:'Listing Agents',     s:'Your Gateway advisors' },
+      { n:'07', t:'About Gateway',      s:'Our firm & track record' },
+    ];
+    var tocX = 4.36, tocW2 = 8.94, rowH2 = 7.12 / tocItems.length;
+    tocItems.forEach(function(item, i) {
+      var ry = i * rowH2;
+      box(s2, tocX, ry, tocW2, rowH2, i%2===0 ? C : C2);
+      box(s2, tocX, ry, 0.052, rowH2, G);
+      txt(s2, item.n, tocX+0.12, ry, 0.64, rowH2, { fontSize:18, color:G, fontFace:'Cambria', bold:true, valign:'middle' });
+      txt(s2, item.t, tocX+0.82, ry+0.1, 7.5, 0.3, { fontSize:10.5, color:N, fontFace:'Calibri', bold:true });
+      txt(s2, item.s, tocX+0.82, ry+0.42, 7.5, 0.28, { fontSize:9, color:GR, fontFace:'Calibri' });
+    });
+    footer(s2, '2');
+
+    // ── SLIDE 3: EXECUTIVE SUMMARY ────────────────────────────────
+    var s3 = pptx.addSlide();
+    box(s3, 0, 0, 13.3, 7.5, C);
+    sectionHeader(s3, '01', 'EXECUTIVE SUMMARY');
+    var lx3 = 0.38, cY3 = 1.04;
+    txt(s3, propName, lx3, cY3, 8.0, 0.66, { fontSize:34, color:N, fontFace:'Cambria', bold:true });
+    box(s3, lx3, cY3+0.7, 4.0, 0.022, G);
+    txt(s3, exec, lx3, cY3+0.86, 7.9, 1.48, { fontSize:10.5, color:CH, fontFace:'Calibri', lineSpacingMultiple:1.42 });
+    txt(s3, 'INVESTMENT HIGHLIGHTS', lx3, cY3+2.52, 7.8, 0.24, { fontSize:8, color:GR, fontFace:'Calibri', charSpacing:2.5 });
+    box(s3, lx3, cY3+2.8, 7.8, 0.022, G);
+    hls.slice(0,4).forEach(function(hl, i) {
+      var hy = cY3 + 2.98 + i * 0.56;
+      box(s3, lx3, hy+0.1, 0.12, 0.12, G);
+      txt(s3, hl, lx3+0.22, hy, 7.5, 0.5, { fontSize:10.5, color:CH, fontFace:'Calibri', lineSpacingMultiple:1.3 });
+    });
+    // Right KPI cards
+    box(s3, 8.465, 0, 0.06, 7.12, G);
+    var kRX = 8.54, kRW = 13.3-kRX-0.16, cardH3 = (7.12-0.36)/3;
+    var kpiCards3 = [
+      { l:'NET OPERATING INCOME',    v:noi||fmt(curNOI),  d:'Current Annual NOI' },
+      { l:'GROSS RENT MULTIPLIER',   v:grm||'—',     d:'Purchase Price / Gross Rent' },
+      { l:'OCCUPANCY RATE',          v:occ,               d:(units||'') + ' Units' },
+    ];
+    kpiCards3.forEach(function(kpi, i) {
+      var ky = 0.18 + i * cardH3;
+      box(s3, kRX, ky, kRW, cardH3-0.022, N);
+      box(s3, kRX, ky, kRW, 0.06, G);
+      txt(s3, kpi.l, kRX, ky+0.1, kRW, 0.24, { fontSize:7.5, color:ST, fontFace:'Calibri', charSpacing:2, align:'center' });
+      box(s3, kRX, ky+0.38, kRW, 0.022, G);
+      box(s3, kRX, ky+0.52, kRW, cardH3-0.9, N2);
+      box(s3, kRX, ky+0.52, kRW, 0.03, G);
+      txt(s3, kpi.v, kRX, ky+0.52, kRW, cardH3-0.9, { fontSize:48, color:W, fontFace:'Cambria', align:'center', valign:'middle' });
+      txt(s3, kpi.d, kRX, ky+cardH3-0.36, kRW, 0.28, { fontSize:7.5, color:GR, fontFace:'Calibri', italic:true, align:'center' });
+      if (i < 2) box(s3, kRX, ky+cardH3-0.022, kRW, 0.022, G);
+    });
+    footer(s3, '3');
+
+    // ── SLIDE 4: PROPERTY OVERVIEW ────────────────────────────────
+    var s4 = pptx.addSlide();
+    box(s4, 0, 0, 13.3, 7.5, C);
+    sectionHeader(s4, '02', 'PROPERTY OVERVIEW');
+    txt(s4, addr + (vv('mktCity') ? ', ' + vv('mktCity') : ''), 0.38, 1.04, 7.9, 0.56, { fontSize:24, color:N, fontFace:'Cambria', bold:true });
+    var featTxt = [vv('propType'), yb?'Built '+yb:'', vv('parking'), vv('lotSize')].filter(Boolean).join('  ·  ');
+    txt(s4, featTxt, 0.38, 1.66, 7.8, 0.3, { fontSize:9.5, color:CH, fontFace:'Calibri' });
+    // Unit mix table
+    var tblY4 = 2.14, colW4 = [2.2,1.2,1.2,1.6,1.6], colX4 = [0];
+    colW4.forEach(function(w,i){ if(i>0) colX4[i]=colX4[i-1]+colW4[i-1]; });
+    box(s4, 0.38, tblY4, 7.8, 0.34, N);
+    ['Unit Type','Units','Sq Ft','Rent/Mo','Mo. Total'].forEach(function(c,i){
+      txt(s4, c, 0.38+colX4[i], tblY4, colW4[i], 0.34, { fontSize:8, color:W, fontFace:'Calibri', bold:true, align:'center', valign:'middle' });
+    });
+    uds.slice(0,8).forEach(function(u,i){
+      var ry = tblY4+0.34+i*0.3;
+      box(s4, 0.38, ry, 7.8, 0.3, i%2===0?C:C2);
+      [''+u.type,''+u.units,''+u.sqft,'$'+u.rent,'$'+(u.units*u.rent).toLocaleString()].forEach(function(val,ci){
+        txt(s4, val, 0.38+colX4[ci], ry, colW4[ci], 0.3, { fontSize:9, color:CH, fontFace:'Calibri', align:'center', valign:'middle' });
+      });
+    });
+    var totR4 = tblY4+0.34+Math.min(uds.length,8)*0.3;
+    var totU4 = uds.reduce(function(s,u){ return s+(+u.units||0); },0);
+    var totRent4 = uds.reduce(function(s,u){ return s+(u.units*u.rent||0); },0);
+    box(s4, 0.38, totR4, 7.8, 0.32, G);
+    txt(s4, 'TOTAL', 0.38, totR4, 2.2, 0.32, { fontSize:9, color:N, fontFace:'Calibri', bold:true, align:'center', valign:'middle' });
+    txt(s4, String(totU4), 0.38+colX4[1], totR4, colW4[1], 0.32, { fontSize:9, color:N, fontFace:'Calibri', bold:true, align:'center', valign:'middle' });
+    txt(s4, '$'+totRent4.toLocaleString(), 0.38+colX4[4], totR4, colW4[4], 0.32, { fontSize:9, color:N, fontFace:'Calibri', bold:true, align:'center', valign:'middle' });
+    // Right specs panel
+    box(s4, 8.42, 0, 4.88, 7.5, N);
+    txt(s4, 'PROPERTY SPECIFICATIONS', 8.56, 0.9, 4.6, 0.24, { fontSize:7.5, color:ST, fontFace:'Calibri', charSpacing:1.5 });
+    var specs4 = [
+      { l:'Year Built',    v:yb },           { l:'Total Units',   v:units },
+      { l:'Buildings',     v:vv('buildings')||'1' }, { l:'Property Type', v:vv('propType') },
+      { l:'Lot Size',      v:vv('lotSize') }, { l:'Parking',       v:vv('parking') },
+      { l:'Occupancy',     v:occ },           { l:'Asset Class',   v:'Multifamily' },
+    ];
+    var spCH = (7.5-0.36-1.2)/4, spCW = (13.3-8.42)/2;
+    specs4.forEach(function(sp, i) {
+      var col = i%2, row = Math.floor(i/2);
+      var sx = 8.42+col*spCW, sy = 1.2+row*spCH;
+      box(s4, sx, sy, spCW, spCH, N2);
+      box(s4, sx, sy, spCW, 0.042, G);
+      txt(s4, sp.l.toUpperCase(), sx+0.1, sy+0.1, spCW-0.2, 0.22, { fontSize:6.5, color:ST, fontFace:'Calibri' });
+      txt(s4, sp.v||'—', sx, sy+0.38, spCW, spCH-0.44, { fontSize:20, color:W, fontFace:'Cambria', align:'center', valign:'middle' });
+    });
+    footer(s4, '4');
+
+    // ── SLIDE 5: FINANCIAL ANALYSIS ───────────────────────────────
+    var s5 = pptx.addSlide();
+    box(s5, 0, 0, 13.3, 7.5, C);
+    var sx5 = 1.33, sy5 = 1.333;
+    box(s5, 0, 0, 13.3, 0.7*sy5, N);
+    box(s5, 0, 0, 0.06*sx5, 0.7*sy5, G);
+    box(s5, 0, 0.7*sy5, 13.3, 0.024, G);
+    txt(s5, '03  FINANCIAL ANALYSIS', 0.24*sx5, 0, 9, 0.7*sy5, { fontSize:20, color:W, fontFace:'Cambria', bold:true, valign:'middle' });
+    var kFin = [
+      { l:'CURRENT INCOME',   v:fmt(curEGI), s:'Effective Gross', ac:ST },
+      { l:'CURRENT NOI',      v:fmt(curNOI), s:'Net Operating',   ac:ST },
+      { l:'PRO FORMA INCOME', v:fmt(pfEGI),  s:'Stabilized Gross', ac:G },
+      { l:'PRO FORMA NOI',    v:fmt(pfNOI),  s:curNOI>0?'+'+((pfNOI-curNOI)/curNOI*100).toFixed(1)+'% vs Current':'Stabilized NOI', ac:G },
+    ];
+    var kxArr = [0.35,2.70,5.05,7.40].map(function(x){ return x*sx5; });
+    kFin.forEach(function(kf, i) {
+      var kx=kxArr[i], ky=0.82*sy5, kw=2.2*sx5, kh=0.72*sy5;
+      box(s5, kx, ky, kw, kh, DC);
+      box(s5, kx, ky, kw, 0.042*sy5, kf.ac);
+      txt(s5, kf.l, kx, ky+0.06, kw, 0.22, { fontSize:6.5, color:ST, fontFace:'Calibri', charSpacing:1, align:'center' });
+      txt(s5, kf.v, kx, ky+0.28, kw, 0.36, { fontSize:18, color:W, fontFace:'Cambria', bold:true, align:'center', valign:'middle' });
+      txt(s5, kf.s, kx, ky+kh-0.24, kw, 0.2, { fontSize:7, color:ST, fontFace:'Calibri', italic:true, align:'center' });
+    });
+    // I&E tables
+    var tblY5 = 1.72*sy5, tblW5 = 4.35*sx5, rH5 = 0.22, fs5 = 8.5;
+    box(s5, 4.88*sx5, tblY5, 0.32*sx5, 4.4, C2);  // divider
+    function addRow5(s, tx, ty, lbl, val, isHdr, isTot, isNOI, isAlt) {
+      var bg = isHdr?G:isTot?N:isNOI?G:isAlt?C2:C;
+      var lc = isHdr?N:isTot?W:isNOI?N:CH;
+      var vc = isHdr?N:isTot?G:isNOI?N:CH;
+      box(s, tx, ty, tblW5, rH5, bg);
+      txt(s, lbl, tx+0.08, ty, tblW5*0.65, rH5, { fontSize:fs5, color:lc, fontFace:'Calibri', bold:isTot||isNOI||isHdr, valign:'middle' });
+      if (val) txt(s, val, tx, ty, tblW5-0.08, rH5, { fontSize:fs5, color:vc, fontFace:'Calibri', bold:isTot||isNOI||isHdr, align:'right', valign:'middle' });
+    }
+    function buildFin(s, tx, gri, vacLoss, egi, expArr, expTot, noi5) {
+      var ty = tblY5;
+      addRow5(s, tx, ty, 'INCOME', '', true, false, false, false); ty+=rH5;
+      addRow5(s, tx, ty, 'Gross Scheduled Rent', fmt(gri), false, false, false, false); ty+=rH5;
+      if (vacLoss>0){ addRow5(s, tx, ty, 'Less: Vacancy/Credit Loss', '('+fmt(vacLoss)+')', false, false, false, true); ty+=rH5; }
+      addRow5(s, tx, ty, 'Effective Gross Income', fmt(egi), false, true, false, false); ty+=rH5+0.04;
+      addRow5(s, tx, ty, 'EXPENSES', '', true, false, false, false); ty+=rH5;
+      expArr.forEach(function(e,i){
+        if(!e.name) return;
+        addRow5(s, tx, ty, e.name, fmt(+e.amount||0), false, false, false, i%2===0); ty+=rH5;
+      });
+      addRow5(s, tx, ty, 'Total Expenses', fmt(expTot), false, true, false, false); ty+=rH5+0.04;
+      addRow5(s, tx, ty, 'Net Operating Income', fmt(noi5), false, false, true, false);
+    }
+    buildFin(s5, 0.35*sx5, curGRI, curVacLoss, curEGI, curExpArr, curExpTot, curNOI);
+    buildFin(s5, 5.30*sx5, pfGRI,  pfVacLoss,  pfEGI,  pfExpArr,  pfExpTot,  pfNOI);
+    footer(s5, '5');
+
+    // ── SLIDE 6: MARKET OVERVIEW ──────────────────────────────────
+    var s6 = pptx.addSlide();
+    box(s6, 0, 0, 13.3, 7.5, C);
+    sectionHeader(s6, '04', 'MARKET OVERVIEW');
+    txt(s6, vv('mktCity')||'Market Overview', 0.38, 1.02, 12.54, 0.58, { fontSize:34, color:N, fontFace:'Cambria', bold:true });
+    txt(s6, vv('mktDesc'), 0.38, 1.74, 12.54, 0.88, { fontSize:10.5, color:CH, fontFace:'Calibri', lineSpacingMultiple:1.42 });
+    var mStats6 = [{ l:'POPULATION',v:vv('population') },{ l:'MEDIAN INCOME',v:vv('medianIncome') },{ l:'UNEMPLOYMENT',v:vv('unemployment') },{ l:'AVG RENT',v:vv('avgRent') }];
+    var mW6 = (13.3-0.38*2-0.12*3)/4;
+    mStats6.forEach(function(ms, i) {
+      var mx = 0.38+i*(mW6+0.12);
+      box(s6, mx, 2.84, mW6, 0.96, N);
+      box(s6, mx, 2.84, mW6, 0.042, G);
+      txt(s6, ms.l, mx, 2.84+0.08, mW6, 0.22, { fontSize:7.5, color:ST, fontFace:'Calibri', charSpacing:1, align:'center' });
+      txt(s6, ms.v||'—', mx, 2.84+0.3, mW6, 0.56, { fontSize:28, color:W, fontFace:'Cambria', align:'center', valign:'middle' });
+    });
+    var drvs6 = [{ t:vv('drv1Title'),b:vv('drv1Desc') },{ t:vv('drv2Title'),b:vv('drv2Desc') },{ t:vv('drv3Title'),b:vv('drv3Desc') }];
+    var dW6 = (13.3-0.38*2-0.14*2)/3;
+    drvs6.forEach(function(drv, i) {
+      var dx = 0.38+i*(dW6+0.14), dy = 4.06, dh = 7.12-dy-0.08;
+      box(s6, dx, dy, dW6, dh, W);
+      box(s6, dx, dy, dW6, 0.052, G);
+      txt(s6, drv.t||'Market Driver', dx+0.1, dy+0.12, dW6-0.2, 0.28, { fontSize:8.5, color:N, fontFace:'Calibri', bold:true });
+      txt(s6, drv.b||'', dx+0.1, dy+0.52, dW6-0.2, dh-0.62, { fontSize:9.5, color:CH, fontFace:'Calibri', lineSpacingMultiple:1.35 });
+    });
+    footer(s6, '6');
+
+    // ── SLIDE 7: PHOTO GALLERY ────────────────────────────────────
+    var s7 = pptx.addSlide();
+    box(s7, 0, 0, 13.3, 7.5, N);
+    var hH7 = 0.86;
+    box(s7, 0, 0, 0.1, hH7, G);
+    box(s7, 0.1, 0, 13.2, hH7, '1A2D38');
+    box(s7, 0.1, hH7, 13.2, 0.022, G);
+    txt(s7, '05  PHOTO GALLERY', 0.9, 0.24, 10, 0.38, { fontSize:16, color:W, fontFace:'Cambria', bold:true, valign:'middle' });
+    var GAP7 = 0.06, sW7 = (13.3-GAP7*2)/3, sH7 = (7.5-hH7-GAP7)/2;
+    var gPh7 = [photos[0],photos[1],photos[2],photos[3],photos[4],photos[5]];
+    [{c:0,r:0},{c:1,r:0},{c:2,r:0},{c:0,r:1},{c:1,r:1},{c:2,r:1}].forEach(function(pos,i){
+      var px = pos.c*(sW7+GAP7), py = hH7+pos.r*(sH7+GAP7);
+      if (gPh7[i]) {
+        s7.addImage({ data:gPh7[i], x:px, y:py, w:sW7, h:sH7, sizing:{ type:'cover', w:sW7, h:sH7 } });
+      } else {
+        box(s7, px, py, sW7, sH7, N2);
+        txt(s7, 'PHOTO '+(i+1), px, py, sW7, sH7, { fontSize:9, color:ST, fontFace:'Calibri', align:'center', valign:'middle' });
+      }
+      box(s7, px, py, sW7, 0.042, G);
+    });
+    footer(s7, '7');
+
+    // ── SLIDE 8: LISTING AGENTS ───────────────────────────────────
+    var s8 = pptx.addSlide();
+    box(s8, 0, 0, 13.3, 7.5, C);
+    sectionHeader(s8, '06', 'LISTING AGENTS');
+    txt(s8, 'Meet the Team', 0.38, 1.04, 12.54, 0.6, { fontSize:34, color:N, fontFace:'Cambria', bold:true });
+    var cW8 = 6.18, cGap8 = 0.32, cStart8 = (13.3-cW8*2-cGap8)/2;
+    var cY8 = 1.84, cH8 = 4.86;
+    agts.slice(0,2).forEach(function(ag, i) {
+      var cx = cStart8+i*(cW8+cGap8);
+      box(s8, cx, cY8, cW8, cH8, W);
+      box(s8, cx, cY8, cW8, 0.06, G);
+      box(s8, cx, cY8, cW8, 1.78, N);
+      var iX = cx+cW8/2-0.52, iY = cY8+0.32;
+      box(s8, iX, iY, 1.04, 1.04, N2);
+      box(s8, iX, iY, 1.04, 0.042, G);
+      var inits = (ag.name||'').split(' ').map(function(n){ return n[0]||''; }).join('').slice(0,2).toUpperCase();
+      txt(s8, inits, iX, iY, 1.04, 1.04, { fontSize:28, color:W, fontFace:'Cambria', align:'center', valign:'middle' });
+      txt(s8, ag.name, cx, cY8+1.52, cW8, 0.36, { fontSize:19, color:W, fontFace:'Cambria', align:'center' });
+      txt(s8, (ag.title||'').toUpperCase(), cx, cY8+1.96, cW8, 0.26, { fontSize:8, color:G, fontFace:'Calibri', charSpacing:1.5, align:'center' });
+      box(s8, cx+0.38, cY8+2.32, cW8-0.76, 0.022, G);
+      txt(s8, ag.phone||'', cx, cY8+2.46, cW8, 0.36, { fontSize:17, color:N, fontFace:'Calibri', bold:true, align:'center' });
+      txt(s8, ag.email||'', cx, cY8+2.92, cW8, 0.3, { fontSize:10.5, color:GR, fontFace:'Calibri', align:'center' });
+      txt(s8, ag.licenses||ag.lic||'', cx, cY8+3.3, cW8, 0.28, { fontSize:8.5, color:ST, fontFace:'Calibri', italic:true, align:'center' });
+    });
+    footer(s8, '8');
+
+    // ── SLIDE 9: ABOUT GATEWAY ────────────────────────────────────
+    var s9 = pptx.addSlide();
+    box(s9, 0, 0, 13.3, 7.5, C);
+    sectionHeader(s9, '07', 'ABOUT GATEWAY');
+    txt(s9, 'Gateway Real Estate Advisors', 0.38, 1.04, 12.54, 0.56, { fontSize:30, color:N, fontFace:'Cambria', bold:true });
+    var aboutTxt9 = 'Gateway Real Estate Advisors is a full-service commercial real estate brokerage serving the Midwest. We specialize in multifamily, commercial, and investment properties, providing institutional-quality marketing and advisory services to buyers and sellers across Iowa, South Dakota, and Nebraska.';
+    txt(s9, aboutTxt9, 0.38, 1.74, 12.54, 1.2, { fontSize:10.5, color:CH, fontFace:'Calibri', lineSpacingMultiple:1.42 });
+    var sts9 = [{ v:'$50M+', l:'TRANSACTION VOLUME' },{ v:'200+', l:'TRANSACTIONS CLOSED' },{ v:'3-STATE', l:'LICENSED COVERAGE' }];
+    var stW9 = (13.3-0.38*2-0.14*2)/3;
+    sts9.forEach(function(st, i) {
+      var sx = 0.38+i*(stW9+0.14);
+      box(s9, sx, 3.12, stW9, 1.0, N);
+      box(s9, sx, 3.12, stW9, 0.052, G);
+      txt(s9, st.v, sx, 3.22, stW9, 0.58, { fontSize:42, color:W, fontFace:'Cambria', align:'center', valign:'middle' });
+      txt(s9, st.l, sx, 3.84, stW9, 0.24, { fontSize:7.5, color:ST, fontFace:'Calibri', charSpacing:1, align:'center' });
+    });
+    var why9 = [
+      { t:'Institutional Quality',  b:'Professional marketing and structured deal processes used by top institutional brokers.' },
+      { t:'Market Intelligence',    b:'Deep local knowledge across Iowa, South Dakota and Nebraska with direct buyer relationships.' },
+      { t:'Full-Service Advisory',  b:'From pricing strategy through close — underwriting, due diligence, and negotiation support.' },
+    ];
+    var wW9 = (13.3-0.38*2-0.14*2)/3;
+    why9.forEach(function(w, i) {
+      var wx = 0.38+i*(wW9+0.14), wy = 4.38, wh = 7.12-wy-0.08;
+      box(s9, wx, wy, wW9, wh, W);
+      box(s9, wx, wy, wW9, 0.052, G);
+      txt(s9, w.t, wx+0.1, wy+0.12, wW9-0.2, 0.28, { fontSize:9, color:N, fontFace:'Calibri', bold:true });
+      txt(s9, w.b, wx+0.1, wy+0.5, wW9-0.2, wh-0.6, { fontSize:9.5, color:CH, fontFace:'Calibri', lineSpacingMultiple:1.35 });
+    });
+    footer(s9, '9');
+
+    // ── SLIDE 10: BACK COVER ──────────────────────────────────────
+    var s10 = pptx.addSlide();
+    box(s10, 0, 0, 13.3, 7.5, N);
+    if (circ) s10.addImage({ data:circ, x:(13.3-2.9)/2, y:0.28, w:2.9, h:2.9, sizing:{ type:'contain', w:2.9, h:2.9 } });
+    box(s10, 0.8, 3.4, 11.7, 0.022, G);
+    txt(s10, 'EXCLUSIVELY OFFERED BY', 0, 3.52, 13.3, 0.28, { fontSize:11, color:W, fontFace:'Calibri', charSpacing:5, align:'center' });
+    box(s10, 0.8, 4.0, 11.7, 0.022, G);
+    var pW10 = 5.87, pXs10 = [0.65, 6.75];
+    agts.slice(0,2).forEach(function(ag, i) {
+      var px = pXs10[i], py = 4.16, ph = 2.72;
+      box(s10, px, py, pW10, ph, N2);
+      box(s10, px, py, pW10, 0.048, G);
+      txt(s10, ag.name, px, py+0.14, pW10, 0.34, { fontSize:14, color:W, fontFace:'Calibri', bold:true, charSpacing:1.5, align:'center' });
+      txt(s10, ag.title||'', px, py+0.54, pW10, 0.26, { fontSize:10, color:G, fontFace:'Calibri', align:'center' });
+      box(s10, px+0.38, py+0.9, pW10-0.76, 0.018, ST);
+      txt(s10, 'Gateway Real Estate Advisors', px, py+1.06, pW10, 0.26, { fontSize:9, color:ST, fontFace:'Calibri', align:'center' });
+      txt(s10, ag.phone||'', px, py+1.38, pW10, 0.3, { fontSize:11, color:W, fontFace:'Calibri', bold:true, align:'center' });
+      txt(s10, ag.email||'', px, py+1.74, pW10, 0.24, { fontSize:9, color:ST, fontFace:'Calibri', align:'center' });
+      txt(s10, ag.licenses||ag.lic||'', px, py+2.02, pW10, 0.24, { fontSize:8.5, color:GR, fontFace:'Calibri', italic:true, align:'center' });
+    });
+    box(s10, 6.65, 4.16, 0.04, 2.72, G);  // gold vertical divider
+    var disc10 = vv('disclaimer') || 'The information herein has been obtained from sources deemed reliable but is not guaranteed. All information should be verified by the recipient prior to purchase.';
+    txt(s10, disc10, 0.5, 7.0, 12.3, 0.22, { fontSize:7, color:GR, fontFace:'Calibri', align:'center' });
+    var lH10 = 0.28, lW10 = lH10*WORDMARK_RATIO;
+    box(s10, 0, 7.12, 13.3, 0.38, N3);
+    if (wm) s10.addImage({ data:wm, x:0.22, y:7.16, w:lW10, h:lH10 });
+    txt(s10, 'CONFIDENTIAL  ·  NOT FOR DISTRIBUTION', 4.5, 7.23, 4.3, 0.18, { fontSize:6.5, color:GR, charSpacing:1.5, fontFace:'Calibri', align:'center' });
+    txt(s10, '10', 13.3-0.4, 7.23, 0.28, 0.18, { fontSize:7.5, color:G, fontFace:'Cambria', align:'right' });
+
+    // ── EXPORT ────────────────────────────────────────────────────
+    var fileName = propName.replace(/[^a-zA-Z0-9 ]/g,'').trim() + ' - Gateway OM.pptx';
+    if (window.GW) GW.showLoading('Building Offering Memorandum…');
+    pptx.writeFile({ fileName: fileName }).then(function() {
+      if (window.GW) GW.hideLoading();
+      showStatus('OM generated: ' + fileName);
+    }).catch(function(e) {
+      if (window.GW) GW.hideLoading();
+      alert('Error generating OM: ' + e.message);
+    });
+  } catch(e) {
+    console.error('generateGatewayInstitutional error:', e);
+    alert('Error generating OM: ' + e.message);
+  }
 }
 
 // ==== GENERATE PPTX ====
