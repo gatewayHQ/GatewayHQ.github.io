@@ -82,34 +82,42 @@
   var GatewaySync = {
     _client: null,
     _session: null,
+    _initError: null,   // 'no_config' | 'cdn_failed' | 'client_error'
 
     // ── Initialise (called from core.js after DOM ready) ─────────
     init: function () {
       // SYNC_CONFIG (sync-config.js, committed) takes priority;
       // falls back to CONFIG (config.js, gitignored) for local dev.
       var syncCfg = window.SYNC_CONFIG || {};
-      var cfg = window.CONFIG || {};
-      var supabaseUrl     = syncCfg.supabaseUrl     || cfg.supabaseUrl;
-      var supabaseAnonKey = syncCfg.supabaseAnonKey || cfg.supabaseAnonKey;
+      var cfg     = window.CONFIG      || {};
+      var url = syncCfg.supabaseUrl     || cfg.supabaseUrl     || '';
+      var key = syncCfg.supabaseAnonKey || cfg.supabaseAnonKey || '';
 
-      if (!supabaseUrl || !supabaseAnonKey) {
-        // Sync is optional — silently skip if not configured
+      console.log('[Sync] init — url:', url ? url.slice(0, 30) + '…' : '(empty)',
+                  '| key:', key ? key.slice(0, 18) + '…' : '(empty)');
+
+      if (!url || !key) {
+        this._initError = 'no_config';
+        console.warn('[Sync] No Supabase credentials found in SYNC_CONFIG or CONFIG');
         return;
       }
 
-      // Supabase JS v2 CDN exposes window.supabase
-      if (!window.supabase || !window.supabase.createClient) {
-        console.warn('[Sync] Supabase JS not loaded');
+      // Supabase JS v2 CDN must expose window.supabase.createClient
+      if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+        this._initError = 'cdn_failed';
+        console.error('[Sync] Supabase JS library not available on window.supabase — CDN may have failed to load');
         return;
       }
 
-      this._client = window.supabase.createClient(
-        supabaseUrl,
-        supabaseAnonKey
-      );
-
-      // Restore persisted session (works across page refreshes)
-      this._restoreSession();
+      try {
+        this._client = window.supabase.createClient(url, key);
+        console.log('[Sync] Client created OK');
+        this._restoreSession();
+      } catch (e) {
+        this._initError = 'client_error';
+        this._client    = null;
+        console.error('[Sync] createClient threw:', e);
+      }
     },
 
     isLoggedIn: function () {
@@ -335,7 +343,12 @@
   // ── Modal open / close (global) ───────────────────────────────
   window.openSyncModal = function () {
     if (!GatewaySync._client) {
-      alert('Cloud sync is not configured.\n\nAdd supabaseUrl and supabaseAnonKey to config.js and run the migration in gateway-proxy/supabase/migration.sql.');
+      var msgs = {
+        cdn_failed:   'The Supabase JS library failed to load from the CDN.\n\nCheck your internet connection and refresh the page.',
+        client_error: 'Supabase client failed to initialise.\n\nOpen the browser console (F12 → Console) and look for a [Sync] error to see the exact cause.',
+        no_config:    'Cloud sync credentials not found.\n\nCheck that sync-config.js is deployed and contains supabaseUrl and supabaseAnonKey.'
+      };
+      alert(msgs[GatewaySync._initError] || 'Cloud sync is not available. Open the browser console (F12) for details.');
       return;
     }
     var modal = document.getElementById('sync-modal');
