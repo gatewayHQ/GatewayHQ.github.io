@@ -110,20 +110,25 @@ function addOtherIncome(prefix) {
 }
 
 // ==== NOI CALCULATION (v5 UPDATED) ====
-function calcNOI(prefix) {
+function _calcNOIImmediate(prefix) {
   var grossIncome = +(document.getElementById(prefix + 'Income').value) || 0;
   var otherList = prefix === 'cur' ? curOtherIncome : pfOtherIncome;
   var otherTotal = otherList.reduce(function(s, o) { return s + (+o.amount || 0); }, 0);
   var totalIncome = grossIncome + otherTotal;
-  
   var expList = prefix === 'cur' ? curExpenses : pfExpenses;
   var totalExpenses = expList.reduce(function(s, e) { return s + (+e.amount || 0); }, 0);
-  
   var noi = totalIncome - totalExpenses;
-  
-  document.getElementById(prefix + 'TotalIncome').textContent = '$' + totalIncome.toLocaleString();
-  document.getElementById(prefix + 'NOI').textContent = '$' + noi.toLocaleString();
+  var tiEl = document.getElementById(prefix + 'TotalIncome');
+  var noiEl = document.getElementById(prefix + 'NOI');
+  if (tiEl)  tiEl.textContent  = '$' + totalIncome.toLocaleString();
+  if (noiEl) noiEl.textContent = '$' + noi.toLocaleString();
   recalcMetrics();
+}
+// Debounced: prevents recalculation on every single keystroke in expense fields
+var _calcNOICur = window.GW ? GW.debounce(function(){ _calcNOIImmediate('cur'); }, 120) : function(){ _calcNOIImmediate('cur'); };
+var _calcNOIPf  = window.GW ? GW.debounce(function(){ _calcNOIImmediate('pf');  }, 120) : function(){ _calcNOIImmediate('pf');  };
+function calcNOI(prefix) {
+  if (prefix === 'cur') _calcNOICur(); else _calcNOIPf();
 }
 
 function autoCalcDownPayment() {
@@ -200,9 +205,15 @@ function addPhotoSlot() { photos.push(null); renderPhotos(); }
 function handlePhoto(index, input) {
   var file = input.files[0];
   if (!file) return;
-  var reader = new FileReader();
-  reader.onload = function(e) { photos[index] = e.target.result; renderPhotos(); };
-  reader.readAsDataURL(file);
+  if (window.GW && GW.compressImage) {
+    GW.compressImage(file, 1400, 0.85).then(function(dataUrl) {
+      if (dataUrl) { photos[index] = dataUrl; renderPhotos(); }
+    });
+  } else {
+    var reader = new FileReader();
+    reader.onload = function(e) { photos[index] = e.target.result; renderPhotos(); };
+    reader.readAsDataURL(file);
+  }
 }
 renderPhotos();
 
@@ -434,7 +445,7 @@ function generateGatewaySignature() {
   var medIncome=v('medianIncome')||'',unemployment=v('unemployment')||'',avgRent=v('avgRent')||'';
   var drv1T=v('drv1Title')||'',drv1D=v('drv1Desc')||'',drv2T=v('drv2Title')||'',drv2D=v('drv2Desc')||'',drv3T=v('drv3Title')||'',drv3D=v('drv3Desc')||'';
   var gwData={};try{gwData=JSON.parse(localStorage.getItem('gateway_about_company')||'{}');}catch(e){}
-  var agentProfiles=[];var _agSeen={};Object.keys(localStorage).forEach(function(k){if(k.startsWith('gateway_agent_profile_')&&agentProfiles.length<4){try{var _ap=JSON.parse(localStorage.getItem(k));var _an=(_ap.name||'').trim();if(_an&&!_agSeen[_an]){_agSeen[_an]=1;agentProfiles.push(_ap);}}catch(e){}}});
+  var _apRaw=window.GW?GW.getAgentProfiles():function(){var o={};try{Object.keys(localStorage).forEach(function(k){if(k.indexOf('gateway_agent_profile_')===0){try{o[k]=JSON.parse(localStorage.getItem(k));}catch(e){}}});}catch(e){}return o;}();var agentProfiles=[];var _agSeen={};Object.keys(_apRaw).forEach(function(k){if(agentProfiles.length<4){var _ap=_apRaw[k];var _an=(_ap&&_ap.name||'').trim();if(_an&&!_agSeen[_an]){_agSeen[_an]=1;agentProfiles.push(_ap);}}});
   var ph=photos||[],coverPhoto=ph[0]||'',galleryPhotos=[ph[1],ph[2],ph[3],ph[4],ph[5]].filter(Boolean);
   var unitMixRows='',totalUnitsCalc=0,totalRentCalc=0;
   (unitData||[]).forEach(function(u){if(!u.type&&!u.units)return;var mo=(u.units||0)*(u.rent||0);totalUnitsCalc+=(u.units||0);totalRentCalc+=mo;unitMixRows+='<tr><td>'+(u.type||'')+'</td><td>'+(u.units||0)+'</td><td>'+(u.sqft||0)+' sf</td><td>'+fmt(u.rent)+'</td><td class="num">'+fmt(mo)+'</td></tr>';});
@@ -518,7 +529,7 @@ function generateGatewayCanvas() {
   var medIncome=v('medianIncome')||'',unemployment=v('unemployment')||'',avgRent=v('avgRent')||'';
   var drv1T=v('drv1Title')||'',drv1D=v('drv1Desc')||'',drv2T=v('drv2Title')||'',drv2D=v('drv2Desc')||'',drv3T=v('drv3Title')||'',drv3D=v('drv3Desc')||'';
   var gwData={};try{gwData=JSON.parse(localStorage.getItem('gateway_about_company')||'{}');}catch(e){}
-  var agentProfiles=[];var _agSeen={};Object.keys(localStorage).forEach(function(k){if(k.startsWith('gateway_agent_profile_')&&agentProfiles.length<4){try{var _ap=JSON.parse(localStorage.getItem(k));var _an=(_ap.name||'').trim();if(_an&&!_agSeen[_an]){_agSeen[_an]=1;agentProfiles.push(_ap);}}catch(e){}}});
+  var _apRaw=window.GW?GW.getAgentProfiles():function(){var o={};try{Object.keys(localStorage).forEach(function(k){if(k.indexOf('gateway_agent_profile_')===0){try{o[k]=JSON.parse(localStorage.getItem(k));}catch(e){}}});}catch(e){}return o;}();var agentProfiles=[];var _agSeen={};Object.keys(_apRaw).forEach(function(k){if(agentProfiles.length<4){var _ap=_apRaw[k];var _an=(_ap&&_ap.name||'').trim();if(_an&&!_agSeen[_an]){_agSeen[_an]=1;agentProfiles.push(_ap);}}});
   var ph=photos||[],coverPhoto=ph[0]||'',galleryPhotos=[ph[1],ph[2],ph[3],ph[4],ph[5]].filter(Boolean);
   var unitMixRows='',totalUnitsCalc=0,totalRentCalc=0;
   (unitData||[]).forEach(function(u){if(!u.type&&!u.units)return;var mo=(u.units||0)*(u.rent||0);totalUnitsCalc+=(u.units||0);totalRentCalc+=mo;unitMixRows+='<tr><td>'+u.type+'</td><td class="tc">'+u.units+'</td><td class="tc">'+u.sqft+' SF</td><td class="tr">'+fmt(u.rent)+'</td><td class="tr">'+fmt(mo)+'</td></tr>';});
@@ -1694,13 +1705,17 @@ function generateOM() {
     // GENERATE FILE
     // ════════════════════════════════════════════════
     var fileName = ((v('propName1') + ' ' + v('propName2')).trim() || 'Property') + ' - Offering Memorandum.pptx';
+    if (window.GW) GW.showLoading('Building Offering Memorandum…');
     pptx.writeFile({fileName: fileName}).then(function() {
+      if (window.GW) GW.hideLoading();
       showStatus('OM generated: ' + fileName);
     }).catch(function(e) {
+      if (window.GW) GW.hideLoading();
       alert('Error generating OM: ' + e.message);
     });
 
   } catch (e) {
+    if (window.GW) GW.hideLoading();
     alert('Error: ' + e.message + '\n\n' + e.stack);
   }
 }
@@ -4304,6 +4319,7 @@ renderPastOMs();
       photo: (document.getElementById(id + '_photoData') || {}).value || ''
     };
     localStorage.setItem('gateway_agent_profile_' + email.toLowerCase(), JSON.stringify(profile));
+    if (window.GW) GW.invalidateAgentCache();
     if (!silent) showGlobalStatus('Profile saved for ' + email);
   };
 

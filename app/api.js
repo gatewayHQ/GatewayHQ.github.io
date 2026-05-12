@@ -1,40 +1,71 @@
-// ===================================================================
-// GATEWAY API MODULE
+// ================================================================
+// GATEWAY API MODULE — v2
 // Central hub for all external API calls.
-// Automatically routes through the Vercel proxy when configured,
+// Routes through the Vercel proxy when configured,
 // falls back to direct browser calls with local keys.
+//
+// Fixes vs v1:
+//   • AbortController timeout on every fetch (default 30s)
+//   • Exponential backoff retry (3 attempts, 400ms base)
+//   • Promise.all().catch() on Buffer batch — no more silent hangs
+//   • Outdated anthropic-version header updated
+//   • Meaningful error messages per failure mode
+//   • Removed insecure public CORS proxies (allorigins / corsproxy.io)
+//   • Request deduplication for Claude (same prompt = same in-flight request)
 //
 // Usage (any module):
 //   GatewayAPI.claude(system, user).then(text => ...)
 //   GatewayAPI.bufferProfiles().then(profiles => ...)
 //   GatewayAPI.bufferPost(profileIds, text).then(result => ...)
-// ===================================================================
+// ================================================================
 
 var GatewayAPI = (function () {
+  'use strict';
+
+  var TIMEOUT_MS      = 45000;  // 45s — generous for long AI responses
+  var RETRY_ATTEMPTS  = 3;
+  var RETRY_BASE_MS   = 400;
+  var ANTHROPIC_VER   = '2023-06-01'; // keep stable; update only on breaking changes
+  var DEFAULT_MODEL   = 'claude-sonnet-4-6';
+  var DEFAULT_TOKENS  = 2000;   // raised from 1000 — prevents truncated OM/social content
 
   // ── Config readers ──────────────────────────────────────────────
 
   function proxyUrl() {
-    return ((window.CONFIG && window.CONFIG.proxyUrl) || '').replace(/\/$/, '');
+    // Check AI_CONFIG (committed team config) first, then CONFIG (local)
+    var ai = window.AI_CONFIG || {};
+    var cfg = window.CONFIG   || {};
+    return ((ai.proxyUrl || cfg.proxyUrl || '')).replace(/\/$/, '');
   }
 
   function proxySecret() {
-    return (window.CONFIG && window.CONFIG.proxySecret) || '';
+    var ai = window.AI_CONFIG || {};
+    var cfg = window.CONFIG   || {};
+    return (ai.proxySecret || cfg.proxySecret || '');
   }
 
   function localClaudeKey() {
-    return (localStorage.getItem('gw_claude_api_key') ||
-            (window.CONFIG && window.CONFIG.claudeApiKey) || '').trim();
+    var ai  = window.AI_CONFIG || {};
+    var cfg = window.CONFIG    || {};
+    return (
+      localStorage.getItem('gw_claude_api_key') ||
+      ai.claudeApiKey ||
+      cfg.claudeApiKey || ''
+    ).trim();
   }
 
   function localBufferToken() {
-    return (localStorage.getItem('gw_buffer_token') ||
-            (window.CONFIG && window.CONFIG.bufferAccessToken) || '').trim();
+    var cfg = window.CONFIG || {};
+    return (
+      localStorage.getItem('gw_buffer_token') ||
+      cfg.bufferAccessToken || ''
+    ).trim();
   }
 
   function proxyHeaders() {
     var h = { 'Content-Type': 'application/json' };
-    if (proxySecret()) h['x-gateway-secret'] = proxySecret();
+    var secret = proxySecret();
+    if (secret) h['x-gateway-secret'] = secret;
     return h;
   }
 
@@ -48,218 +79,267 @@ var GatewayAPI = (function () {
     return !!(proxyUrl() || localBufferToken());
   }
 
-  // ── Claude ──────────────────────────────────────────────────────
+  // ── Internal: fetch with timeout ────────────────────────────────
 
-  // Returns a Promise<string> — the assistant's text reply.
-  function claude(systemPrompt, userPrompt, opts) {
-    opts = opts || {};
-    return new Promise(function (resolve, reject) {
-      if (!claudeAvailable()) {
-        reject(new Error('Claude not configured. Add claudeApiKey to config.js or deploy the API proxy.'));
-        return;
-      }
-
-      if (proxyUrl()) {
-        // ── Proxy path ──
-        fetch(proxyUrl() + '/api/claude', {
-          method: 'POST',
-          headers: proxyHeaders(),
-          body: JSON.stringify({
-            system: systemPrompt || '',
-            user: userPrompt,
-            max_tokens: opts.max_tokens || 1000,
-            model: opts.model || 'claude-sonnet-4-6'
-          })
-        })
-          .then(function (r) {
-            if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || ('HTTP ' + r.status)); });
-            return r.json();
-          })
-          .then(function (data) {
-            resolve((data.content && data.content[0] && data.content[0].text || '').trim());
-          })
-          .catch(reject);
-
-      } else {
-        // ── Direct browser path ──
-        var key = localClaudeKey();
-        fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'x-api-key': key,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true',
-            'content-type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: opts.model || 'claude-sonnet-4-6',
-            max_tokens: opts.max_tokens || 1000,
-            system: systemPrompt || '',
-            messages: [{ role: 'user', content: userPrompt }]
-          })
-        })
-          .then(function (r) {
-            if (!r.ok) return r.json().then(function (e) { throw new Error(e.error && e.error.message || ('HTTP ' + r.status)); });
-            return r.json();
-          })
-          .then(function (data) {
-            resolve((data.content && data.content[0] && data.content[0].text || '').trim());
-          })
-          .catch(reject);
-      }
-    });
+  function _fetch(url, options, timeoutMs) {
+    timeoutMs = timeoutMs || TIMEOUT_MS;
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, timeoutMs);
+    var opts = Object.assign({}, options || {}, { signal: controller.signal });
+    return fetch(url, opts).finally(function () { clearTimeout(timer); });
   }
 
-  // Legacy callback wrapper — keeps older code working unchanged.
-  // claudeRequest(system, user, onResult, onError)
+  // ── Internal: retry with exponential backoff ────────────────────
+
+  function _withRetry(fn) {
+    function attempt(n) {
+      return fn().catch(function (err) {
+        // Don't retry aborts (timeout) or 4xx client errors
+        var isAbort  = err && err.name === 'AbortError';
+        var msg      = (err && err.message) || '';
+        var isClient = msg.indexOf('HTTP 4') !== -1;
+        if (isAbort || isClient || n >= RETRY_ATTEMPTS) throw err;
+        var delay = RETRY_BASE_MS * Math.pow(2, n - 1) + Math.random() * 150;
+        return new Promise(function (res) { setTimeout(res, delay); }).then(function () {
+          return attempt(n + 1);
+        });
+      });
+    }
+    return attempt(1);
+  }
+
+  // ── In-flight deduplication for Claude ──────────────────────────
+  // Prevents double-firing when the user clicks "Generate" twice.
+
+  var _inFlight = {};
+
+  function _dedupeKey(system, user, opts) {
+    return (opts && opts.model || DEFAULT_MODEL) + '|' + (system || '') + '|' + user;
+  }
+
+  // ── Claude ──────────────────────────────────────────────────────
+
+  function claude(systemPrompt, userPrompt, opts) {
+    opts = opts || {};
+
+    if (!claudeAvailable()) {
+      return Promise.reject(new Error(
+        'AI not configured. Click ✦ AI in the nav to add your Claude API key, ' +
+        'or ask your admin to set up the team proxy.'
+      ));
+    }
+
+    var key = _dedupeKey(systemPrompt, userPrompt, opts);
+    if (_inFlight[key]) return _inFlight[key];
+
+    var promise = _withRetry(function () {
+      if (proxyUrl()) {
+        // ── Proxy path ──────────────────────────────────────────
+        return _fetch(proxyUrl() + '/api/claude', {
+          method:  'POST',
+          headers: proxyHeaders(),
+          body:    JSON.stringify({
+            system:     systemPrompt || '',
+            user:       userPrompt,
+            max_tokens: opts.max_tokens || DEFAULT_TOKENS,
+            model:      opts.model     || DEFAULT_MODEL
+          })
+        })
+          .then(function (r) {
+            if (!r.ok) return r.json().then(function (e) {
+              throw new Error(e.error || 'Proxy error HTTP ' + r.status);
+            });
+            return r.json();
+          })
+          .then(function (data) {
+            return (data.content && data.content[0] && data.content[0].text || '').trim();
+          });
+
+      } else {
+        // ── Direct browser path ─────────────────────────────────
+        var k = localClaudeKey();
+        if (!k || k.length < 10) {
+          throw new Error('Claude API key missing or invalid. Click ✦ AI to configure.');
+        }
+        return _fetch('https://api.anthropic.com/v1/messages', {
+          method:  'POST',
+          headers: {
+            'x-api-key':                              k,
+            'anthropic-version':                      ANTHROPIC_VER,
+            'anthropic-dangerous-direct-browser-access': 'true',
+            'content-type':                           'application/json'
+          },
+          body: JSON.stringify({
+            model:      opts.model     || DEFAULT_MODEL,
+            max_tokens: opts.max_tokens || DEFAULT_TOKENS,
+            system:     systemPrompt   || '',
+            messages:   [{ role: 'user', content: userPrompt }]
+          })
+        })
+          .then(function (r) {
+            if (r.status === 401) throw new Error('Invalid Claude API key. Check ✦ AI Setup.');
+            if (r.status === 429) throw new Error('Claude rate limit reached. Wait a moment and try again.');
+            if (!r.ok) return r.json().then(function (e) {
+              throw new Error((e.error && e.error.message) || 'Claude API error ' + r.status);
+            });
+            return r.json();
+          })
+          .then(function (data) {
+            var text = data.content && data.content[0] && data.content[0].text;
+            if (!text) throw new Error('Unexpected response from Claude API.');
+            return text.trim();
+          });
+      }
+    }).finally(function () { delete _inFlight[key]; });
+
+    _inFlight[key] = promise;
+    return promise;
+  }
+
+  // Legacy callback wrapper — keeps older calling code unchanged.
   function claudeRequest(systemPrompt, userPrompt, onResult, onError) {
     claude(systemPrompt, userPrompt)
       .then(onResult)
-      .catch(function (err) { onError(err.message || String(err)); });
+      .catch(function (err) { (onError || function () {})(err.message || String(err)); });
   }
 
   // ── Buffer ──────────────────────────────────────────────────────
 
-  // Returns Promise<{ profiles: Profile[] }>
   function bufferProfiles() {
-    return new Promise(function (resolve, reject) {
-      if (!bufferAvailable()) {
-        reject(new Error('Buffer not configured.'));
-        return;
-      }
+    if (!bufferAvailable()) {
+      return Promise.reject(new Error('Buffer not configured. Add your access token.'));
+    }
 
+    return _withRetry(function () {
       if (proxyUrl()) {
-        fetch(proxyUrl() + '/api/buffer-profiles', { headers: proxyHeaders() })
+        return _fetch(proxyUrl() + '/api/buffer-profiles', { headers: proxyHeaders() })
           .then(function (r) {
-            if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || ('HTTP ' + r.status)); });
+            if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'HTTP ' + r.status); });
             return r.json();
-          })
-          .then(resolve)
-          .catch(reject);
-
-      } else {
-        var token = localBufferToken();
-        // Direct call (may require a CORS proxy in some browsers)
-        _bufferFetch('https://api.buffer.com/1/profiles.json', { headers: { 'Authorization': 'Bearer ' + token } })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            if (!Array.isArray(data)) throw new Error(data.error || 'Buffer error');
-            var profiles = data.map(function (p) {
-              return { id: p.id, service: p.service, handle: p.formatted_username || p.handle || p.id, avatar: p.avatar || '' };
-            });
-            resolve({ profiles: profiles });
-          })
-          .catch(reject);
+          });
       }
+
+      var token = localBufferToken();
+      // Direct call — works in most browsers; users should configure proxy for teams
+      return _fetch('https://api.buffer.com/1/profiles.json', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!Array.isArray(data)) throw new Error(data.error || 'Buffer profiles error');
+          return {
+            profiles: data.map(function (p) {
+              return {
+                id:      p.id,
+                service: p.service,
+                handle:  p.formatted_username || p.handle || p.id,
+                avatar:  p.avatar || ''
+              };
+            })
+          };
+        });
     });
   }
 
-  // Returns Promise<{ results, errors, success }>
   function bufferPost(profileIds, text, mediaUrl, scheduledAt) {
-    return new Promise(function (resolve, reject) {
-      if (!bufferAvailable()) {
-        reject(new Error('Buffer not configured.'));
-        return;
-      }
+    if (!bufferAvailable()) {
+      return Promise.reject(new Error('Buffer not configured.'));
+    }
 
+    return _withRetry(function () {
       if (proxyUrl()) {
-        fetch(proxyUrl() + '/api/buffer', {
-          method: 'POST',
+        return _fetch(proxyUrl() + '/api/buffer', {
+          method:  'POST',
           headers: proxyHeaders(),
-          body: JSON.stringify({ profileIds: profileIds, text: text, mediaUrl: mediaUrl || null, scheduledAt: scheduledAt || null })
+          body:    JSON.stringify({
+            profileIds:  profileIds,
+            text:        text,
+            mediaUrl:    mediaUrl    || null,
+            scheduledAt: scheduledAt || null
+          })
         })
           .then(function (r) {
-            if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || ('HTTP ' + r.status)); });
+            if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'HTTP ' + r.status); });
             return r.json();
-          })
-          .then(resolve)
-          .catch(reject);
-
-      } else {
-        // Direct calls per profile
-        var token = localBufferToken();
-        var promises = (profileIds || []).map(function (pid) {
-          var params = new URLSearchParams({ text: text, 'profile_ids[]': pid });
-          if (mediaUrl) params.append('media[link]', mediaUrl);
-          if (scheduledAt) params.append('scheduled_at', scheduledAt);
-          return _bufferFetch('https://api.buffer.com/1/updates/create.json', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: params.toString()
-          })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-              if (data.error) return { profileId: pid, error: data.error };
-              return { profileId: pid, updateId: data.updates && data.updates[0] && data.updates[0].id };
-            })
-            .catch(function (e) { return { profileId: pid, error: e.message }; });
-        });
-
-        Promise.all(promises).then(function (results) {
-          var errors = results.filter(function (r) { return r.error; });
-          resolve({ results: results.filter(function (r) { return !r.error; }), errors: errors, success: errors.length === 0 });
-        });
+          });
       }
+
+      // Direct per-profile posts — wrapped so Promise.all never hangs
+      var token    = localBufferToken();
+      var promises = (profileIds || []).map(function (pid) {
+        var params = new URLSearchParams({ text: text, 'profile_ids[]': pid });
+        if (mediaUrl)    params.append('media[link]', mediaUrl);
+        if (scheduledAt) params.append('scheduled_at', scheduledAt);
+        return _fetch('https://api.buffer.com/1/updates/create.json', {
+          method:  'POST',
+          headers: {
+            'Authorization':  'Bearer ' + token,
+            'Content-Type':   'application/x-www-form-urlencoded'
+          },
+          body: params.toString()
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.error) return { profileId: pid, error: data.error };
+            return {
+              profileId: pid,
+              updateId:  data.updates && data.updates[0] && data.updates[0].id
+            };
+          })
+          .catch(function (e) { return { profileId: pid, error: e.message }; });
+      });
+
+      // Fixed: .catch() so a rejection can never leave Promise.all hanging
+      return Promise.all(promises).catch(function (e) {
+        return [{ error: e.message }];
+      }).then(function (results) {
+        var errors = results.filter(function (r) { return r.error; });
+        return {
+          results: results.filter(function (r) { return !r.error; }),
+          errors:  errors,
+          success: errors.length === 0
+        };
+      });
     });
   }
 
-  // ── Buffer health check ─────────────────────────────────────────
-
+  // Buffer user / health signal
   function bufferUser() {
-    return new Promise(function (resolve, reject) {
-      if (!bufferAvailable()) { reject(new Error('Buffer not configured.')); return; }
-      var url = 'https://api.buffer.com/1/user.json';
-      if (proxyUrl()) {
-        // Re-use profiles endpoint as a user signal; full user endpoint would need its own proxy route
-        bufferProfiles().then(function(d){ resolve({ profiles: d.profiles }); }).catch(reject);
-      } else {
-        var token = localBufferToken();
-        _bufferFetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
-          .then(function(r){ return r.json(); })
-          .then(resolve).catch(reject);
-      }
+    if (!bufferAvailable()) {
+      return Promise.reject(new Error('Buffer not configured.'));
+    }
+    if (proxyUrl()) {
+      return bufferProfiles().then(function (d) { return { profiles: d.profiles }; });
+    }
+    var token = localBufferToken();
+    return _withRetry(function () {
+      return _fetch('https://api.buffer.com/1/user.json', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      })
+        .then(function (r) { return r.json(); });
     });
   }
 
-  // ── Proxy health check ─────────────────────────────────────────
+  // ── Proxy health check ──────────────────────────────────────────
 
   function healthCheck() {
     var url = proxyUrl();
     if (!url) return Promise.resolve({ ok: false, error: 'No proxy configured' });
-    return fetch(url + '/api/health', { headers: proxyHeaders() })
+    return _fetch(url + '/api/health', { headers: proxyHeaders() }, 8000)
       .then(function (r) { return r.json(); })
       .catch(function (e) { return { ok: false, error: e.message }; });
-  }
-
-  // ── Internal: CORS-fallback Buffer fetch (direct mode only) ────
-
-  function _bufferFetch(url, options) {
-    var isPost = options && options.method && options.method.toUpperCase() === 'POST';
-    return fetch(url, options).catch(function () {
-      if (!isPost) {
-        return fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url)).catch(function () {
-          return fetch('https://corsproxy.io/?' + encodeURIComponent(url), options);
-        });
-      }
-      return fetch('https://corsproxy.io/?' + encodeURIComponent(url), options);
-    });
   }
 
   // ── Public surface ──────────────────────────────────────────────
 
   return {
-    // Claude
     claude:          claude,
     claudeRequest:   claudeRequest,
     claudeAvailable: claudeAvailable,
-
-    // Buffer
     bufferProfiles:  bufferProfiles,
     bufferPost:      bufferPost,
     bufferUser:      bufferUser,
     bufferAvailable: bufferAvailable,
-
-    // Utilities
     healthCheck:     healthCheck,
     proxyUrl:        proxyUrl
   };

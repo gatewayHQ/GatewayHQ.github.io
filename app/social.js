@@ -23,10 +23,15 @@ var SM_FIELD_IDS = [
   'sm-broker-record','sm-photo1-label'
 ];
 
+// Cache filter value per render cycle — avoids DOM query on every canvas draw call
+var _smFilterCache = null;
 function smPhotoFilter() {
+  if (_smFilterCache !== null) return _smFilterCache;
   var el = document.getElementById('sm-enhance-photo');
-  return (el && el.checked) ? 'brightness(1.12) contrast(1.08) saturate(1.22)' : 'none';
+  _smFilterCache = (el && el.checked) ? 'brightness(1.12) contrast(1.08) saturate(1.22)' : 'none';
+  return _smFilterCache;
 }
+function smInvalidateFilterCache() { _smFilterCache = null; }
 
 function renderTemplatePresetSelect() {
   var sel = document.getElementById('sm-preset-sel');
@@ -226,14 +231,24 @@ function loadAgentPreset(i, sel) {
 }
 
 function handleSocialAgentPhoto(index, input) {
-  if (input.files && input.files[0]) {
+  if (!(input.files && input.files[0])) return;
+  var file = input.files[0];
+  if (window.GW && GW.compressImage) {
+    GW.compressImage(file, 800, 0.88).then(function(dataUrl) {
+      if (!dataUrl) return;
+      GW.evictImage(smAgents[index].photo);
+      smAgents[index].photo = dataUrl;
+      renderSocialAgents();
+      updateSocialPreview();
+    });
+  } else {
     var reader = new FileReader();
     reader.onload = function(e) {
       smAgents[index].photo = e.target.result;
       renderSocialAgents();
       updateSocialPreview();
     };
-    reader.readAsDataURL(input.files[0]);
+    reader.readAsDataURL(file);
   }
 }
 
@@ -242,12 +257,27 @@ function handleSocialPhoto(num, input) {
   var file = input.files[0];
   var isHeic = /\.heic$/i.test(file.name) || file.type === 'image/heic' || file.type === 'image/heif';
   function readAndSet(blob) {
+    // Compress before storing — reduces base64 size by ~60-70% for large photos
+    if (window.GW && GW.compressImage && blob instanceof Blob) {
+      GW.compressImage(blob, 1400, 0.88).then(function(dataUrl) {
+        if (!dataUrl) return;
+        GW.evictImage(smPhotos[num - 1]);
+        smPhotos[num - 1] = dataUrl;
+        var preview = document.getElementById('sm-photo' + num + '-preview');
+        if (preview) preview.innerHTML = '<img src="' + dataUrl + '">';
+        var lbl = document.getElementById('sm-photo' + num + '-label');
+        if (lbl) lbl.style.display = 'block';
+        updateSocialPreview();
+      });
+      return;
+    }
     var reader = new FileReader();
     reader.onload = function(e) {
       smPhotos[num - 1] = e.target.result;
       var preview = document.getElementById('sm-photo' + num + '-preview');
-      preview.innerHTML = '<img src="' + e.target.result + '">' ;
-      document.getElementById('sm-photo' + num + '-label').style.display = 'block';
+      if (preview) preview.innerHTML = '<img src="' + e.target.result + '">';
+      var lbl = document.getElementById('sm-photo' + num + '-label');
+      if (lbl) lbl.style.display = 'block';
       updateSocialPreview();
     };
     reader.readAsDataURL(blob);
@@ -262,10 +292,12 @@ function handleSocialPhoto(num, input) {
 }
 
 function loadImageAsync(src) {
-  return new Promise((resolve, reject) => {
+  // Use GW image cache when available — prevents re-decoding same image on every keystroke
+  if (window.GW && GW.loadImage) return GW.loadImage(src);
+  return new Promise(function(resolve) {
     var img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
+    img.onload  = function() { resolve(img); };
+    img.onerror = function() { resolve(null); }; // never hard-reject; canvas draws are best-effort
     img.src = src;
   });
 }
@@ -2476,11 +2508,17 @@ async function updateSocialPreview() {
 }
 
 // Debounce wrapper — prevents redundant canvas redraws on every keystroke.
-// All oninput/onchange handlers call updateSocialPreview() by name; this IIFE
-// replaces the global reference so callers automatically get the debounced version.
+// Also resets the photo-filter cache at the start of each render cycle so
+// smPhotoFilter() reads from DOM once per render, not once per canvas draw call.
 (function() {
   var _raw = updateSocialPreview, _t = null;
-  updateSocialPreview = function() { clearTimeout(_t); _t = setTimeout(_raw, 250); };
+  updateSocialPreview = function() {
+    clearTimeout(_t);
+    _t = setTimeout(function() {
+      smInvalidateFilterCache(); // reset per-render filter cache
+      _raw();
+    }, 250);
+  };
 })();
 
 function roundRect(ctx, x, y, w, h, r) {
