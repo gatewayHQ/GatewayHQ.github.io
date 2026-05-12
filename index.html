@@ -24,6 +24,10 @@
 <link rel="stylesheet" href="styles/invoice.css">
 <link rel="stylesheet" href="styles/status.css">
 <link rel="stylesheet" href="styles/video.css">
+<link rel="stylesheet" href="styles/sync.css">
+
+<!-- Supabase JS v2 (cross-device sync) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body>
 
@@ -45,6 +49,11 @@
   <span class="nav-title">Agent Toolkit</span>
   <span class="nav-breadcrumb" id="nav-breadcrumb"></span>
   <button id="ai-status-badge" onclick="openAISetup()" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid;cursor:pointer;font-family:'Montserrat',sans-serif;font-weight:600;letter-spacing:0.5px;transition:all 0.2s;margin-right:4px">✦ AI</button>
+  <div class="sync-nav-wrap">
+    <button id="sync-nav-btn" onclick="openSyncModal()" title="Cloud sync — click to log in">
+      <span class="sync-dot off" id="sync-nav-dot"></span>☁ Sync
+    </button>
+  </div>
   <button class="home-btn" id="home-btn" onclick="navigateTo('landing')" style="display:none">← Back to Home</button>
 </nav>
 
@@ -1622,6 +1631,62 @@
 
 </div>
 
+<!-- ========== SYNC MODAL ========== -->
+<div id="sync-modal" onclick="if(event.target===this)closeSyncModal()">
+  <div class="sync-modal-card">
+
+    <div class="sync-modal-header">
+      <div>
+        <div class="sync-modal-title">☁ Cloud Sync</div>
+        <div class="sync-modal-subtitle">Access your templates, OMs & invoices on any device</div>
+      </div>
+      <button class="sync-close-btn" onclick="closeSyncModal()">×</button>
+    </div>
+
+    <!-- ── Logged-out: login / create account ── -->
+    <div id="sync-login-panel">
+      <label for="sync-email">Work Email</label>
+      <input type="email" id="sync-email" placeholder="you@gatewayrea.com" onkeydown="if(event.key==='Enter')doSyncLogin()">
+      <label for="sync-pw">Password</label>
+      <input type="password" id="sync-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doSyncLogin()">
+      <div class="sync-btn-row">
+        <button class="sync-btn-primary" id="sync-login-btn" onclick="doSyncLogin()">Sign In</button>
+        <button class="sync-btn-ghost" id="sync-signup-btn" onclick="doSyncSignup()">Create Account</button>
+      </div>
+      <div id="sync-error"></div>
+      <div class="sync-info-note">
+        First time? Click <strong>Create Account</strong> with your work email to activate cloud sync.
+        Your data is private — only you can access it.
+      </div>
+    </div>
+
+    <!-- ── Logged-in: status + manual controls ── -->
+    <div id="sync-logged-in">
+      <div class="sync-user-badge">
+        <div class="sync-user-icon">✓</div>
+        <div>
+          <div class="sync-user-email" id="sync-modal-user"></div>
+          <div class="sync-user-status">Sync active</div>
+        </div>
+      </div>
+      <div id="sync-last-time"></div>
+      <div class="sync-actions-grid">
+        <button class="sync-btn-primary" id="sync-pull-btn" onclick="doSyncPull()">↓ Pull from Cloud</button>
+        <button class="sync-btn-ghost" id="sync-push-btn" onclick="doSyncPush()">↑ Push to Cloud</button>
+      </div>
+      <div class="sync-info-note">
+        <strong>Pull</strong> — load the latest data from cloud into this device.<br>
+        <strong>Push</strong> — upload this device's data to cloud (overwrites cloud copy).
+      </div>
+      <div class="sync-divider"></div>
+      <div class="sync-signout-row">
+        <button class="sync-signout-btn" onclick="doSyncLogout()">Sign out</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <!-- ========== STATUS BAR ========== -->
 <div class="status-bar" id="global-status"></div>
 
@@ -1636,6 +1701,7 @@
 <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 
 <!-- ── App modules (load order matches dependency graph) ─────────── -->
+<script src="app/sync.js"></script>
 <script src="app/api.js"></script>
 <script src="app/core.js"></script>
 <script src="app/router.js"></script>

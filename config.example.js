@@ -28,6 +28,23 @@ const CONFIG = {
   // When proxyUrl is set above, this is ignored.
   bufferAccessToken: '',
 
+  // ── Cloud Sync (cross-device) ────────────────────────────────────
+  // Enables agents to log in and access their saved templates, OMs,
+  // invoices, API keys, and agent profiles from any device.
+  //
+  // SETUP (one-time, ~5 minutes):
+  //   1. Create a free project at https://supabase.com
+  //   2. Run gateway-proxy/supabase/migration.sql in the SQL Editor
+  //   3. Copy Project URL and anon key from Settings → API
+  //   4. Paste both values below
+  //   5. In Supabase Auth → Settings, disable email confirmation
+  //      (or use "Invite User" to create agent accounts manually)
+  //
+  // Each agent then clicks ☁ Sync in the toolkit nav and logs in
+  // with their work email — data syncs automatically after that.
+  supabaseUrl:      '',  // e.g. 'https://abcdefgh.supabase.co'
+  supabaseAnonKey:  '',  // e.g. 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+
   // ── Office Settings ──────────────────────────────────────────────
   // Admin password to unlock company info editing in the OM builder
   adminPassword: 'gateway2025',

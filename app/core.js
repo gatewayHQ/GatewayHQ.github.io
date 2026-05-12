@@ -145,3 +145,13 @@ window.clearAIKey = function() {
     }, 100);
   }
 })();
+
+// ==== CLOUD SYNC INIT ====
+// Runs after all scripts are parsed; GatewaySync is defined in sync.js.
+// If supabaseUrl / supabaseAnonKey are absent from config.js the call
+// is a no-op, so the app works normally without sync configured.
+(function() {
+  if (window.GatewaySync && typeof window.GatewaySync.init === 'function') {
+    window.GatewaySync.init();
+  }
+})();
