@@ -1020,8 +1020,8 @@ function generateGatewayInstitutional() {
     box(s2, 0, 0, 4.2, 7.5, N);
     var lh2 = 0.32, lw2 = lh2 * WORDMARK_RATIO;
     if (wm) s2.addImage({ data:wm, x:0.36, y:0.38, w:lw2, h:lh2 });
-    txt(s2, 'TABLE OF', 0.36, 1.1, 3.5, 0.68, { fontSize:42, color:W, fontFace:'Cambria', bold:true });
-    txt(s2, 'CONTENTS', 0.36, 1.82, 3.5, 0.68, { fontSize:42, color:G, fontFace:'Cambria', bold:true });
+    txt(s2, 'TABLE OF', 0.36, 1.1, 3.5, 0.68, { fontSize:48, color:W, fontFace:'Cambria', bold:true });
+    txt(s2, 'CONTENTS', 0.36, 1.82, 3.5, 0.68, { fontSize:48, color:G, fontFace:'Cambria', bold:true });
     box(s2, 0.36, 2.68, 3.12, 0.022, G);
     txt(s2, propName + '\n' + addr, 0.36, 2.82, 3.4, 0.6, { fontSize:9.5, color:ST, fontFace:'Calibri', lineSpacingMultiple:1.35 });
     var tocItems = [
@@ -1111,25 +1111,25 @@ function generateGatewayInstitutional() {
     txt(s4, '$'+totRent4.toLocaleString(), 0.38+colX4[4], totR4, colW4[4], 0.32, { fontSize:9, color:N, fontFace:'Calibri', bold:true, align:'center', valign:'middle' });
     // Right specs panel
     box(s4, 8.42, 0, 4.88, 7.5, N);
-    txt(s4, 'PROPERTY SPECIFICATIONS', 8.56, 0.9, 4.6, 0.24, { fontSize:7.5, color:ST, fontFace:'Calibri', charSpacing:1.5 });
+    txt(s4, 'PROPERTY SPECIFICATIONS', 8.56, 0.14, 4.6, 0.24, { fontSize:7.5, color:ST, fontFace:'Calibri', charSpacing:1.5 });
     var specs4 = [
       { l:'Year Built',    v:yb },           { l:'Total Units',   v:units },
       { l:'Buildings',     v:vv('buildings')||'1' }, { l:'Property Type', v:vv('propType') },
       { l:'Lot Size',      v:vv('lotSize') }, { l:'Parking',       v:vv('parking') },
       { l:'Occupancy',     v:occ },           { l:'Asset Class',   v:'Multifamily' },
     ];
-    var spCH = (7.5-0.36-1.2)/4, spCW = (13.3-8.42)/2;
+    var spCH = (7.5-0.36-0.48)/4, spCW = (13.3-8.42)/2;
     specs4.forEach(function(sp, i) {
       var col = i%2, row = Math.floor(i/2);
-      var sx = 8.42+col*spCW, sy = 1.2+row*spCH;
+      var sx = 8.42+col*spCW, sy = 0.48+row*spCH;
       box(s4, sx, sy, spCW, spCH, N2);
       box(s4, sx, sy, spCW, 0.042, G);
       txt(s4, sp.l.toUpperCase(), sx+0.1, sy+0.1, spCW-0.2, 0.22, { fontSize:6.5, color:ST, fontFace:'Calibri' });
       txt(s4, sp.v||'—', sx, sy+0.38, spCW, spCH-0.44, { fontSize:20, color:W, fontFace:'Cambria', align:'center', valign:'middle' });
     });
     // Spec grid dividers: vertical center + horizontal between rows
-    box(s4, 8.42+spCW-0.011, 1.2, 0.022, 4*spCH, G);
-    [1,2,3].forEach(function(r){ box(s4, 8.42, 1.2+r*spCH-0.011, 4.88, 0.022, G); });
+    box(s4, 8.42+spCW-0.011, 0.48, 0.022, 4*spCH, G);
+    [1,2,3].forEach(function(r){ box(s4, 8.42, 0.48+r*spCH-0.011, 4.88, 0.022, G); });
     footer(s4, '4');
 
     // ── SLIDE 5: FINANCIAL ANALYSIS ───────────────────────────────
@@ -1197,7 +1197,7 @@ function generateGatewayInstitutional() {
       box(s6, mx, 2.84, mW6, 0.96, N);
       box(s6, mx, 2.84, mW6, 0.042, G);
       txt(s6, ms.l, mx, 2.84+0.08, mW6, 0.22, { fontSize:7.5, color:ST, fontFace:'Calibri', charSpacing:1, align:'center' });
-      txt(s6, ms.v||'—', mx, 2.84+0.3, mW6, 0.56, { fontSize:28, color:W, fontFace:'Cambria', align:'center', valign:'middle' });
+      txt(s6, ms.v||'—', mx, 2.84+0.3, mW6, 0.56, { fontSize:38, color:W, fontFace:'Cambria', align:'center', valign:'middle' });
     });
     var drvs6 = [{ t:vv('drv1Title'),b:vv('drv1Desc') },{ t:vv('drv2Title'),b:vv('drv2Desc') },{ t:vv('drv3Title'),b:vv('drv3Desc') }];
     var dW6 = (13.3-0.38*2-0.14*2)/3;
