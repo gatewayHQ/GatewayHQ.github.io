@@ -136,11 +136,17 @@
         }
       });
 
-      // Keep session and AI badge in sync whenever Supabase refreshes the token
+      // Keep session and AI badge in sync whenever Supabase refreshes the token.
+      // INITIAL_SESSION fires synchronously on page load (before getSession resolves),
+      // so fetching the team key here eliminates the timing race where AI fails
+      // immediately after a page reload before getSession() has returned.
       this._client.auth.onAuthStateChange(function (event, session) {
         self._session = session;
         if (session) {
           self._updateUI(session.user.email);
+          if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            self._fetchTeamKey();
+          }
         } else {
           self._updateUI(null);
           window._gwTeamClaudeKey = '';
@@ -196,13 +202,32 @@
         .eq('key', 'claude_api_key')
         .single()
         .then(function (res) {
-          if (res.error || !res.data) {
-            // Table may not exist yet or key not inserted — fail silently
-            console.warn('[Sync] team_secrets fetch:', res.error ? res.error.message : 'no row');
+          if (res.error) {
+            var code = res.error.code;
+            var msg  = res.error.message || code || 'unknown';
+            console.warn('[Sync] team_secrets fetch failed — code:', code, '—', msg);
+            if (code === '42P01') {
+              self._showToast('⚠ Sync table missing — run the migration SQL in Supabase SQL Editor.');
+            } else if (code === 'PGRST116') {
+              // Row with key='claude_api_key' doesn't exist yet
+              self._showToast('⚠ Shared AI key not in database — run: INSERT INTO team_secrets (key,value) VALUES (\'claude_api_key\',\'sk-ant-...\')');
+            } else {
+              self._showToast('⚠ Could not load shared AI key: ' + msg);
+            }
             return;
           }
-          window._gwTeamClaudeKey = res.data.value || '';
-          console.log('[Sync] Team Claude key loaded ✓');
+          if (!res.data) {
+            console.warn('[Sync] team_secrets: no data returned');
+            return;
+          }
+          var k = (res.data.value || '').trim();
+          if (!k) {
+            console.warn('[Sync] team_secrets: claude_api_key value is blank');
+            self._showToast('⚠ Shared AI key is blank — update the value in Supabase team_secrets.');
+            return;
+          }
+          window._gwTeamClaudeKey = k;
+          console.log('[Sync] Team Claude key loaded ✓ (starts with:', k.slice(0, 10) + '…)');
           if (typeof window.renderAIStatusBadge === 'function') window.renderAIStatusBadge();
         });
     },
