@@ -29,7 +29,7 @@ var OM_SAMPLE_DATA = {
     ],
     description:
       'The Meridian is a well-maintained 48-unit multifamily community ' +
-      'positioned in the heart of Denver's emerging Five Points corridor. ' +
+      'positioned in the heart of Denver’s emerging Five Points corridor. ' +
       'The property presents a compelling value-add opportunity through ' +
       'strategic interior renovations and operational improvements, with ' +
       'significant upside to market rents currently running 8–12% below ' +
@@ -126,16 +126,16 @@ var OM_SAMPLE_DATA = {
     ownerOcc:        '47%',
     mapUrl:          null,
     description:
-      'Denver's Five Points and Whittier neighborhoods have experienced ' +
+      'Denver’s Five Points and Whittier neighborhoods have experienced ' +
       'sustained rent growth driven by employment expansion in the tech, ' +
       'healthcare, and professional services sectors. Proximity to Union ' +
       'Station and the 16th Street Mall positions the submarket as one of ' +
-      'the metro's most supply-constrained rental corridors.',
+      'the metro’s most supply-constrained rental corridors.',
     drivers: [
       {
         title: 'Growing Economy',
         description:
-          'Denver's 3.2% unemployment rate and diverse employer base anchor ' +
+          'Denver’s 3.2% unemployment rate and diverse employer base anchor ' +
           'strong renter demand. Major employers within 3 miles include ' +
           'UCHealth, Xcel Energy, and a growing technology sector.',
       },

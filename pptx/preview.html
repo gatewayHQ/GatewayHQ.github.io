@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Meridian — Offering Memorandum Preview</title>
+<style>
+  /* ── Brand tokens ── */
+  :root {
+    --navy:      #1B3A5C;
+    --navy-dark: #162D47;
+    --navy-deep: #0D1E2E;
+    --navy-mid:  #243F63;
+    --gold:      #C9A84C;
+    --gold-lt:   #E8D49A;
+    --light-bg:  #F7F5F0;
+    --table-alt: #EDF1F5;
+    --stat-bg:   #EEF2F7;
+    --body:      #333333;
+    --muted:     #888888;
+    --divider:   #DDDDDD;
+    --white:     #FFFFFF;
+    --blue-light:#C8D8E8;
+    --slate:     #7A93AA;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #111827;
+    font-family: system-ui, -apple-system, sans-serif;
+    padding: 40px 0;
+  }
+
+  /* ── Viewer chrome ── */
+  .viewer-header {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+    letter-spacing: .08em;
+    margin-bottom: 32px;
+    text-transform: uppercase;
+  }
+  .viewer-header strong { color: #e2e8f0; }
+
+  /* ── Slide container ── */
+  .slide-wrap {
+    margin: 0 auto 28px;
+    width: 960px;
+  }
+  .slide-label {
+    font-size: 11px;
+    color: #475569;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    padding-left: 2px;
+  }
+  .slide {
+    width: 960px;
+    height: 540px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06);
+    border-radius: 2px;
+    background: var(--light-bg);
+    font-family: 'Calibri', 'Segoe UI', system-ui, sans-serif;
+  }
+
+  /* ── Shared helpers ── */
+  .slide-serif { font-family: Georgia, 'Times New Roman', serif; }
+
+  .gold-rule { height: 3px; background: var(--gold); }
+  .gold-rule-thin { height: 2px; background: var(--gold); }
+  .divider-rule { height: 1px; background: var(--divider); }
+
+  .footer {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    padding: 0 36px;
+    font-size: 7.5px;
+    color: var(--muted);
+    letter-spacing: .04em;
+    border-top: 1px solid var(--divider);
+  }
+  .footer .pg { margin-left: auto; font-family: Georgia, serif; color: var(--gold); font-size: 8px; }
+
+  /* ── SLIDE 1: COVER ── */
+  .s-cover {
+    background: var(--navy-deep);
+    color: var(--white);
+  }
+  .s-cover .hero-img {
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, #243F63 0%, #1B3A5C 30%, #0D1E2E 100%);
+    /* In real output: full-bleed property photo */
+  }
+  .s-cover .hero-img::after {
+    content: 'PROPERTY PHOTOGRAPHY';
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: Georgia, serif;
+    font-size: 14px;
+    letter-spacing: .2em;
+    color: #3A5A7A;
+    font-style: italic;
+  }
+  .s-cover .overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(13,30,46,.98) 38%, rgba(13,30,46,.50) 100%);
+  }
+  .s-cover .logo-area {
+    position: absolute; top: 24px; left: 43px;
+    width: 130px; height: 32px;
+    background: rgba(255,255,255,.12);
+    border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; color: rgba(255,255,255,.4); letter-spacing: .1em;
+    font-family: Georgia, serif;
+  }
+  .s-cover .confidential {
+    position: absolute; left: 43px; top: 68px;
+    font-size: 7px; color: var(--gold); letter-spacing: .2em;
+    text-transform: uppercase;
+  }
+  .s-cover .content-block {
+    position: absolute; left: 43px; bottom: 88px; right: 43px;
+  }
+  .s-cover .gold-bar {
+    width: 230px; height: 3px;
+    background: var(--gold); margin-bottom: 14px;
+  }
+  .s-cover .prop-name {
+    font-family: Georgia, serif;
+    font-size: 42px; font-weight: bold;
+    color: var(--white); line-height: 1.05;
+    margin-bottom: 10px;
+  }
+  .s-cover .prop-address {
+    font-size: 11px; color: #A8BCC8;
+    letter-spacing: .04em; margin-bottom: 0;
+  }
+  .s-cover .kpi-row {
+    position: absolute; right: 43px; bottom: 80px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px; width: 226px;
+  }
+  .s-cover .kpi-box {
+    background: #152D48;
+    padding: 10px 12px 9px;
+    border-top: 3px solid var(--gold);
+  }
+  .s-cover .kpi-val {
+    font-family: Georgia, serif;
+    font-size: 16px; font-weight: bold;
+    color: var(--white); display: block; margin-bottom: 3px;
+  }
+  .s-cover .kpi-lbl {
+    font-size: 6.5px; color: #7A93AA;
+    letter-spacing: .12em; text-transform: uppercase;
+  }
+  .s-cover .bottom-strip {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 28px; background: #0A1218;
+    border-top: 2px solid var(--gold);
+    display: flex; align-items: center;
+    padding: 0 43px;
+    font-size: 6.5px; color: #607080; letter-spacing: .06em;
+  }
+  .s-cover .bottom-strip .pg { margin-left: auto; font-family: Georgia, serif; color: var(--gold); font-size: 8px; }
+
+  /* ── SHARED: Slide title bar ── */
+  .slide-title-bar {
+    position: absolute;
+    top: 36px; left: 36px; right: 36px;
+    height: 40px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .slide-title-accent { width: 5px; height: 40px; background: var(--gold); flex-shrink: 0; }
+  .slide-title-text {
+    font-family: Georgia, serif;
+    font-size: 20px; font-weight: bold;
+    color: var(--navy);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  .slide-rule {
+    position: absolute;
+    top: 76px; left: 36px; right: 36px;
+    height: 1px; background: var(--divider);
+  }
+
+  /* ── SLIDE 2: OFFERING SUMMARY ── */
+  .s-offering .photo-col {
+    position: absolute;
+    left: 36px; top: 92px; bottom: 26px; width: 397px;
+    background: linear-gradient(135deg, #D0DAE8, #B8C8D8);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: #8899AA; font-style: italic; letter-spacing: .1em;
+  }
+  .s-offering .stats-col {
+    position: absolute;
+    left: 451px; top: 92px; right: 36px; bottom: 26px;
+  }
+  .s-offering .col-header {
+    font-size: 12px; font-weight: bold; color: var(--gold);
+    letter-spacing: .12em; text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .s-offering .col-rule { height: 2px; background: var(--gold); margin-bottom: 12px; }
+  .s-offering .stat-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 7px;
+  }
+  .stat-box {
+    background: var(--stat-bg);
+    border-top: 3px solid var(--gold);
+    padding: 8px 10px 7px;
+    border: 1px solid var(--divider);
+    border-top: 3px solid var(--gold);
+  }
+  .stat-box .sv { font-family: Georgia, serif; font-size: 16px; font-weight: bold; color: var(--navy); display: block; margin-bottom: 3px; }
+  .stat-box .sl { font-size: 7px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+  .s-offering .desc-strip {
+    position: absolute; bottom: 32px; left: 0; right: 0;
+    font-size: 8.5px; color: var(--body); line-height: 1.5;
+  }
+
+  /* ── SLIDE 3: SECTION DIVIDER ── */
+  .s-divider {
+    background: var(--navy);
+    color: var(--white);
+  }
+  .s-divider .big-num {
+    position: absolute;
+    font-family: Georgia, serif;
+    font-size: 200px; font-weight: bold;
+    color: #243F63;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    line-height: 1;
+    user-select: none;
+  }
+  .s-divider .center-content {
+    position: absolute;
+    left: 36px; right: 36px;
+    top: 50%; transform: translateY(-50%);
+    text-align: center;
+  }
+  .s-divider .eyebrow {
+    font-size: 8px; color: var(--gold); letter-spacing: .28em;
+    text-transform: uppercase; margin-bottom: 14px;
+  }
+  .s-divider .div-gold-rule {
+    height: 4px; background: var(--gold);
+    margin: 0 auto 20px; width: 100%;
+  }
+  .s-divider .div-title {
+    font-family: Georgia, serif;
+    font-size: 40px; font-weight: bold;
+    color: var(--white); letter-spacing: .08em;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+  .s-divider .div-subtitle {
+    font-size: 13px; color: #A0B8D0; letter-spacing: .04em;
+  }
+  .s-divider .div-bottom {
+    position: absolute; bottom: 8px; right: 36px;
+    font-size: 7px; color: var(--gold); letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+  .s-divider .top-bar {
+    position: absolute; top: 0; left: 0; right: 0; height: 6px;
+    background: var(--gold);
+  }
+  .s-divider .bot-bar {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 6px;
+    background: var(--gold);
+  }
+
+  /* ── SLIDE 4: INVESTMENT HIGHLIGHTS ── */
+  .s-highlights {
+    background: var(--navy);
+  }
+  .s-highlights .slide-title-text { color: var(--white); }
+  .s-highlights .slide-rule { background: var(--gold); }
+  .s-highlights .card-grid {
+    position: absolute;
+    left: 36px; right: 36px; top: 92px; bottom: 26px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 18px;
+  }
+  .hi-card {
+    background: #243F63;
+    border-top: 4px solid var(--gold);
+    padding: 16px 18px 16px 22px;
+    position: relative;
+  }
+  .hi-card .card-bar {
+    position: absolute; left: 10px; top: 18px; bottom: 18px;
+    width: 3px; background: var(--gold);
+  }
+  .hi-card .card-title {
+    font-size: 12px; font-weight: bold; color: var(--gold);
+    letter-spacing: .06em; margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .hi-card .card-body {
+    font-size: 9.5px; color: var(--blue-light); line-height: 1.55;
+  }
+
+  /* ── SLIDE 5: PROPERTY DESCRIPTION ── */
+  .s-prop .photo-col {
+    position: absolute; left: 36px; top: 92px; bottom: 26px; width: 397px;
+  }
+  .s-prop .photo-main {
+    width: 100%; height: 225px;
+    background: linear-gradient(135deg, #B8C8D8, #D0DAE8);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; color: #8899AA; font-style: italic; letter-spacing: .08em;
+    margin-bottom: 10px;
+  }
+  .s-prop .photo-pair { display: flex; gap: 10px; height: 155px; }
+  .s-prop .photo-sm {
+    flex: 1; background: linear-gradient(135deg, #C8D8E8, #D8E8F0);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; color: #8899AA; font-style: italic;
+  }
+  .s-prop .content-col {
+    position: absolute; left: 451px; top: 92px; right: 36px; bottom: 26px;
+  }
+  .s-prop .sec-hdr {
+    font-size: 12px; font-weight: bold; color: var(--gold);
+    letter-spacing: .1em; text-transform: uppercase; margin-bottom: 5px;
+  }
+  .s-prop .sec-rule { height: 2px; background: var(--gold); margin-bottom: 8px; }
+  .s-prop .body-text {
+    font-size: 8.5px; color: var(--body); line-height: 1.55; margin-bottom: 14px;
+  }
+  .s-prop .bullet { font-size: 8.5px; color: var(--body); line-height: 1.7; }
+  .s-prop .bullet span { color: var(--gold); margin-right: 6px; }
+  .s-prop .detail-chips {
+    position: absolute; bottom: 5px; left: 0; right: 0;
+    display: flex; gap: 6px;
+  }
+  .s-prop .chip {
+    background: var(--navy);
+    padding: 5px 9px 4px;
+    text-align: center;
+    flex: 1;
+  }
+  .s-prop .chip-val { font-size: 9px; font-weight: bold; color: var(--white); display: block; }
+  .s-prop .chip-lbl { font-size: 6px; color: var(--gold); letter-spacing: .08em; text-transform: uppercase; }
+
+  /* ── SLIDE 6: UNIT MIX ── */
+  .s-units .table-wrap {
+    position: absolute;
+    left: 36px; right: 36px; top: 92px;
+  }
+  .um-table { width: 100%; border-collapse: collapse; }
+  .um-table th {
+    background: var(--navy); color: var(--gold);
+    font-size: 8px; font-weight: bold; letter-spacing: .1em;
+    text-transform: uppercase; padding: 8px 7px;
+    text-align: center;
+    border: none;
+  }
+  .um-table th:first-child { text-align: left; padding-left: 10px; }
+  .um-table td {
+    font-size: 8.5px; color: var(--body);
+    padding: 7px; text-align: center;
+    border-bottom: 1px solid var(--divider);
+  }
+  .um-table td:first-child { text-align: left; font-weight: bold; color: var(--navy); padding-left: 10px; }
+  .um-table tr:nth-child(even) td { background: var(--table-alt); }
+  .um-table .totals td {
+    background: var(--navy); color: var(--white);
+    font-weight: bold; border: none; font-size: 8.5px;
+  }
+  .um-table .totals td.gold { color: var(--gold); }
+  .s-units .stat-row {
+    position: absolute; left: 36px; right: 36px; bottom: 32px;
+    display: flex; gap: 18px;
+  }
+  .s-units .sum-box {
+    flex: 1; background: var(--stat-bg);
+    border-top: 3px solid var(--gold);
+    padding: 10px; text-align: center;
+    border: 1px solid var(--divider); border-top: 3px solid var(--gold);
+  }
+  .s-units .sum-val { font-family: Georgia, serif; font-size: 17px; font-weight: bold; color: var(--navy); display: block; margin-bottom: 3px; }
+  .s-units .sum-lbl { font-size: 6.5px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+
+  /* ── SLIDE 8: FINANCIAL SUMMARY ── */
+  .s-fin .kpi-row {
+    position: absolute; left: 36px; right: 36px; top: 92px;
+    display: flex; gap: 14px;
+  }
+  .s-fin .kpi {
+    flex: 1; background: var(--stat-bg);
+    border-top: 4px solid var(--gold);
+    padding: 10px 10px 9px;
+    border: 1px solid var(--divider); border-top: 4px solid var(--gold);
+    text-align: center;
+  }
+  .s-fin .kpi-v { font-family: Georgia, serif; font-size: 20px; font-weight: bold; color: var(--navy); display: block; margin-bottom: 4px; }
+  .s-fin .kpi-l { font-size: 7px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+  .s-fin .tables-row {
+    position: absolute; left: 36px; right: 36px; top: 180px;
+    display: flex; gap: 18px;
+  }
+  .s-fin .fin-table { flex: 1; }
+  .fin-table table { width: 100%; border-collapse: collapse; }
+  .fin-table th {
+    background: var(--navy); color: var(--gold);
+    font-size: 7.5px; font-weight: bold; letter-spacing: .08em;
+    text-transform: uppercase; padding: 6px 8px;
+  }
+  .fin-table th:last-child, .fin-table th:nth-child(2) { text-align: right; }
+  .fin-table td { font-size: 8px; padding: 5px 8px; border-bottom: 1px solid var(--divider); color: var(--body); }
+  .fin-table td:last-child, .fin-table td:nth-child(2) { text-align: right; }
+  .fin-table tr:nth-child(even) td { background: var(--table-alt); }
+  .fin-table .total-row td { background: var(--gold); color: var(--navy); font-weight: bold; border: none; }
+  .s-fin .noi-bar {
+    position: absolute; left: 36px; right: 36px; bottom: 34px;
+    background: var(--navy); padding: 10px 18px;
+    display: flex; align-items: center;
+  }
+  .s-fin .noi-label { font-size: 12px; font-weight: bold; color: var(--gold); letter-spacing: .06em; }
+  .s-fin .noi-vals { margin-left: auto; display: flex; gap: 28px; }
+  .s-fin .noi-item { text-align: right; }
+  .s-fin .noi-item .nv { font-family: Georgia, serif; font-size: 14px; font-weight: bold; color: var(--white); }
+  .s-fin .noi-item .nl { font-size: 6.5px; color: var(--slate); letter-spacing: .1em; text-transform: uppercase; }
+
+  /* ── SLIDE 9: LOCATION ── */
+  .s-loc .map-col {
+    position: absolute; left: 36px; top: 92px; bottom: 26px; width: 397px;
+    background: linear-gradient(135deg, #C8D8E8 0%, #B0C4D8 60%, #A8BED8 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: absolute;
+  }
+  .s-loc .map-label { font-size: 13px; font-weight: bold; color: var(--navy); letter-spacing: .1em; }
+  .s-loc .map-sub { font-size: 9px; color: #5A7A9A; margin-top: 6px; font-style: italic; }
+  .s-loc .map-grid {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(27,58,92,.7); padding: 6px 14px;
+    display: flex; gap: 18px;
+  }
+  .s-loc .walk-score { font-size: 8px; color: var(--gold); font-weight: bold; }
+  .s-loc .content-col {
+    position: absolute; left: 451px; top: 92px; right: 36px; bottom: 26px;
+  }
+  .s-loc .sub-name { font-size: 13px; font-weight: bold; color: var(--gold); letter-spacing: .06em; margin-bottom: 4px; }
+  .s-loc .sub-city { font-size: 9px; color: var(--muted); margin-bottom: 10px; }
+  .s-loc .loc-rule { height: 2px; background: var(--gold); margin-bottom: 12px; }
+  .s-loc .demo-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 7px; margin-bottom: 12px;
+  }
+  .demo-box {
+    background: var(--stat-bg);
+    border-top: 3px solid var(--gold);
+    padding: 7px 9px 6px;
+    border: 1px solid var(--divider); border-top: 3px solid var(--gold);
+  }
+  .demo-box .dv { font-family: Georgia, serif; font-size: 13px; font-weight: bold; color: var(--navy); display: block; margin-bottom: 2px; }
+  .demo-box .dl { font-size: 6.5px; color: var(--muted); letter-spacing: .09em; text-transform: uppercase; }
+  .s-loc .narr { font-size: 8px; color: var(--body); line-height: 1.55; }
+
+  /* ── SLIDE 10: MARKET OVERVIEW ── */
+  .s-market .comp-table-wrap {
+    position: absolute; left: 36px; right: 36px; top: 92px;
+  }
+  .comp-table { width: 100%; border-collapse: collapse; }
+  .comp-table th {
+    background: var(--navy); color: var(--gold);
+    font-size: 7.5px; font-weight: bold; letter-spacing: .08em;
+    padding: 7px 8px; text-align: left; border: none;
+  }
+  .comp-table td { font-size: 8.5px; padding: 6px 8px; color: var(--body); border-bottom: 1px solid var(--divider); }
+  .comp-table tr:nth-child(even) td { background: var(--table-alt); }
+  .comp-table .subj td { background: #E8EDF5; color: var(--navy); font-weight: bold; }
+  .comp-table .better { color: #2D7A4F; font-weight: bold; }
+  .s-market .driver-cards {
+    position: absolute; left: 36px; right: 36px; bottom: 34px;
+    display: flex; gap: 14px;
+    height: 116px;
+  }
+  .drv-card {
+    flex: 1; background: #243F63;
+    border-top: 3px solid var(--gold);
+    padding: 10px 12px;
+  }
+  .drv-card .dt { font-size: 9px; font-weight: bold; color: var(--gold); margin-bottom: 5px; letter-spacing: .04em; }
+  .drv-card .dd { font-size: 7.5px; color: var(--blue-light); line-height: 1.5; }
+
+  /* ── SLIDE 11: BACK COVER ── */
+  .s-back {
+    background: var(--navy);
+  }
+  .s-back .top-bar { position: absolute; top: 0; left: 0; right: 0; height: 6px; background: var(--gold); }
+  .s-back .bot-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 6px; background: var(--gold); }
+  .s-back .left-panel {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 396px;
+    background: #162D47;
+    padding: 36px 28px;
+    display: flex; flex-direction: column;
+  }
+  .s-back .logo-placeholder {
+    width: 200px; height: 44px;
+    background: rgba(255,255,255,.1);
+    border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; color: rgba(255,255,255,.35); letter-spacing: .1em;
+    font-family: Georgia, serif; margin-bottom: 16px;
+  }
+  .s-back .excl { font-size: 7px; color: var(--gold); letter-spacing: .2em; text-transform: uppercase; margin-bottom: 4px; }
+  .s-back .firm { height: 3px; background: var(--gold); margin-bottom: 8px; width: 200px; }
+  .s-back .firm-name { font-size: 13px; font-weight: bold; color: var(--white); margin-bottom: 16px; font-family: Georgia, serif; }
+  .s-back .disclaimer { margin-top: auto; font-size: 6.5px; color: #7A93AA; line-height: 1.55; }
+  .s-back .right-panel {
+    position: absolute; left: 414px; top: 0; right: 0; bottom: 0;
+    padding: 28px 28px 28px 0;
+  }
+  .s-back .contact-hdr {
+    font-size: 11px; font-weight: bold; color: var(--gold);
+    letter-spacing: .14em; text-transform: uppercase; margin-bottom: 16px;
+  }
+  .s-back .broker-cards { display: flex; gap: 18px; }
+  .broker-card { flex: 1; }
+  .broker-card .bk-photo {
+    width: 100%; height: 140px;
+    background: linear-gradient(135deg, #243F63, #1B3A5C);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; color: #3A5A7A; font-style: italic;
+    margin-bottom: 10px;
+  }
+  .broker-card .bk-name { font-size: 13px; font-weight: bold; color: var(--white); margin-bottom: 2px; }
+  .broker-card .bk-name-rule { height: 2px; background: var(--gold); width: 50px; margin-bottom: 5px; }
+  .broker-card .bk-title { font-size: 8px; color: var(--gold); margin-bottom: 6px; letter-spacing: .04em; }
+  .broker-card .bk-phone { font-size: 10px; color: var(--white); font-family: Georgia, serif; margin-bottom: 3px; }
+  .broker-card .bk-email { font-size: 8.5px; color: #7AADCC; }
+</style>
+</head>
+<body>
+
+<div class="viewer-header">
+  <strong>The Meridian — Offering Memorandum</strong> &nbsp;·&nbsp;
+  Gateway Real Estate Advisors &nbsp;·&nbsp; 11 Slides &nbsp;·&nbsp; 13.33 × 7.5" (16:9)
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 1: COVER -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="slide-wrap">
+  <div class="slide-label">01 — Cover</div>
+  <div class="slide s-cover">
+    <div class="hero-img"></div>
+    <div class="overlay"></div>
+    <div class="logo-area">GATEWAY RE</div>
+    <div class="confidential">CONFIDENTIAL OFFERING MEMORANDUM</div>
+    <div class="content-block">
+      <div class="gold-bar"></div>
+      <div class="prop-name slide-serif">THE MERIDIAN</div>
+      <div class="prop-address">1234 Commerce Street, Denver, CO 80202</div>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi-box">
+        <span class="kpi-val slide-serif">$9.20M</span>
+        <span class="kpi-lbl">Asking Price</span>
+      </div>
+      <div class="kpi-box">
+        <span class="kpi-val slide-serif">48</span>
+        <span class="kpi-lbl">Total Units</span>
+      </div>
+      <div class="kpi-box">
+        <span class="kpi-val slide-serif">5.65%</span>
+        <span class="kpi-lbl">Cap Rate</span>
+      </div>
+      <div class="kpi-box">
+        <span class="kpi-val slide-serif">$191K</span>
+        <span class="kpi-lbl">Price / Unit</span>
+      </div>
+    </div>
+    <div class="bottom-strip">
+      Gateway Real Estate Advisors &nbsp;·&nbsp; Exclusively Offered &nbsp;·&nbsp; All information deemed reliable but not guaranteed
+      <span class="pg">01 / 11</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 2: OFFERING SUMMARY -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="slide-wrap">
+  <div class="slide-label">02 — Offering Summary</div>
+  <div class="slide s-offering">
+    <div class="slide-title-bar">
+      <div class="slide-title-accent"></div>
+      <div class="slide-title-text slide-serif">Offering Summary</div>
+    </div>
+    <div class="slide-rule"></div>
+    <div class="photo-col">PROPERTY PHOTO</div>
+    <div class="stats-col">
+      <div class="col-header">Key Metrics</div>
+      <div class="col-rule"></div>
+      <div class="stat-grid">
+        <div class="stat-box"><span class="sv">48</span><span class="sl">Total Units</span></div>
+        <div class="stat-box"><span class="sv">1987</span><span class="sl">Year Built</span></div>
+        <div class="stat-box"><span class="sv">$9.20M</span><span class="sl">Asking Price</span></div>
+        <div class="stat-box"><span class="sv">$192K</span><span class="sl">Price / Unit</span></div>
+        <div class="stat-box"><span class="sv">5.65%</span><span class="sl">Cap Rate</span></div>
+        <div class="stat-box"><span class="sv">$520K</span><span class="sl">Current NOI</span></div>
+        <div class="stat-box"><span class="sv">12.4x</span><span class="sl">GRM</span></div>
+        <div class="stat-box"><span class="sv">96.2%</span><span class="sl">Occupancy</span></div>
+      </div>
+    </div>
+    <div class="footer">
+      The Meridian — Offering Memorandum &nbsp;·&nbsp; Gateway Real Estate Advisors
+      <span class="pg">02</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 3: SECTION DIVIDER — THE OPPORTUNITY -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="slide-wrap">
+  <div class="slide-label">03 — Section Divider</div>
+  <div class="slide s-divider">
+    <div class="top-bar"></div>
+    <div class="bot-bar"></div>
+    <div class="big-num slide-serif">01</div>
+    <div class="center-content">
+      <div class="eyebrow">Section</div>
+      <div class="div-gold-rule"></div>
+      <div class="div-title slide-serif">The Opportunity</div>
+      <div class="div-subtitle">Investment Highlights &amp; Property Details</div>
+    </div>
+    <div class="div-bottom">Gateway Real Estate Advisors</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 4: INVESTMENT HIGHLIGHTS -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="slide-wrap">
+  <div class="slide-label">04 — Investment Highlights</div>
+  <div class="slide s-highlights">
+    <div class="slide-title-bar">
+      <div class="slide-title-accent"></div>
+      <div class="slide-title-text slide-serif">Investment Highlights</div>
+    </div>
+    <div class="slide-rule" style="background:var(--gold)"></div>
+    <div class="card-grid">
+      <div class="hi-card">
+        <div class="card-bar"></div>
+        <div class="card-title">Value-Add Runway</div>
+        <div class="card-body">In-place rents average 10% below market. Light interior renovation program projected to drive $150–175/month premium per unit, providing clear and executable upside from day one of ownership.</div>
+      </div>
+      <div class="hi-card">
+        <div class="card-bar"></div>
+        <div class="card-title">Strategic Location</div>
+        <div class="card-body">Walking distance to Union Station, RiNo Arts District, and major employment hubs. 92 Walk Score with direct RTD access provides exceptional connectivity for today's renter demographic.</div>
+      </div>
+      <div class="hi-card">
+        <div class="card-bar"></div>
+        <div class="card-title">Below-Market Basis</div>
+        <div class="card-body">Offered at $191,667/unit — a meaningful discount to replacement cost of $280K+/unit for comparable new construction in the corridor, creating a strong defensive basis for investors.</div>
+      </div>
+      <div class="hi-card">
+        <div class="card-bar"></div>
+        <div class="card-title">Stable In-Place Cash Flow</div>
+        <div class="card-body">96.2% current occupancy with long-tenured resident base provides a stable income foundation throughout renovation program execution, supporting the business plan with minimal execution risk.</div>
+      </div>
+    </div>
+    <div class="footer" style="border-top-color:#243F63; color:#7A93AA">
+      The Meridian &nbsp;·&nbsp; Gateway Real Estate Advisors
+      <span class="pg">04</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 5: PROPERTY DESCRIPTION -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="slide-wrap">
+  <div class="slide-label">05 — Property Overview</div>
+  <div class="slide s-prop">
+    <div class="slide-title-bar">
+      <div class="slide-title-accent"></div>
+      <div class="slide-title-text slide-serif">Property Overview</div>
+    </div>
+    <div class="slide-rule"></div>
+    <div class="photo-col">
+      <div class="photo-main">HERO PHOTO</div>
+      <div class="photo-pair">
+        <div class="photo-sm">PHOTO</div>
+        <div class="photo-sm">PHOTO</div>
+      </div>
+    </div>
+    <div class="content-col">
+      <div class="sec-hdr">About the Property</div>
+      <div class="sec-rule"></div>
+      <div class="body-text">The Meridian is a well-maintained 48-unit multifamily community positioned in Denver's emerging Five Points corridor. The property presents a compelling value-add opportunity through strategic interior renovations and operational improvements, with significant upside to market rents currently running 8–12% below comparable repositioned assets.</div>
+      <div class="sec-hdr">Property Highlights</div>
+      <div class="sec-rule"></div>
+      <div class="bullet">
+        <div><span>›</span>Gated Parking — 52 reserved spaces</div>
+        <div><span>›</span>Rooftop Terrace with city views</div>
+        <div><span>›</span>Fitness Center &amp; Package Lockers</div>
+        <div><span>›</span>Pet-Friendly · On-Site Laundry</div>
+      </div>
+      <div class="detail-chips">
+        <div class="chip"><span class="chip-val">1987</span><span class="chip-lbl">Year Built</span></div>
+        <div class="chip"><span class="chip-val">42,800 SF</span><span class="chip-lbl">Building Size</span></div>
+        <div class="chip"><span class="chip-val">4</span><span class="chip-lbl">Stories</span></div>
+        <div class="chip"><span class="chip-val">52</span><span class="chip-lbl">Parking</span></div>
+      </div>
+    </div>
+    <div class="footer">
+      The Meridian — Offering Memorandum &nbsp;·&nbsp; Gateway Real Estate Advisors
+      <span class="pg">05</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 6: UNIT MIX & RENT ROLL -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="slide-wrap">
+  <div class="slide-label">06 — Unit Mix &amp; Rent Roll</div>
+  <div class="slide s-units">
+    <div class="slide-title-bar">
+      <div class="slide-title-accent"></div>
+      <div class="slide-title-text slide-serif">Unit Mix &amp; Rent Roll</div>
+    </div>
+    <div class="slide-rule"></div>
+    <div class="table-wrap">
+      <table class="um-table">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding-left:10px">Unit Type</th>
+            <th># Units</th>
+            <th>Avg SF</th>
+            <th>Market Rent</th>
+            <th>In-Place Rent</th>
+            <th>Monthly Rev</th>
+            <th>Annual Rev</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Studio</td><td>6</td><td>480</td><td>$1,250</td><td>$1,145</td><td>$6,870</td><td>$82,440</td></tr>
+          <tr><td>1BD / 1BA</td><td>24</td><td>680</td><td>$1,550</td><td>$1,415</td><td>$33,960</td><td>$407,520</td></tr>
+          <tr><td>2BD / 1BA</td><td>12</td><td>880</td><td>$1,950</td><td>$1,790</td><td>$21,480</td><td>$257,760</td></tr>
+          <tr><td>2BD / 2BA</td><td>6</td><td>1,020</td><td>$2,250</td><td>$2,080</td><td>$12,480</td><td>$149,760</td></tr>
+          <tr class="totals"><td>TOTAL</td><td>48</td><td>—</td><td>—</td><td>—</td><td class="gold">$74,790</td><td class="gold">$897,480</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="stat-row">
+      <div class="sum-box"><span class="sum-val">$74,790</span><span class="sum-lbl">Total Monthly Income</span></div>
+      <div class="sum-box"><span class="sum-val">$897,480</span><span class="sum-lbl">Annual Gross Revenue</span></div>
+      <div class="sum-box"><span class="sum-val">$1,530/mo</span><span class="sum-lbl">Avg In-Place Rent</span></div>
+    </div>
+    <div class="footer">
+      The Meridian — Offering Memorandum &nbsp;·&nbsp; Gateway Real Estate Advisors
+      <span class="pg">06</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 7: SECTION DIVIDER — FINANCIAL ANALYSIS -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="slide-wrap">
+  <div class="slide-label">07 — Section Divider</div>
+  <div class="slide s-divider">
+    <div class="top-bar"></div>
+    <div class="bot-bar"></div>
+    <div class="big-num slide-serif">02</div>
+    <div class="center-content">
+      <div class="eyebrow">Section</div>
+      <div class="div-gold-rule"></div>
+      <div class="div-title slide-serif">Financial Analysis</div>
+      <div class="div-subtitle">Income, Expenses &amp; Pro Forma Projections</div>
+    </div>
+    <div class="div-bottom">Gateway Real Estate Advisors</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 8: FINANCIAL SUMMARY -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="slide-wrap">
+  <div class="slide-label">08 — Financial Summary</div>
+  <div class="slide s-fin">
+    <div class="slide-title-bar">
+      <div class="slide-title-accent"></div>
+      <div class="slide-title-text slide-serif">Financial Summary</div>
+    </div>
+    <div class="slide-rule"></div>
+    <div class="kpi-row">
+      <div class="kpi"><span class="kpi-v">$520K</span><span class="kpi-l">Current NOI</span></div>
+      <div class="kpi"><span class="kpi-v">5.65%</span><span class="kpi-l">Cap Rate</span></div>
+      <div class="kpi"><span class="kpi-v">12.4x</span><span class="kpi-l">GRM</span></div>
+      <div class="kpi"><span class="kpi-v">$215/SF</span><span class="kpi-l">Price / SF</span></div>
+    </div>
+    <div class="tables-row">
+      <div class="fin-table">
+        <table>
+          <thead><tr><th style="text-align:left">Income Schedule</th><th>Current</th><th>Pro Forma</th></tr></thead>
+          <tbody>
+            <tr><td>Gross Rental Income</td><td>$741,600</td><td>$852,000</td></tr>
+            <tr><td>Other Income</td><td>$18,400</td><td>$22,000</td></tr>
+            <tr><td>Vacancy Loss (3.8%)</td><td>($28,180)</td><td>($17,400)</td></tr>
+            <tr class="total-row"><td>Effective Gross Income</td><td>$731,820</td><td>$856,600</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="fin-table">
+        <table>
+          <thead><tr><th style="text-align:left">Expense Schedule</th><th>Current</th><th>Pro Forma</th></tr></thead>
+          <tbody>
+            <tr><td>Property Taxes</td><td>$64,200</td><td>$68,000</td></tr>
+            <tr><td>Insurance</td><td>$28,400</td><td>$29,500</td></tr>
+            <tr><td>Repairs &amp; Maint.</td><td>$42,600</td><td>$36,000</td></tr>
+            <tr><td>Management (4.5%)</td><td>$32,930</td><td>$38,550</td></tr>
+            <tr class="total-row"><td>Total Expenses</td><td>$221,800</td><td>$225,850</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="noi-bar">
+      <div class="noi-label">NET OPERATING INCOME</div>
+      <div class="noi-vals">
+        <div class="noi-item"><div class="nv">$519,800</div><div class="nl">Current</div></div>
+        <div class="noi-item"><div class="nv">$630,750</div><div class="nl">Pro Forma</div></div>
+      </div>
+    </div>
+    <div class="footer">
+      The Meridian — Offering Memorandum &nbsp;·&nbsp; Gateway Real Estate Advisors
+      <span class="pg">08</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 9: LOCATION OVERVIEW -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="slide-wrap">
+  <div class="slide-label">09 — Location Overview</div>
+  <div class="slide s-loc">
+    <div class="slide-title-bar">
+      <div class="slide-title-accent"></div>
+      <div class="slide-title-text slide-serif">Location Overview</div>
+    </div>
+    <div class="slide-rule"></div>
+    <div class="map-col" style="position:absolute;left:36px;top:92px;bottom:26px;width:397px;background:linear-gradient(135deg,#C8D8E8,#B0C4D8);display:flex;flex-direction:column;align-items:center;justify-content:center;">
+      <div class="map-label">MAP PLACEHOLDER</div>
+      <div class="map-sub">Denver, CO · Five Points / Whittier</div>
+      <div class="map-grid">
+        <span class="walk-score">Walk Score: 92</span>
+        <span class="walk-score">Transit: 78</span>
+      </div>
+    </div>
+    <div class="content-col">
+      <div class="sub-name">Five Points / Whittier</div>
+      <div class="sub-city">Denver, Colorado</div>
+      <div class="loc-rule"></div>
+      <div class="demo-grid">
+        <div class="demo-box"><span class="dv">715,500</span><span class="dl">Population</span></div>
+        <div class="demo-box"><span class="dv">$74,500</span><span class="dl">Median HH Income</span></div>
+        <div class="demo-box"><span class="dv">$1,720</span><span class="dl">Avg Market Rent</span></div>
+        <div class="demo-box"><span class="dv">3.2%</span><span class="dl">Unemployment</span></div>
+        <div class="demo-box"><span class="dv">53%</span><span class="dl">Renter-Occupied</span></div>
+        <div class="demo-box"><span class="dv">34.6</span><span class="dl">Median Age</span></div>
+      </div>
+      <div class="narr">Denver's Five Points and Whittier neighborhoods have experienced sustained rent growth driven by employment expansion in the tech, healthcare, and professional services sectors. Proximity to Union Station and the 16th Street Mall positions the submarket as one of the metro's most supply-constrained rental corridors.</div>
+    </div>
+    <div class="footer">
+      The Meridian — Offering Memorandum &nbsp;·&nbsp; Gateway Real Estate Advisors
+      <span class="pg">09</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 10: MARKET OVERVIEW -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="slide-wrap">
+  <div class="slide-label">10 — Market Overview</div>
+  <div class="slide s-market">
+    <div class="slide-title-bar">
+      <div class="slide-title-accent"></div>
+      <div class="slide-title-text slide-serif">Market Overview</div>
+    </div>
+    <div class="slide-rule"></div>
+    <div class="comp-table-wrap">
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <th style="width:28%">Property</th>
+            <th style="width:8%">Units</th>
+            <th style="width:9%">Yr Built</th>
+            <th style="width:14%">Sale Price</th>
+            <th style="width:13%">Price/Unit</th>
+            <th style="width:10%">Cap Rate</th>
+            <th style="width:13%">vs. Subject</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="subj">
+            <td>★ The Meridian (Subject)</td><td>48</td><td>1987</td><td>$9,200,000</td><td>$191,667</td><td>5.65%</td><td>—</td>
+          </tr>
+          <tr>
+            <td>The Aria at Five Points</td><td>52</td><td>2009</td><td>$10,200,000</td><td>$196,154</td><td>5.30%</td><td class="better">+35 bps</td>
+          </tr>
+          <tr>
+            <td>Five Points Flats</td><td>36</td><td>1998</td><td>$6,800,000</td><td>$188,889</td><td>5.80%</td><td style="color:#888">-15 bps</td>
+          </tr>
+          <tr>
+            <td>Whittier Commons</td><td>64</td><td>2003</td><td>$13,100,000</td><td>$204,688</td><td>5.10%</td><td class="better">+55 bps</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="driver-cards">
+      <div class="drv-card">
+        <div class="dt">Growing Economy</div>
+        <div class="dd">Denver's 3.2% unemployment rate and diverse employer base anchor strong renter demand. Major employers within 3 miles include UCHealth, Xcel Energy, and a growing technology sector.</div>
+      </div>
+      <div class="drv-card">
+        <div class="dt">Supply-Constrained Submarket</div>
+        <div class="dd">Limited developable land and high construction costs constrain new supply. Only 380 units delivered in the submarket over the past 24 months, supporting continued rent growth.</div>
+      </div>
+      <div class="drv-card">
+        <div class="dt">Strong Rent Growth</div>
+        <div class="dd">4.2% year-over-year rent growth outpaces the metro average of 3.1%. Value-add repositioned assets are achieving 10–14% rent premiums over non-renovated product.</div>
+      </div>
+    </div>
+    <div class="footer">
+      The Meridian — Offering Memorandum &nbsp;·&nbsp; Gateway Real Estate Advisors
+      <span class="pg">10</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 11: BACK COVER -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="slide-wrap">
+  <div class="slide-label">11 — Back Cover</div>
+  <div class="slide s-back">
+    <div class="top-bar"></div>
+    <div class="bot-bar"></div>
+    <div class="left-panel">
+      <div class="logo-placeholder">GATEWAY RE LOGO</div>
+      <div class="excl">Exclusively Offered By</div>
+      <div class="firm"></div>
+      <div class="firm-name slide-serif">Gateway Real Estate Advisors</div>
+      <div class="disclaimer">This Offering Memorandum is intended solely for the use of the party to whom it is delivered. The information herein has been obtained from sources believed reliable but has not been independently verified. Prospective purchasers should make their own investigations and inquiries. All projections are forward-looking estimates; actual results may vary materially.</div>
+    </div>
+    <div class="right-panel">
+      <div class="contact-hdr">Contact</div>
+      <div class="broker-cards">
+        <div class="broker-card">
+          <div class="bk-photo">AGENT PHOTO</div>
+          <div class="bk-name">John Smith</div>
+          <div class="bk-name-rule"></div>
+          <div class="bk-title">Vice President, Investment Sales</div>
+          <div class="bk-phone">✆ (303) 555-1234</div>
+          <div class="bk-email">jsmith@gatewayre.com</div>
+        </div>
+        <div class="broker-card">
+          <div class="bk-photo">AGENT PHOTO</div>
+          <div class="bk-name">Sarah Johnson</div>
+          <div class="bk-name-rule"></div>
+          <div class="bk-title">Associate, Investment Sales</div>
+          <div class="bk-phone">✆ (303) 555-5678</div>
+          <div class="bk-email">sjohnson@gatewayre.com</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="height:40px"></div>
+</body>
+</html>
