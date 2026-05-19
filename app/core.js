@@ -20,27 +20,29 @@ var BRAND = {
 };
 
 // ==== CONFIG SYNC ====
-// Auto-wire API keys from config.js into localStorage on every page load.
-// Set claudeApiKey in config.js once — AI features work everywhere automatically.
+// Auto-wire API keys from config.js into localStorage on page load.
+// Only writes when the stored value differs — avoids triggering the sync
+// interceptor (and a Supabase push) on every reload with no real change.
 (function() {
   var cfg = window.CONFIG || {};
-  if (cfg.claudeApiKey && cfg.claudeApiKey.trim()) {
-    localStorage.setItem('gw_claude_api_key', cfg.claudeApiKey.trim());
+  function _syncKey(lsKey, cfgVal) {
+    if (!cfgVal || !cfgVal.trim()) return;
+    var v = cfgVal.trim();
+    if (localStorage.getItem(lsKey) !== v) localStorage.setItem(lsKey, v);
   }
-  if (cfg.bufferAccessToken && cfg.bufferAccessToken.trim() && cfg.bufferAccessToken !== 'YOUR_BUFFER_ACCESS_TOKEN_HERE') {
-    localStorage.setItem('gw_buffer_token', cfg.bufferAccessToken.trim());
+  _syncKey('gw_claude_api_key', cfg.claudeApiKey);
+  if (cfg.bufferAccessToken !== 'YOUR_BUFFER_ACCESS_TOKEN_HERE') {
+    _syncKey('gw_buffer_token', cfg.bufferAccessToken);
   }
-  if (cfg.adminPassword && cfg.adminPassword.trim()) {
-    localStorage.setItem('gw_admin_pass', cfg.adminPassword.trim());
-  }
+  _syncKey('gw_admin_pass', cfg.adminPassword);
 })();
 
 // ==== AI STATUS INDICATOR ====
 // Shows a subtle badge in the nav when Claude is or isn't configured.
+// Delegates key resolution to GatewayAPI.resolveClaudeKey (api.js) so the
+// 4-source priority order is defined in exactly one place.
 function getClaudeKeyGlobal() {
-  var ai = window.AI_CONFIG || {};
-  var cfg = window.CONFIG   || {};
-  return (window._gwTeamClaudeKey || localStorage.getItem('gw_claude_api_key') || ai.claudeApiKey || cfg.claudeApiKey || '').trim();
+  return window.GatewayAPI ? window.GatewayAPI.resolveClaudeKey() : '';
 }
 
 function renderAIStatusBadge() {

@@ -250,7 +250,24 @@
     _pendingControllers = [];
   };
 
-  // ── 11. INJECT LOADING OVERLAY CSS ───────────────────────────
+  // ── 11. GLOBAL STATUS TOAST ──────────────────────────────────
+  // Moved here from router.js so sync.js and other early-loading modules
+  // can call it before router.js has loaded.
+  var _statusTimer = null;
+  GW.showStatus = function (msg, durationMs) {
+    durationMs = durationMs || 3000;
+    var s = document.getElementById('global-status');
+    if (!s) return;
+    s.textContent = msg;
+    s.style.display = 'block';
+    if (_statusTimer) clearTimeout(_statusTimer);
+    _statusTimer = setTimeout(function () { s.style.display = 'none'; _statusTimer = null; }, durationMs);
+  };
+
+  // Keep the global name that all modules already call.
+  window.showGlobalStatus = function (msg, durationMs) { GW.showStatus(msg, durationMs); };
+
+  // ── 12. INJECT LOADING OVERLAY CSS ───────────────────────────
   (function injectCSS() {
     var style = document.createElement('style');
     style.textContent = [

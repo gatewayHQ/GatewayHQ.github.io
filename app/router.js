@@ -1,6 +1,7 @@
 // ==== NAVIGATION ====
 var currentPage = 'landing';
 var homeValuationInitialized = false;
+var videoInitialized = false;
 var pageNames = {
   landing: 'Home',
   social: 'Social Media Builder',
@@ -13,27 +14,25 @@ var pageNames = {
 };
 
 function navigateTo(page) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
   document.getElementById('page-' + page).classList.add('active');
   currentPage = page;
   document.getElementById('home-btn').style.display = page === 'landing' ? 'none' : 'block';
-  document.getElementById('nav-breadcrumb').textContent = page === 'landing' ? '' : pageNames[page];
+  document.getElementById('nav-breadcrumb').textContent = page === 'landing' ? '' : (pageNames[page] || page);
   window.scrollTo(0, 0);
 
-  // Initialize modules on first visit
-  if (page === 'social' && !socialInitialized) initSocialBuilder();
+  // Initialize modules on first visit only
+  if (page === 'social'   && !socialInitialized)  initSocialBuilder();
   if (page === 'valuation' && !valuationInitialized) initValuation();
-  if (page === 'leasing' && !leasingInitialized) initLeasing();
-  if (page === 'invoice' && !invoiceInitialized) { initInvoice(); invoiceInitialized = true; }
+  if (page === 'leasing'  && !leasingInitialized)  initLeasing();
+  if (page === 'invoice'  && !invoiceInitialized)  { initInvoice(); invoiceInitialized = true; }
+  if (page === 'video'    && !videoInitialized)    { videoInitialized = true; }
   if (page === 'home-valuation') {
     if (!homeValuationInitialized) { initHomeValuation(); homeValuationInitialized = true; }
     renderSavedHVs();
   }
 }
 
-function showGlobalStatus(msg) {
-  var s = document.getElementById('global-status');
-  s.textContent = msg;
-  s.style.display = 'block';
-  setTimeout(() => s.style.display = 'none', 3000);
-}
+// showGlobalStatus is defined in utils.js (GW.showStatus) so all modules
+// can use it regardless of load order. The window.showGlobalStatus alias
+// is set there too — nothing to define here.

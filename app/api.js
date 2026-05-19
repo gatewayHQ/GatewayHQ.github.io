@@ -29,6 +29,16 @@ var GatewayAPI = (function () {
   var DEFAULT_MODEL   = 'claude-sonnet-4-6';
   var DEFAULT_TOKENS  = 2000;   // raised from 1000 — prevents truncated OM/social content
 
+  // ── Lightweight FNV-inspired hash (keeps dedup keys small) ──────
+  function _hash32(s) {
+    var h = 0x811c9dc5;
+    for (var i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = (Math.imul(h, 0x01000193)) >>> 0;
+    }
+    return h.toString(36);
+  }
+
   // ── Config readers ──────────────────────────────────────────────
 
   function proxyUrl() {
@@ -100,16 +110,14 @@ var GatewayAPI = (function () {
   }
 
   // ── Internal: fetch with timeout ────────────────────────────────
+  // Delegates to GW.fetchWithTimeout (utils.js) — single implementation.
 
   function _fetch(url, options, timeoutMs) {
-    timeoutMs = timeoutMs || TIMEOUT_MS;
-    var controller = new AbortController();
-    var timer = setTimeout(function () { controller.abort(); }, timeoutMs);
-    var opts = Object.assign({}, options || {}, { signal: controller.signal });
-    return fetch(url, opts).finally(function () { clearTimeout(timer); });
+    return GW.fetchWithTimeout(url, options || {}, timeoutMs || TIMEOUT_MS);
   }
 
   // ── Internal: retry with exponential backoff ────────────────────
+  // Keeps API-specific non-retry conditions (AbortError, 4xx) on top of GW.retry.
 
   function _withRetry(fn) {
     function attempt(n) {
@@ -130,11 +138,12 @@ var GatewayAPI = (function () {
 
   // ── In-flight deduplication for Claude ──────────────────────────
   // Prevents double-firing when the user clicks "Generate" twice.
+  // Keys are hashed so large OM/social prompts don't bloat memory.
 
   var _inFlight = {};
 
   function _dedupeKey(system, user, opts) {
-    return (opts && opts.model || DEFAULT_MODEL) + '|' + (system || '') + '|' + user;
+    return (opts && opts.model || DEFAULT_MODEL) + '|' + _hash32((system || '') + '\x00' + user);
   }
 
   // ── Claude ──────────────────────────────────────────────────────
@@ -359,15 +368,16 @@ var GatewayAPI = (function () {
   // ── Public surface ──────────────────────────────────────────────
 
   return {
-    claude:          claude,
-    claudeRequest:   claudeRequest,
-    claudeAvailable: claudeAvailable,
-    bufferProfiles:  bufferProfiles,
-    bufferPost:      bufferPost,
-    bufferUser:      bufferUser,
-    bufferAvailable: bufferAvailable,
-    healthCheck:     healthCheck,
-    proxyUrl:        proxyUrl
+    claude:           claude,
+    claudeRequest:    claudeRequest,
+    claudeAvailable:  claudeAvailable,
+    resolveClaudeKey: localClaudeKey,   // exposed so core.js avoids duplicate resolution logic
+    bufferProfiles:   bufferProfiles,
+    bufferPost:       bufferPost,
+    bufferUser:       bufferUser,
+    bufferAvailable:  bufferAvailable,
+    healthCheck:      healthCheck,
+    proxyUrl:         proxyUrl
   };
 
 })();

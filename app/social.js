@@ -1370,50 +1370,69 @@ async function drawJustSoldTemplate(canvas, ctx) {
   ctx.fillStyle = GOLD;
   ctx.fillRect(0, footerY, W, 3);
 
-  var fY = footerY + 44;
-  if (smAgents.length > 0 && smAgents[0].name) {
-    var ag3 = smAgents[0];
-    var photoOffsetX = 0;
-    if (ag3.photo) {
-      try {
-        var agImg3 = await loadImageAsync(ag3.photo);
-        ctx.save();
-        ctx.beginPath();
-        roundRect(ctx, 60, fY, 120, 152, 10);
-        ctx.clip();
-        var _scagImg3 = Math.max(120/agImg3.width, 152/agImg3.height);
-        var _dwagImg3 = agImg3.width * _scagImg3, _dhagImg3 = agImg3.height * _scagImg3;
-        ctx.drawImage(agImg3, 60 + (120 - _dwagImg3)/2, fY + (152 - _dhagImg3)/2, _dwagImg3, _dhagImg3);
-        ctx.restore();
-        ctx.strokeStyle = GOLD;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        roundRect(ctx, 60, fY, 120, 152, 10);
-        ctx.stroke();
-        photoOffsetX = 136;
-      } catch(e3) {}
-    }
-    var ftX = 60 + photoOffsetX;
-    ctx.font = '400 12px "Montserrat", sans-serif';
-    ctx.fillStyle = LABEL;
-    ctx.textAlign = 'left';
-    ctx.fillText('REPRESENTED BY', ftX, fY);
-    ctx.font = 'bold 24px "Montserrat", sans-serif';
-    ctx.fillStyle = CREAM;
-    ctx.fillText(ag3.name.toUpperCase(), ftX, fY + 28);
-    if (ag3.title) {
-      ctx.font = '400 15px "Montserrat", sans-serif';
-      ctx.fillStyle = LABEL;
-      ctx.fillText(ag3.title.toUpperCase(), ftX, fY + 48);
-    }
-    if (ag3.phone) { ctx.font = '400 14px "Montserrat"'; ctx.fillStyle = LABEL; ctx.fillText(ag3.phone, ftX, fY + 68); }
-    if (ag3.email) { ctx.fillText(ag3.email, ftX, fY + 86); }
-  }
-
-  // Gateway logo — anchored top-right of footer, sized 80×80
+  // Define logo position first so the agent zone width can respect it
   var jsLogoSz = 80;
   var jsLogoX  = W - 60 - jsLogoSz;
   var jsLogoY  = footerY + 14;
+
+  var fY = footerY + 44;
+  var footerAgents = smAgents.filter(function(a) {
+    return a && a.name && a.name.trim();
+  }).slice(0, 2);
+
+  if (footerAgents.length > 0) {
+    // Scale photo slightly when two agents share the footer zone
+    var agPhotoW  = footerAgents.length === 2 ? 96  : 120;
+    var agPhotoH  = footerAgents.length === 2 ? 120 : 152;
+    var agZoneEnd = jsLogoX - 24;
+    var agSlotW   = footerAgents.length === 2
+      ? Math.floor((agZoneEnd - 60 - 20) / 2)
+      : agZoneEnd - 60;
+
+    for (var ai3 = 0; ai3 < footerAgents.length; ai3++) {
+      var ag3 = footerAgents[ai3];
+      var axBase3      = 60 + ai3 * (agSlotW + 20);
+      var photoOffsetX = 0;
+
+      if (ag3.photo) {
+        try {
+          var agImg3 = await loadImageAsync(ag3.photo);
+          ctx.save();
+          ctx.beginPath();
+          roundRect(ctx, axBase3, fY, agPhotoW, agPhotoH, 10);
+          ctx.clip();
+          var _sc3 = Math.max(agPhotoW / agImg3.width, agPhotoH / agImg3.height);
+          var _dw3 = agImg3.width * _sc3, _dh3 = agImg3.height * _sc3;
+          ctx.drawImage(agImg3, axBase3 + (agPhotoW - _dw3) / 2, fY + (agPhotoH - _dh3) / 2, _dw3, _dh3);
+          ctx.restore();
+          ctx.strokeStyle = GOLD;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          roundRect(ctx, axBase3, fY, agPhotoW, agPhotoH, 10);
+          ctx.stroke();
+          photoOffsetX = agPhotoW + 16;
+        } catch(e3) {}
+      }
+
+      var ftX = axBase3 + photoOffsetX;
+      ctx.font = '400 12px "Montserrat", sans-serif';
+      ctx.fillStyle = LABEL;
+      ctx.textAlign = 'left';
+      ctx.fillText(ai3 === 0 ? 'REPRESENTED BY' : 'CO-BROKER', ftX, fY);
+      ctx.font = 'bold 24px "Montserrat", sans-serif';
+      ctx.fillStyle = CREAM;
+      ctx.fillText(ag3.name.toUpperCase(), ftX, fY + 28);
+      if (ag3.title) {
+        ctx.font = '400 15px "Montserrat", sans-serif';
+        ctx.fillStyle = LABEL;
+        ctx.fillText(ag3.title.toUpperCase(), ftX, fY + 48);
+      }
+      if (ag3.phone) { ctx.font = '400 14px "Montserrat"'; ctx.fillStyle = LABEL; ctx.fillText(ag3.phone, ftX, fY + 68); }
+      if (ag3.email) { ctx.fillText(ag3.email, ftX, fY + 86); }
+    }
+  }
+
+  // Gateway logo — anchored top-right of footer, sized 80×80
   try {
     var lSrc = (pal.logoKey === 'dark') ? (LOGO_ROUND_SUBMARK || '') : (LOGO_CIRCLE_LIGHT || '');
     if (lSrc) {
