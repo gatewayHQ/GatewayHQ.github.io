@@ -76,3 +76,110 @@ CREATE POLICY "authenticated_read_team_secrets"
 -- Agents log in via ☁ Sync → the key is fetched automatically
 -- → ✦ AI On appears → all AI features work.
 -- ================================================================
+
+-- ================================================================
+-- 4. Video render job queue
+--    Tracks async video renders triggered from the browser.
+--    GitHub Actions writes back via the video-jobs edge function.
+--    Supabase Realtime broadcasts row changes to the browser so
+--    no polling is needed.
+-- ================================================================
+
+CREATE TABLE IF NOT EXISTS video_jobs (
+  id               UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id          UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  slug             TEXT        NOT NULL,
+  status           TEXT        NOT NULL DEFAULT 'queued',
+  -- status: queued | rendering | completed | failed
+  platform         TEXT,
+  composition_path TEXT,        -- storage path: {user_id}/{slug}.html
+  render_url       TEXT,        -- raw.githubusercontent.com URL when done
+  error_msg        TEXT,
+  run_id           TEXT,        -- GitHub Actions run ID for log link
+  elapsed_sec      INT,
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_video_jobs_user_id ON video_jobs (user_id);
+CREATE INDEX IF NOT EXISTS idx_video_jobs_status  ON video_jobs (status);
+CREATE INDEX IF NOT EXISTS idx_video_jobs_created ON video_jobs (created_at DESC);
+
+ALTER TABLE video_jobs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "users_own_video_jobs" ON video_jobs;
+CREATE POLICY "users_own_video_jobs"
+  ON video_jobs FOR ALL
+  USING  (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Auto-update updated_at on every row change (drives Realtime events)
+CREATE OR REPLACE FUNCTION _update_updated_at()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$;
+
+DROP TRIGGER IF EXISTS video_jobs_updated_at ON video_jobs;
+CREATE TRIGGER video_jobs_updated_at
+  BEFORE UPDATE ON video_jobs
+  FOR EACH ROW EXECUTE FUNCTION _update_updated_at();
+
+-- Enable Realtime so browser can subscribe to row changes
+-- (Run once; safe to re-run — ADD is idempotent in PG 16+)
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE video_jobs;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- 5. Supabase Storage bucket for video compositions
+--    Authenticated users upload their own compositions.
+--    Renders live in GitHub (raw.githubusercontent.com) — not here.
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'video-compositions',
+  'video-compositions',
+  false,
+  20971520,   -- 20 MB max (HTML with embedded base64 images)
+  ARRAY['text/html', 'application/octet-stream', 'audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/ogg']
+)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "users_upload_own_compositions"  ON storage.objects;
+DROP POLICY IF EXISTS "users_read_own_compositions"    ON storage.objects;
+DROP POLICY IF EXISTS "users_delete_own_compositions"  ON storage.objects;
+
+CREATE POLICY "users_upload_own_compositions"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'video-compositions'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+CREATE POLICY "users_read_own_compositions"
+  ON storage.objects FOR SELECT TO authenticated
+  USING (
+    bucket_id = 'video-compositions'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+CREATE POLICY "users_delete_own_compositions"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'video-compositions'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- ================================================================
+-- video-jobs Edge Function secrets (set in Supabase Dashboard →
+-- Edge Functions → video-jobs → Secrets):
+--
+--   GH_ACTIONS_PAT       = ghp_...  (repo + actions:write scopes)
+--   GH_REPO              = gatewayhq/gatewayhq.github.io
+--   GH_BRANCH            = main
+--   RENDER_WEBHOOK_SECRET = <random 32-char hex>
+--
+-- GitHub Actions repository secrets (Settings → Secrets):
+--   SUPABASE_VIDEO_JOBS_URL  = https://<ref>.supabase.co/functions/v1/video-jobs
+--   RENDER_WEBHOOK_SECRET    = <same value as above>
+-- ================================================================

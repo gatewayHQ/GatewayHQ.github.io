@@ -1,5 +1,26 @@
 name: Render Listing Video
 
+# ================================================================
+# Triggered by the browser (via video-jobs Vercel endpoint)
+# or manually from the Actions tab.
+#
+# Vercel flow (preferred):
+#   job_id, output_slug, composition_url, music_url
+#
+# Legacy browser flow (GH PAT in browser):
+#   output_slug, composition_path, music_path
+#   (job_id is empty — no callbacks)
+#
+# Required repository secrets for Vercel callbacks:
+#   VIDEO_JOBS_WEBHOOK_URL  = https://<your>.vercel.app/api/video-jobs
+#   RENDER_WEBHOOK_SECRET   = <random 32-char hex>
+#
+# Speed notes:
+#   Cold run (no cache): ~5-8 min setup + render
+#   Warm run (cache hit): ~10-15s setup + render  ← target 3-5 min total
+#   Cache is keyed by OS + v-number; bump HF_TOOLS_CACHE_KEY to force refresh
+# ================================================================
+
 on:
   workflow_dispatch:
     inputs:
@@ -7,23 +28,57 @@ on:
         description: 'Output filename (no .mp4)'
         required: true
         type: string
-      composition_path:
-        description: 'Repo-relative path to composition HTML'
-        required: true
+
+      # ── Vercel flow: pass signed URLs ─────────────────────────────
+      job_id:
+        description: 'video_jobs UUID (enables status callbacks)'
+        required: false
+        default: ''
         type: string
-      music_path:
-        description: 'Repo-relative path to music file (optional)'
+      composition_url:
+        description: 'Signed URL to download composition HTML'
+        required: false
+        default: ''
+        type: string
+      music_url:
+        description: 'Signed URL to download music file (optional)'
         required: false
         default: ''
         type: string
 
+      # ── Legacy flow: repo-relative file paths ─────────────────────
+      composition_path:
+        description: 'Repo-relative path to composition HTML (legacy)'
+        required: false
+        default: ''
+        type: string
+      music_path:
+        description: 'Repo-relative path to music file (legacy, optional)'
+        required: false
+        default: ''
+        type: string
+
+      # ── Render quality ────────────────────────────────────────────
+      quality:
+        description: 'Render quality: high (best) or balanced (~40% faster, still great for social)'
+        required: false
+        default: 'high'
+        type: choice
+        options:
+          - high
+          - balanced
+
 permissions:
   contents: write
+
+env:
+  # Bump this string to force a full cache refresh (e.g. after a HyperFrames update)
+  HF_TOOLS_CACHE_KEY: hf-tools-v3
 
 jobs:
   render:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -31,65 +86,158 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Record start time
+        id: timer
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      # ── Notify: render has started ────────────────────────────────
+      - name: Notify rendering started
+        if: inputs.job_id != ''
+        env:
+          WEBHOOK_URL:    ${{ secrets.VIDEO_JOBS_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.RENDER_WEBHOOK_SECRET }}
+        run: |
+          curl -sf -X PATCH "${WEBHOOK_URL}?jobId=${{ inputs.job_id }}" \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Secret: ${WEBHOOK_SECRET}" \
+            -d "{\"status\":\"rendering\",\"run_id\":\"${{ github.run_id }}\"}" \
+          || echo "::warning::Status callback failed (non-fatal)"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: Install FFmpeg
-        run: sudo apt-get install -y ffmpeg
+      # ── Cache HyperFrames node_modules ────────────────────────────
+      # Skips ~90s npm install on warm runs. Bust by changing HF_TOOLS_CACHE_KEY.
+      - name: Restore HyperFrames cache
+        id: hf-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/hf-tools/node_modules
+          key: ${{ env.HF_TOOLS_CACHE_KEY }}-${{ runner.os }}
 
-      - name: Install HyperFrames CLI
-        run: npm install -g hyperframes
+      - name: Install HyperFrames
+        if: steps.hf-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p /tmp/hf-tools
+          cd /tmp/hf-tools
+          echo '{"private":true}' > package.json
+          npm install hyperframes
+
+      # ── Cache Puppeteer Chrome binary ─────────────────────────────
+      # Skips ~90s Chrome download (~300 MB) on warm runs.
+      - name: Restore Chrome cache
+        id: chrome-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-chrome-${{ runner.os }}-v1
 
       - name: Install Chrome for Puppeteer
+        if: steps.chrome-cache.outputs.cache-hit != 'true'
         run: |
-          # Install Chrome for the globally-installed Puppeteer that HyperFrames uses.
-          # Must run from the global node_modules root so npx finds the right puppeteer.
-          GLOBAL_ROOT=$(npm root -g)
-          cd "$GLOBAL_ROOT"
-          npx puppeteer browsers install chrome
+          cd /tmp/hf-tools
+          node_modules/.bin/puppeteer browsers install chrome
 
+      # ── FFmpeg is pre-installed on ubuntu-latest — no install needed ──
+
+      # ── Fetch composition ─────────────────────────────────────────
       - name: Prepare composition
         run: |
           mkdir -p /tmp/hf-render
-          cp "${{ github.workspace }}/${{ inputs.composition_path }}" /tmp/hf-render/index.html
+          COMP_URL="${{ inputs.composition_url }}"
+          COMP_PATH="${{ inputs.composition_path }}"
+          if [ -n "$COMP_URL" ]; then
+            curl -fsSL "$COMP_URL" -o /tmp/hf-render/index.html
+          elif [ -n "$COMP_PATH" ]; then
+            cp "${{ github.workspace }}/$COMP_PATH" /tmp/hf-render/index.html
+          else
+            echo "::error::No composition source (composition_url or composition_path required)"
+            exit 1
+          fi
 
+      # ── Fetch music ───────────────────────────────────────────────
+      - name: Prepare music
+        id: music
+        run: |
+          MUSIC_URL="${{ inputs.music_url }}"
+          MUSIC_PATH="${{ inputs.music_path }}"
+          if [ -n "$MUSIC_URL" ]; then
+            EXT="${MUSIC_URL##*.}"; EXT="${EXT%%\?*}"
+            curl -fsSL "$MUSIC_URL" -o "/tmp/music.${EXT:-mp3}"
+            echo "path=/tmp/music.${EXT:-mp3}" >> "$GITHUB_OUTPUT"
+          elif [ -n "$MUSIC_PATH" ] && [ -f "${{ github.workspace }}/$MUSIC_PATH" ]; then
+            echo "path=${{ github.workspace }}/$MUSIC_PATH" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── Render to MP4 ─────────────────────────────────────────────
       - name: Render to MP4
         run: |
           mkdir -p "${{ github.workspace }}/renders"
           cd /tmp/hf-render
-          npx hyperframes render \
-            --quality high \
+          /tmp/hf-tools/node_modules/.bin/hyperframes render \
+            --quality ${{ inputs.quality || 'high' }} \
             --fps 30 \
             --output "${{ github.workspace }}/renders/${{ inputs.output_slug }}_silent.mp4"
 
+      # ── Mix background music ──────────────────────────────────────
       - name: Mix in background music
         run: |
           SILENT="${{ github.workspace }}/renders/${{ inputs.output_slug }}_silent.mp4"
           FINAL="${{ github.workspace }}/renders/${{ inputs.output_slug }}.mp4"
-          MUSIC_PATH="${{ inputs.music_path }}"
-          if [ -n "$MUSIC_PATH" ] && [ -f "${{ github.workspace }}/$MUSIC_PATH" ]; then
-            ffmpeg -i "$SILENT" \
-                   -i "${{ github.workspace }}/$MUSIC_PATH" \
-                   -c:v copy -c:a aac -b:a 192k \
-                   -map 0:v:0 -map 1:a:0 \
-                   -af "afade=t=out:st=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$SILENT" | awk '{print int($1)-2}'):d=2,volume=0.75" \
-                   -shortest -y "$FINAL"
+          MUSIC="${{ steps.music.outputs.path }}"
+          if [ -n "$MUSIC" ] && [ -f "$MUSIC" ]; then
+            DURATION=$(ffprobe -v error -show_entries format=duration \
+              -of default=noprint_wrappers=1:nokey=1 "$SILENT" | awk '{print int($1)-2}')
+            ffmpeg -i "$SILENT" -i "$MUSIC" \
+              -c:v copy -c:a aac -b:a 192k \
+              -map 0:v:0 -map 1:a:0 \
+              -af "afade=t=out:st=${DURATION}:d=2,volume=0.75" \
+              -shortest -y "$FINAL"
             rm "$SILENT"
           else
             mv "$SILENT" "$FINAL"
           fi
 
+      # ── Commit render + clean up ──────────────────────────────────
       - name: Commit render and clean up
         run: |
           cd "${{ github.workspace }}"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "GitHub Actions"
           git add "renders/${{ inputs.output_slug }}.mp4"
-          git rm --ignore-unmatch "${{ inputs.composition_path }}"
+          if [ -n "${{ inputs.composition_path }}" ]; then
+            git rm --ignore-unmatch "${{ inputs.composition_path }}"
+          fi
           if [ -n "${{ inputs.music_path }}" ]; then
             git rm --ignore-unmatch "${{ inputs.music_path }}"
           fi
-          git commit -m "Rendered video: ${{ inputs.output_slug }}"
+          git commit -m "Rendered video: ${{ inputs.output_slug }}" || echo "Nothing to commit"
           git push
+
+      # ── Report final status ───────────────────────────────────────
+      - name: Report final status
+        if: always() && inputs.job_id != ''
+        env:
+          WEBHOOK_URL:    ${{ secrets.VIDEO_JOBS_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.RENDER_WEBHOOK_SECRET }}
+          JOB_STATUS:     ${{ job.status }}
+          START_EPOCH:    ${{ steps.timer.outputs.epoch }}
+        run: |
+          ELAPSED=$(( $(date +%s) - START_EPOCH ))
+          if [ "$JOB_STATUS" = "success" ]; then
+            RENDER_URL="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/renders/${{ inputs.output_slug }}.mp4"
+            PAYLOAD=$(printf '{"status":"completed","render_url":"%s","elapsed_sec":%d,"run_id":"%s"}' \
+              "$RENDER_URL" "$ELAPSED" "${{ github.run_id }}")
+          else
+            PAYLOAD=$(printf '{"status":"failed","error_msg":"Render workflow %s — check the Actions log for details.","elapsed_sec":%d,"run_id":"%s"}' \
+              "$JOB_STATUS" "$ELAPSED" "${{ github.run_id }}")
+          fi
+          curl -sf -X PATCH "${WEBHOOK_URL}?jobId=${{ inputs.job_id }}" \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Secret: ${WEBHOOK_SECRET}" \
+            -d "$PAYLOAD" \
+          || echo "::warning::Final callback failed (video may still be accessible)"

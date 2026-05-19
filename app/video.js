@@ -899,99 +899,303 @@
 
   var VID_REPO='gatewayhq/gatewayhq.github.io';
   var vidPollTimer=null;
+  var vidRealtimeSub=null;  // active Supabase Realtime subscription
 
-  window.vidRender = async function() {
-    var btn=document.getElementById('vid-gen-btn');
-    var token=(localStorage.getItem('gh_pat')||document.getElementById('vid-gh-token').value||'').trim();
-    var branch=(localStorage.getItem('gh_branch')||document.getElementById('vid-gh-branch').value||'').trim()||'main';
-    if (!token) {
-      document.getElementById('vid-settings').open=true;
-      document.getElementById('vid-gh-token').focus();
-      vidSetStatus('error','GitHub token required — enter it in settings below',{msg:'Add your PAT in the GitHub Render Settings section.'});
-      return;
+  // ── Supabase-backed render (primary path) ─────────────────────────
+  // Requires the user to be logged in via ☁ Sync.
+  // 1. Uploads composition + music to Supabase Storage (using existing session)
+  // 2. POSTs job to video-jobs edge function (no GitHub PAT needed)
+  // 3. Subscribes to Supabase Realtime for instant status updates
+  // 4. GitHub Actions webhooks back when done — no polling
+  // ─────────────────────────────────────────────────────────────────
+  async function vidRenderSupabase(comp, platName) {
+    var sync = window.GatewaySync;
+    var client = sync._client;
+    var userId = sync._session.user.id;
+    var token  = sync._session.access_token;
+
+    var ai  = window.AI_CONFIG || {};
+    var cfg = window.CONFIG    || {};
+    var proxyBase   = (ai.proxyUrl    || cfg.proxyUrl    || '').replace(/\/$/, '');
+    var proxySecret = (ai.proxySecret || cfg.proxySecret || '');
+    if (!proxyBase) throw new Error('Proxy URL not configured — set proxyUrl in config.js or AI_CONFIG');
+
+    // 1. Upload composition HTML to Supabase Storage
+    vidSetStatus('uploading', 'Preparing ' + vidCurrentAnim + ' animation... Uploading…');
+    var compStoragePath = userId + '/' + comp.slug + '.html';
+    var compBlob = new Blob([comp.html], { type: 'text/html' });
+    var upRes = await client.storage.from('video-compositions').upload(compStoragePath, compBlob, {
+      contentType: 'text/html',
+      upsert: true
+    });
+    if (upRes.error) throw new Error('Composition upload failed: ' + upRes.error.message);
+
+    // 2. Upload music (if any)
+    var musicStoragePath = '';
+    if (vidMusicFile) {
+      vidSetStatus('uploading', 'Uploading music file…');
+      musicStoragePath = userId + '/' + comp.slug + '-music.' + vidMusicFile.ext;
+      var musicBlob = dataURLtoBlob(vidMusicFile.dataUrl);
+      var musicUp = await client.storage.from('video-compositions').upload(musicStoragePath, musicBlob, { upsert: true });
+      if (musicUp.error) throw new Error('Music upload failed: ' + musicUp.error.message);
     }
-    var comp=vidBuildComposition();
-    if (!comp) return;
-    btn.disabled=true;
-    var platName = { reels:'Reels/TikTok', feed:'Instagram Feed', landscape:'YouTube/FB', shorts:'YouTube Shorts', story:'Story Format' }[vidCurrentPlatform] || vidCurrentPlatform;
-    vidSetStatus('uploading','Adding ' + vidCurrentAnim + ' animation... Uploading to GitHub...');
-    try {
-      var b64=btoa(unescape(encodeURIComponent(comp.html)));
-      var compPath='compositions/pending/'+comp.slug+'.html';
-      var uploadRes=await fetch('https://api.github.com/repos/'+VID_REPO+'/contents/'+compPath,{
-        method:'PUT',
-        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','Accept':'application/vnd.github+json'},
-        body:JSON.stringify({message:'Add composition: '+comp.slug,content:b64,branch:branch})
-      });
-      if (!uploadRes.ok) {
-        var ue=await uploadRes.json();
-        var uMsg=ue.message||uploadRes.status;
-        if (uploadRes.status===401) uMsg='Bad credentials — your GitHub token is invalid or expired. Open Settings below, paste a new PAT with "repo" (Contents write) scope, and try again.';
-        else if (uploadRes.status===403) uMsg='Permission denied — your GitHub token needs "repo" (Contents write) scope. Create a new classic PAT at github.com/settings/tokens.';
-        throw new Error('Upload failed: '+uMsg);
+
+    // 3. Create job via Vercel proxy (triggers GitHub Actions server-side — no GH PAT in browser)
+    vidSetStatus('rendering', 'Queuing render job…');
+    var jobRes = await fetch(proxyBase + '/api/video-jobs', {
+      method: 'POST',
+      headers: { 'x-gateway-secret': proxySecret, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        slug: comp.slug,
+        platform: vidCurrentPlatform,
+        // landscape/feed get high quality; short-form social gets balanced (40% faster)
+        quality: (vidCurrentPlatform === 'landscape') ? 'high' : 'balanced',
+        composition_path: compStoragePath,
+        music_path: musicStoragePath || undefined,
+        user_id: userId
+      })
+    });
+    if (!jobRes.ok) {
+      var je = await jobRes.json().catch(function(){return {};});
+      throw new Error(je.error || 'Failed to queue render job (HTTP ' + jobRes.status + ')');
+    }
+    var jobData = await jobRes.json();
+    var jobId = jobData.jobId;
+    if (!jobId) throw new Error('No jobId returned from video-jobs function');
+
+    // 4. Subscribe to Realtime for live updates
+    return new Promise(function(resolve, reject) {
+      var startMs = Date.now();
+      var progressPhases = [
+        { until: 30,  pct: 10, msg: 'Installing Chrome + HyperFrames…' },
+        { until: 90,  pct: 30, msg: 'Rendering frames…' },
+        { until: 180, pct: 55, msg: 'Encoding ' + platName + '…' },
+        { until: 360, pct: 75, msg: 'Mixing audio…' },
+        { until: 900, pct: 90, msg: 'Finalizing export…' }
+      ];
+
+      // Animate a progress bar while waiting (purely cosmetic — real status comes via Realtime)
+      var progressTimer = setInterval(function() {
+        var elapsed = Math.round((Date.now() - startMs) / 1000);
+        var phase = progressPhases.find(function(p){ return elapsed < p.until; })
+          || { pct: 95, msg: 'Almost done…' };
+        vidSetStatus('rendering', phase.msg + ' (' + elapsed + 's)');
+      }, 4000);
+
+      if (vidRealtimeSub) {
+        try { client.removeChannel(vidRealtimeSub); } catch(e){}
+        vidRealtimeSub = null;
       }
-      var musicPath='';
-      if (vidMusicFile) {
-        vidSetStatus('uploading','Uploading music file to GitHub...');
-        var musicUpPath='compositions/pending/'+comp.slug+'-music.'+vidMusicFile.ext;
-        var musicB64=vidMusicFile.dataUrl.split(',')[1];
-        var musicUpRes=await fetch('https://api.github.com/repos/'+VID_REPO+'/contents/'+musicUpPath,{
-          method:'PUT',
-          headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','Accept':'application/vnd.github+json'},
-          body:JSON.stringify({message:'Add music: '+comp.slug,content:musicB64,branch:branch})
+
+      vidRealtimeSub = client
+        .channel('video-job-' + jobId)
+        .on('postgres_changes', {
+          event:  'UPDATE',
+          schema: 'public',
+          table:  'video_jobs',
+          filter: 'id=eq.' + jobId
+        }, function(payload) {
+          var row = payload.new || {};
+          var elapsed = Math.round((Date.now() - startMs) / 1000);
+
+          if (row.status === 'completed') {
+            clearInterval(progressTimer);
+            client.removeChannel(vidRealtimeSub);
+            vidRealtimeSub = null;
+            resolve({ url: row.render_url, elapsed: row.elapsed_sec || elapsed, slug: comp.slug });
+
+          } else if (row.status === 'failed') {
+            clearInterval(progressTimer);
+            client.removeChannel(vidRealtimeSub);
+            vidRealtimeSub = null;
+            var actionsUrl = 'https://github.com/' + VID_REPO + '/actions/runs/' + (row.run_id || '');
+            reject(new Error((row.error_msg || 'Render failed') + '\n\nActions log: ' + actionsUrl));
+          }
+        })
+        .subscribe(function(status) {
+          if (status === 'CHANNEL_ERROR') {
+            clearInterval(progressTimer);
+            reject(new Error('Realtime subscription failed — check your connection and try again.'));
+          }
         });
-        if (!musicUpRes.ok) { var me=await musicUpRes.json(); throw new Error('Music upload failed: '+(me.message||musicUpRes.status)); }
-        musicPath=musicUpPath;
+
+      // Safety net: if Realtime never fires (e.g. Supabase Realtime not enabled for video_jobs),
+      // fall back to polling the edge function GET endpoint every 15s.
+      // Max wait: 50 min (exceeds the 45-min Actions timeout so we always get a terminal status).
+      var pollAttempts = 0;
+      var MAX_POLLS = 200; // 200 × 15s = 50 min
+      var fallbackTimer = setInterval(async function() {
+        pollAttempts++;
+        if (pollAttempts > MAX_POLLS) {
+          clearInterval(fallbackTimer);
+          clearInterval(progressTimer);
+          reject(new Error('Timed out after 50 min. Check GitHub Actions for details.'));
+          return;
+        }
+        try {
+          var sr = await fetch(proxyBase + '/api/video-jobs?jobId=' + jobId, {
+            headers: { 'x-gateway-secret': proxySecret }
+          });
+          if (!sr.ok) return;
+          var sdata = await sr.json();
+          if (sdata.status === 'completed') {
+            clearInterval(fallbackTimer);
+            clearInterval(progressTimer);
+            client.removeChannel(vidRealtimeSub);
+            vidRealtimeSub = null;
+            resolve({ url: sdata.render_url, elapsed: sdata.elapsed_sec || Math.round((Date.now()-startMs)/1000), slug: comp.slug });
+          } else if (sdata.status === 'failed') {
+            clearInterval(fallbackTimer);
+            clearInterval(progressTimer);
+            client.removeChannel(vidRealtimeSub);
+            vidRealtimeSub = null;
+            reject(new Error(sdata.error_msg || 'Render failed'));
+          }
+        } catch(pe){}
+      }, 15000);
+
+      // Clear fallback timer when Realtime resolves
+      var origResolve = resolve, origReject = reject;
+      resolve = function(v){ clearInterval(fallbackTimer); origResolve(v); };
+      reject  = function(e){ clearInterval(fallbackTimer); origReject(e); };
+    });
+  }
+
+  // ── Legacy GitHub-PAT render (fallback when not logged into Supabase) ──
+  // Kept intact from original implementation. Uses GH PAT to upload
+  // composition files and polls GitHub Actions API for status.
+  // Timeout extended to 45 min to match the new Actions timeout.
+  // ──────────────────────────────────────────────────────────────────────
+  async function vidRenderLegacy(comp, platName, token, branch) {
+    vidSetStatus('uploading', 'Adding ' + vidCurrentAnim + ' animation... Uploading to GitHub...');
+    var b64 = btoa(unescape(encodeURIComponent(comp.html)));
+    var compPath = 'compositions/pending/' + comp.slug + '.html';
+    var uploadRes = await fetch('https://api.github.com/repos/' + VID_REPO + '/contents/' + compPath, {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github+json' },
+      body: JSON.stringify({ message: 'Add composition: ' + comp.slug, content: b64, branch: branch })
+    });
+    if (!uploadRes.ok) {
+      var ue = await uploadRes.json();
+      var uMsg = ue.message || uploadRes.status;
+      if (uploadRes.status === 401) uMsg = 'Bad credentials — your GitHub token is invalid or expired. Open Settings below, paste a new PAT with "repo" scope, and try again.';
+      else if (uploadRes.status === 403) uMsg = 'Permission denied — your GitHub token needs "repo" (Contents write) scope.';
+      throw new Error('Upload failed: ' + uMsg);
+    }
+    var musicPath = '';
+    if (vidMusicFile) {
+      vidSetStatus('uploading', 'Uploading music file to GitHub...');
+      var musicUpPath = 'compositions/pending/' + comp.slug + '-music.' + vidMusicFile.ext;
+      var musicB64 = vidMusicFile.dataUrl.split(',')[1];
+      var musicUpRes = await fetch('https://api.github.com/repos/' + VID_REPO + '/contents/' + musicUpPath, {
+        method: 'PUT',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github+json' },
+        body: JSON.stringify({ message: 'Add music: ' + comp.slug, content: musicB64, branch: branch })
+      });
+      if (!musicUpRes.ok) { var me = await musicUpRes.json(); throw new Error('Music upload failed: ' + (me.message || musicUpRes.status)); }
+      musicPath = musicUpPath;
+    }
+    var triggerTime = new Date().toISOString();
+    var dispatchRes = await fetch('https://api.github.com/repos/' + VID_REPO + '/actions/workflows/render-listing-video.yml/dispatches', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github+json' },
+      body: JSON.stringify({ ref: branch, inputs: { output_slug: comp.slug, composition_path: compPath, music_path: musicPath } })
+    });
+    if (!dispatchRes.ok && dispatchRes.status !== 204) { var de = await dispatchRes.json(); throw new Error('Dispatch failed: ' + (de.message || dispatchRes.status)); }
+    vidSetStatus('rendering', 'Rendering on GitHub Actions... (~5-8 min)');
+    var startMs = Date.now();
+    var triggerMs = new Date(triggerTime).getTime();
+    return new Promise(function(resolve, reject) {
+      var pollCount = 0;
+      vidPollTimer = setInterval(async function() {
+        pollCount++;
+        var elapsed = Math.round((Date.now() - startMs) / 1000);
+        // 225 polls × 12s = 45 min (matches the new Actions timeout)
+        if (pollCount > 225) { clearInterval(vidPollTimer); reject(new Error('Timed out after 45 min. Check GitHub Actions for details.')); return; }
+        try {
+          var runsRes = await fetch('https://api.github.com/repos/' + VID_REPO + '/actions/runs?event=workflow_dispatch&per_page=20', {
+            headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' }
+          });
+          var rd = await runsRes.json();
+          var run = (rd.workflow_runs || []).find(function(r) {
+            return r.name === 'Render Listing Video' && new Date(r.created_at).getTime() >= triggerMs - 10000;
+          });
+          if (!run) { vidSetStatus('rendering', 'Waiting for runner... (' + elapsed + 's)'); return; }
+          var pct = Math.min(95, Math.round((elapsed / 300) * 100));
+          var pMsg = elapsed < 30 ? 'Installing renderer... ' + pct + '%'
+            : elapsed < 90  ? 'Rendering frames... ' + pct + '%'
+            : elapsed < 200 ? 'Encoding ' + platName + '... ' + pct + '%'
+            : 'Finalizing export... ' + pct + '%';
+          if (run.status !== 'completed') { vidSetStatus('rendering', pMsg + ' (' + elapsed + 's)'); return; }
+          clearInterval(vidPollTimer);
+          if (run.conclusion === 'success') {
+            vidSetStatus('processing', 'Verifying download... (' + elapsed + 's)');
+            var rawUrl = 'https://raw.githubusercontent.com/' + VID_REPO + '/' + branch + '/renders/' + comp.slug + '.mp4';
+            var resolvedUrl = rawUrl;
+            for (var vi = 0; vi < 15; vi++) {
+              await new Promise(function(r){ setTimeout(r, 3000); });
+              try {
+                var ck = await fetch('https://api.github.com/repos/' + VID_REPO + '/contents/renders/' + comp.slug + '.mp4?ref=' + branch, {
+                  headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' }
+                });
+                if (ck.ok) { var ckd = await ck.json(); resolvedUrl = ckd.download_url || rawUrl; break; }
+              } catch(e2){}
+            }
+            resolve({ url: resolvedUrl, elapsed: elapsed, slug: comp.slug });
+          } else { reject(new Error('Workflow ended: ' + run.conclusion)); }
+        } catch(pe){}
+      }, 12000);
+    });
+  }
+
+  // Convert base64 data URL → Blob (needed for Supabase Storage upload)
+  function dataURLtoBlob(dataUrl) {
+    var arr = dataUrl.split(',');
+    var mime = (arr[0].match(/:(.*?);/) || ['','application/octet-stream'])[1];
+    var bstr = atob(arr[1]);
+    var u8 = new Uint8Array(bstr.length);
+    for (var i = 0; i < bstr.length; i++) u8[i] = bstr.charCodeAt(i);
+    return new Blob([u8], { type: mime });
+  }
+
+  // ── Main render entry point ───────────────────────────────────────
+  window.vidRender = async function() {
+    var btn = document.getElementById('vid-gen-btn');
+    var platName = { reels:'Reels/TikTok', feed:'Instagram Feed', landscape:'YouTube/FB', shorts:'YouTube Shorts', story:'Story Format' }[vidCurrentPlatform] || vidCurrentPlatform;
+    var comp = vidBuildComposition();
+    if (!comp) return;
+    btn.disabled = true;
+
+    try {
+      var sync = window.GatewaySync;
+      var dlUrl;
+
+      if (sync && sync.isLoggedIn && sync.isLoggedIn() && sync._client) {
+        // ── Preferred: Supabase flow (no GitHub PAT needed in browser) ──
+        dlUrl = await vidRenderSupabase(comp, platName);
+      } else {
+        // ── Fallback: legacy GitHub PAT flow ──
+        var token = (localStorage.getItem('gh_pat') || document.getElementById('vid-gh-token').value || '').trim();
+        var branch = (localStorage.getItem('gh_branch') || document.getElementById('vid-gh-branch').value || '').trim() || 'main';
+        if (!token) {
+          var settingsEl = document.getElementById('vid-settings');
+          if (settingsEl) settingsEl.open = true;
+          var tokenEl = document.getElementById('vid-gh-token');
+          if (tokenEl) tokenEl.focus();
+          vidSetStatus('error', 'Sign in via ☁ Sync to render without a GitHub token, or add your PAT below.', {
+            msg: 'Log in via ☁ Sync (top nav) for the recommended render path — no GitHub token required.\n\nAlternatively, add a GitHub PAT with "repo" scope in the settings below.'
+          });
+          return;
+        }
+        dlUrl = await vidRenderLegacy(comp, platName, token, branch);
       }
-      var triggerTime=new Date().toISOString();
-      var dispatchRes=await fetch('https://api.github.com/repos/'+VID_REPO+'/actions/workflows/render-listing-video.yml/dispatches',{
-        method:'POST',
-        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','Accept':'application/vnd.github+json'},
-        body:JSON.stringify({ref:branch,inputs:{output_slug:comp.slug,composition_path:compPath,music_path:musicPath}})
-      });
-      if (!dispatchRes.ok&&dispatchRes.status!==204) { var de=await dispatchRes.json(); throw new Error('Dispatch failed: '+(de.message||dispatchRes.status)); }
-      vidSetStatus('rendering','Rendering on GitHub Actions... (~3-5 min)');
-      var startMs=Date.now();
-      var triggerMs=new Date(triggerTime).getTime();
-      var dlUrl=await new Promise(function(resolve,reject){
-        var pollCount=0,elapsed=0;
-        vidPollTimer=setInterval(async function(){
-          pollCount++; elapsed=Math.round((Date.now()-startMs)/1000);
-          if (pollCount>100){clearInterval(vidPollTimer);reject(new Error('Timed out after 20 min. Check GitHub Actions for details.'));return;}
-          try {
-            var runsRes=await fetch('https://api.github.com/repos/'+VID_REPO+'/actions/runs?event=workflow_dispatch&per_page=20',{
-              headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json'}
-            });
-            var rd=await runsRes.json();
-            var run=(rd.workflow_runs||[]).find(function(r){
-              return r.name==='Render Listing Video'&&new Date(r.created_at).getTime()>=triggerMs-10000;
-            });
-            if (!run){vidSetStatus('rendering','Waiting for runner... ('+elapsed+'s)');return;}
-            var pct=Math.min(95,Math.round((elapsed/180)*100));
-            var pMsg=elapsed<20?'Adding animations... '+pct+'%':elapsed<60?'Syncing music... '+pct+'%':elapsed<120?'Rendering text overlays... '+pct+'%':'Finalizing '+platName+' export... '+pct+'%';
-            if (run.status!=='completed'){vidSetStatus('rendering',pMsg+' ('+elapsed+'s)');return;}
-            clearInterval(vidPollTimer);
-            if (run.conclusion==='success'){
-              vidSetStatus('processing','Verifying download... ('+elapsed+'s)');
-              var rawUrl='https://raw.githubusercontent.com/'+VID_REPO+'/'+branch+'/renders/'+comp.slug+'.mp4';
-              var resolvedUrl=rawUrl;
-              for (var vi=0;vi<15;vi++){
-                await new Promise(function(r){setTimeout(r,3000);});
-                try {
-                  var ck=await fetch('https://api.github.com/repos/'+VID_REPO+'/contents/renders/'+comp.slug+'.mp4?ref='+branch,{
-                    headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json'}
-                  });
-                  if (ck.ok){var ckd=await ck.json();resolvedUrl=ckd.download_url||rawUrl;break;}
-                } catch(e2){}
-              }
-              resolve({url:resolvedUrl,elapsed:elapsed,slug:comp.slug});
-            } else { reject(new Error('Workflow ended: '+run.conclusion)); }
-          } catch(pe){}
-        },12000);
-      });
-      vidSetStatus('success','Video ready!',dlUrl);
-    } catch(e){ vidSetStatus('error',e.message,{msg:e.message}); }
-    finally { btn.disabled=false; }
+
+      vidSetStatus('success', 'Video ready!', dlUrl);
+    } catch(e) {
+      vidSetStatus('error', e.message, { msg: e.message });
+    } finally {
+      btn.disabled = false;
+    }
   };
 
   (function(){
