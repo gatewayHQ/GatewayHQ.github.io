@@ -287,9 +287,11 @@ function addFinancialSummarySlide(pptx, data, config, _L, _U) {
   });
 
   // Divider between Current and Pro Forma
+  // Do NOT pass sub-grid widths through L.snap() — 0.02" < one grid unit (0.056")
+  // and snaps to zero, making the shape invisible.
   slide.addShape('rect', {
-    x: L.snap(RIGHT_ZONE_X + COL_VAL_W - 0.01), y: L.snap(NOI_BAR_Y + 0.10),
-    w: L.snap(0.02), h: L.snap(NOI_BAR_H - 0.20),
+    x: L.snap(RIGHT_ZONE_X + COL_VAL_W), y: L.snap(NOI_BAR_Y + 0.10),
+    w: 0.02, h: L.snap(NOI_BAR_H - 0.20),
     fill: { color: '2C5080' },
     line: { color: '2C5080' },
   });
