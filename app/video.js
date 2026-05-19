@@ -140,19 +140,62 @@
   };
 
   /* ── PHOTO UPLOAD (no limit) ────────────────────────────────────── */
+  // Compress a photo to ≤1920px, 85% JPEG for video embedding.
+  // Keeps file size small enough to upload via the GitHub Contents API.
+  function vidCompressPhoto(file) {
+    return new Promise(function(resolve) {
+      var isHeic = /^image\/hei[cf]$/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
+      if (isHeic) {
+        alert('HEIC photos are not supported for video. Please convert to JPEG first:\n• iPhone: Settings → Camera → Formats → "Most Compatible"\n• Mac: right-click → Quick Actions → Convert Image → JPEG');
+        resolve(null); return;
+      }
+      var objectUrl = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function() {
+        var sw = img.naturalWidth, sh = img.naturalHeight;
+        if (!sw || !sh) { URL.revokeObjectURL(objectUrl); resolve(null); return; }
+        var scale = Math.min(1, 1920 / Math.max(sw, sh));
+        var tw = Math.max(1, Math.round(sw * scale));
+        var th = Math.max(1, Math.round(sh * scale));
+        var canvas = document.createElement('canvas');
+        canvas.width = tw; canvas.height = th;
+        var ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, tw, th);
+        URL.revokeObjectURL(objectUrl);
+        var dataUrl;
+        try { dataUrl = canvas.toDataURL('image/jpeg', 0.85); }
+        catch(e) {
+          var fr = new FileReader();
+          fr.onload = function(ev) { resolve({ dataUrl: ev.target.result, name: file.name }); };
+          fr.onerror = function() { resolve(null); };
+          fr.readAsDataURL(file); return;
+        }
+        resolve({ dataUrl: dataUrl, name: file.name });
+      };
+      img.onerror = function() {
+        URL.revokeObjectURL(objectUrl);
+        var fr = new FileReader();
+        fr.onload = function(ev) { resolve({ dataUrl: ev.target.result, name: file.name }); };
+        fr.onerror = function() { resolve(null); };
+        fr.readAsDataURL(file);
+      };
+      img.src = objectUrl;
+    });
+  }
+
   window.vidHandleFiles = function(files) {
     Array.from(files).forEach(function(file){
-      var reader = new FileReader();
-      reader.onload = function(e){
-        vidPhotos.push({ dataUrl: e.target.result, name: file.name });
+      vidCompressPhoto(file).then(function(photo) {
+        if (!photo) return;
+        vidPhotos.push(photo);
         vidRenderThumbs();
         vidRenderScenePreview();
         var hint=document.getElementById("vid-scene-hint");
         var cnt=document.getElementById("vid-scene-count");
         if (hint) hint.style.display="none";
         if (cnt) cnt.textContent=vidPhotos.length+" photo"+(vidPhotos.length!==1?"s":"");
-      };
-      reader.readAsDataURL(file);
+      });
     });
   };
 
@@ -361,7 +404,7 @@
     return '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n'
       +'<meta name="viewport" content="width='+w+', height='+h+'">\n'
       +'<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">\n'
-      +'<script src="./node_modules/gsap/dist/gsap.min.js"><\/script>\n'
+      +'<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"><\/script>\n'
       +'<style>\n* { margin:0; padding:0; box-sizing:border-box; }\n'
       +'html,body { width:'+w+'px; height:'+h+'px; overflow:hidden; background:#0D1117; font-family:\'Inter\',\'Helvetica Neue\',sans-serif; color:#fff; }\n'
       +'#root { position:relative; width:'+w+'px; height:'+h+'px; overflow:hidden; }\n'
