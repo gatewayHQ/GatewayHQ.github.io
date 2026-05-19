@@ -948,6 +948,8 @@
       body: JSON.stringify({
         slug: comp.slug,
         platform: vidCurrentPlatform,
+        // landscape/feed get high quality; short-form social gets balanced (40% faster)
+        quality: (vidCurrentPlatform === 'landscape') ? 'high' : 'balanced',
         composition_path: compStoragePath,
         music_path: musicStoragePath || undefined,
         user_id: userId

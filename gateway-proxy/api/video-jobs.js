@@ -102,7 +102,7 @@ async function handleCreate(req, res) {
   const secret = req.headers['x-gateway-secret'] || '';
   if (GW_SECRET && secret !== GW_SECRET) return res.status(401).json({ error: 'Unauthorized' });
 
-  const { slug, platform, composition_path, music_path, user_id, branch } = req.body || {};
+  const { slug, platform, quality, composition_path, music_path, user_id, branch } = req.body || {};
   if (!slug)             return res.status(400).json({ error: 'slug is required' });
   if (!composition_path) return res.status(400).json({ error: 'composition_path is required' });
   if (!GH_PAT)           return res.status(500).json({ error: 'GH_ACTIONS_PAT not set on server' });
@@ -144,6 +144,7 @@ async function handleCreate(req, res) {
         inputs: {
           job_id:          jobId  || '',
           output_slug:     slug,
+          quality:         quality || 'high',
           composition_url: compositionUrl,
           music_url:       musicUrl,
           // legacy git-path fallback (used when Supabase Storage not configured)

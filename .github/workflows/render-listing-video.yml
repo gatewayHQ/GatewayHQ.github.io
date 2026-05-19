@@ -14,6 +14,11 @@ name: Render Listing Video
 # Required repository secrets for Vercel callbacks:
 #   VIDEO_JOBS_WEBHOOK_URL  = https://<your>.vercel.app/api/video-jobs
 #   RENDER_WEBHOOK_SECRET   = <random 32-char hex>
+#
+# Speed notes:
+#   Cold run (no cache): ~5-8 min setup + render
+#   Warm run (cache hit): ~10-15s setup + render  ← target 3-5 min total
+#   Cache is keyed by OS + v-number; bump HF_TOOLS_CACHE_KEY to force refresh
 # ================================================================
 
 on:
@@ -24,9 +29,9 @@ on:
         required: true
         type: string
 
-      # ── Supabase flow: pass signed URLs ──────────────────────────
+      # ── Vercel flow: pass signed URLs ─────────────────────────────
       job_id:
-        description: 'Supabase video_jobs UUID (enables status callbacks)'
+        description: 'video_jobs UUID (enables status callbacks)'
         required: false
         default: ''
         type: string
@@ -41,7 +46,7 @@ on:
         default: ''
         type: string
 
-      # ── Legacy flow: repo-relative file paths ────────────────────
+      # ── Legacy flow: repo-relative file paths ─────────────────────
       composition_path:
         description: 'Repo-relative path to composition HTML (legacy)'
         required: false
@@ -53,13 +58,27 @@ on:
         default: ''
         type: string
 
+      # ── Render quality ────────────────────────────────────────────
+      quality:
+        description: 'Render quality: high (best) or balanced (~40% faster, still great for social)'
+        required: false
+        default: 'high'
+        type: choice
+        options:
+          - high
+          - balanced
+
 permissions:
   contents: write
+
+env:
+  # Bump this string to force a full cache refresh (e.g. after a HyperFrames update)
+  HF_TOOLS_CACHE_KEY: hf-tools-v3
 
 jobs:
   render:
     runs-on: ubuntu-latest
-    timeout-minutes: 45   # was 15 — complex compositions need the headroom
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -67,12 +86,11 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── Record start time for elapsed reporting ──────────────────
       - name: Record start time
         id: timer
         run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
 
-      # ── Notify Vercel: render has started ────────────────────────
+      # ── Notify: render has started ────────────────────────────────
       - name: Notify rendering started
         if: inputs.job_id != ''
         env:
@@ -85,72 +103,87 @@ jobs:
             -d "{\"status\":\"rendering\",\"run_id\":\"${{ github.run_id }}\"}" \
           || echo "::warning::Status callback failed (non-fatal)"
 
-      # ── Node + FFmpeg ────────────────────────────────────────────
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: Install FFmpeg
-        run: sudo apt-get install -y ffmpeg
+      # ── Cache HyperFrames node_modules ────────────────────────────
+      # Skips ~90s npm install on warm runs. Bust by changing HF_TOOLS_CACHE_KEY.
+      - name: Restore HyperFrames cache
+        id: hf-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/hf-tools/node_modules
+          key: ${{ env.HF_TOOLS_CACHE_KEY }}-${{ runner.os }}
 
-      # ── HyperFrames + Puppeteer Chrome ───────────────────────────
-      - name: Install HyperFrames CLI
-        run: npm install -g hyperframes
+      - name: Install HyperFrames
+        if: steps.hf-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p /tmp/hf-tools
+          cd /tmp/hf-tools
+          echo '{"private":true}' > package.json
+          npm install hyperframes
+
+      # ── Cache Puppeteer Chrome binary ─────────────────────────────
+      # Skips ~90s Chrome download (~300 MB) on warm runs.
+      - name: Restore Chrome cache
+        id: chrome-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-chrome-${{ runner.os }}-v1
 
       - name: Install Chrome for Puppeteer
+        if: steps.chrome-cache.outputs.cache-hit != 'true'
         run: |
-          GLOBAL_ROOT=$(npm root -g)
-          cd "$GLOBAL_ROOT"
-          npx puppeteer browsers install chrome
+          cd /tmp/hf-tools
+          node_modules/.bin/puppeteer browsers install chrome
 
-      # ── Fetch composition (Supabase signed URL or legacy git path) ─
+      # ── FFmpeg is pre-installed on ubuntu-latest — no install needed ──
+
+      # ── Fetch composition ─────────────────────────────────────────
       - name: Prepare composition
         run: |
           mkdir -p /tmp/hf-render
           COMP_URL="${{ inputs.composition_url }}"
           COMP_PATH="${{ inputs.composition_path }}"
           if [ -n "$COMP_URL" ]; then
-            echo "Downloading composition from Supabase Storage…"
             curl -fsSL "$COMP_URL" -o /tmp/hf-render/index.html
           elif [ -n "$COMP_PATH" ]; then
-            echo "Copying composition from git checkout…"
             cp "${{ github.workspace }}/$COMP_PATH" /tmp/hf-render/index.html
           else
-            echo "::error::No composition source provided (composition_url or composition_path required)"
+            echo "::error::No composition source (composition_url or composition_path required)"
             exit 1
           fi
 
-      # ── Fetch music if provided (Supabase signed URL or legacy) ──
+      # ── Fetch music ───────────────────────────────────────────────
       - name: Prepare music
         id: music
         run: |
           MUSIC_URL="${{ inputs.music_url }}"
           MUSIC_PATH="${{ inputs.music_path }}"
           if [ -n "$MUSIC_URL" ]; then
-            EXT="${MUSIC_URL##*.}"
-            EXT="${EXT%%\?*}"   # strip query string from extension
-            DEST="/tmp/music.${EXT:-mp3}"
-            echo "Downloading music from Supabase Storage…"
-            curl -fsSL "$MUSIC_URL" -o "$DEST"
-            echo "path=$DEST" >> "$GITHUB_OUTPUT"
+            EXT="${MUSIC_URL##*.}"; EXT="${EXT%%\?*}"
+            curl -fsSL "$MUSIC_URL" -o "/tmp/music.${EXT:-mp3}"
+            echo "path=/tmp/music.${EXT:-mp3}" >> "$GITHUB_OUTPUT"
           elif [ -n "$MUSIC_PATH" ] && [ -f "${{ github.workspace }}/$MUSIC_PATH" ]; then
             echo "path=${{ github.workspace }}/$MUSIC_PATH" >> "$GITHUB_OUTPUT"
           else
             echo "path=" >> "$GITHUB_OUTPUT"
           fi
 
-      # ── Render ───────────────────────────────────────────────────
+      # ── Render to MP4 ─────────────────────────────────────────────
       - name: Render to MP4
         run: |
           mkdir -p "${{ github.workspace }}/renders"
           cd /tmp/hf-render
-          npx hyperframes render \
-            --quality high \
+          /tmp/hf-tools/node_modules/.bin/hyperframes render \
+            --quality ${{ inputs.quality || 'high' }} \
             --fps 30 \
             --output "${{ github.workspace }}/renders/${{ inputs.output_slug }}_silent.mp4"
 
-      # ── Mix background music ─────────────────────────────────────
+      # ── Mix background music ──────────────────────────────────────
       - name: Mix in background music
         run: |
           SILENT="${{ github.workspace }}/renders/${{ inputs.output_slug }}_silent.mp4"
@@ -169,7 +202,7 @@ jobs:
             mv "$SILENT" "$FINAL"
           fi
 
-      # ── Commit render + clean up source files ────────────────────
+      # ── Commit render + clean up ──────────────────────────────────
       - name: Commit render and clean up
         run: |
           cd "${{ github.workspace }}"
@@ -185,8 +218,7 @@ jobs:
           git commit -m "Rendered video: ${{ inputs.output_slug }}" || echo "Nothing to commit"
           git push
 
-      # ── Notify Vercel: completed OR failed ───────────────────────
-      # always() ensures failures are reported back to the browser.
+      # ── Report final status ───────────────────────────────────────
       - name: Report final status
         if: always() && inputs.job_id != ''
         env:
@@ -208,4 +240,4 @@ jobs:
             -H "Content-Type: application/json" \
             -H "X-Webhook-Secret: ${WEBHOOK_SECRET}" \
             -d "$PAYLOAD" \
-          || echo "::warning::Supabase final callback failed (video may still be accessible)"
+          || echo "::warning::Final callback failed (video may still be accessible)"
