@@ -42,19 +42,24 @@ jobs:
       - name: Install HyperFrames CLI
         run: npm install -g hyperframes
 
-      - name: Build render project
+      - name: Install Chrome for Puppeteer
+        run: |
+          # Install Chrome for the globally-installed Puppeteer that HyperFrames uses.
+          # Must run from the global node_modules root so npx finds the right puppeteer.
+          GLOBAL_ROOT=$(npm root -g)
+          cd "$GLOBAL_ROOT"
+          npx puppeteer browsers install chrome
+
+      - name: Prepare composition
         run: |
           mkdir -p /tmp/hf-render
           cp "${{ github.workspace }}/${{ inputs.composition_path }}" /tmp/hf-render/index.html
-          cd /tmp/hf-render
-          npm init -y
-          npm install gsap
-          npx puppeteer browsers install chrome
 
       - name: Render to MP4
         run: |
           mkdir -p "${{ github.workspace }}/renders"
-          npx hyperframes render /tmp/hf-render \
+          cd /tmp/hf-render
+          npx hyperframes render \
             --quality high \
             --fps 30 \
             --output "${{ github.workspace }}/renders/${{ inputs.output_slug }}_silent.mp4"
