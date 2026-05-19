@@ -901,163 +901,142 @@
   var vidPollTimer=null;
   var vidRealtimeSub=null;  // active Supabase Realtime subscription
 
-  // ── Supabase-backed render (primary path) ─────────────────────────
-  // Requires the user to be logged in via ☁ Sync.
-  // 1. Uploads composition + music to Supabase Storage (using existing session)
-  // 2. POSTs job to video-jobs edge function (no GitHub PAT needed)
-  // 3. Subscribes to Supabase Realtime for instant status updates
-  // 4. GitHub Actions webhooks back when done — no polling
-  // ─────────────────────────────────────────────────────────────────
-  async function vidRenderSupabase(comp, platName) {
-    var sync = window.GatewaySync;
+  // ── Supabase-tracked render (primary path) ────────────────────────
+  // Requires: ☁ Sync login (Supabase session) + GitHub PAT (repo scope).
+  //
+  // Same upload + dispatch as the legacy path, but adds a Supabase job
+  // record so the browser can use Realtime instead of polling GitHub API.
+  // GitHub Actions writes status back directly to Supabase via REST API
+  // using SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY repo secrets — no proxy.
+  // ─────────────────────────────────────────────────────────────────────
+  async function vidRenderSupabase(comp, platName, token, branch) {
+    var sync   = window.GatewaySync;
     var client = sync._client;
     var userId = sync._session.user.id;
-    var token  = sync._session.access_token;
 
-    var ai  = window.AI_CONFIG || {};
-    var cfg = window.CONFIG    || {};
-    var proxyBase   = (ai.proxyUrl    || cfg.proxyUrl    || '').replace(/\/$/, '');
-    var proxySecret = (ai.proxySecret || cfg.proxySecret || '');
-    if (!proxyBase) throw new Error('Proxy URL not configured — set proxyUrl in config.js or AI_CONFIG');
-
-    // 1. Upload composition HTML to Supabase Storage
-    vidSetStatus('uploading', 'Preparing ' + vidCurrentAnim + ' animation... Uploading…');
-    var compStoragePath = userId + '/' + comp.slug + '.html';
-    var compBlob = new Blob([comp.html], { type: 'text/html' });
-    var upRes = await client.storage.from('video-compositions').upload(compStoragePath, compBlob, {
-      contentType: 'text/html',
-      upsert: true
+    // 1. Upload composition to GitHub (identical to legacy path)
+    vidSetStatus('uploading', 'Adding ' + vidCurrentAnim + ' animation... Uploading to GitHub...');
+    var b64      = btoa(unescape(encodeURIComponent(comp.html)));
+    var compPath = 'compositions/pending/' + comp.slug + '.html';
+    var uploadRes = await fetch('https://api.github.com/repos/' + VID_REPO + '/contents/' + compPath, {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github+json' },
+      body: JSON.stringify({ message: 'Add composition: ' + comp.slug, content: b64, branch: branch })
     });
-    if (upRes.error) throw new Error('Composition upload failed: ' + upRes.error.message);
+    if (!uploadRes.ok) {
+      var ue = await uploadRes.json();
+      var uMsg = ue.message || uploadRes.status;
+      if (uploadRes.status === 401) uMsg = 'Bad credentials — your GitHub token is invalid or expired.';
+      else if (uploadRes.status === 403) uMsg = 'Permission denied — your GitHub token needs "repo" (Contents write) scope.';
+      throw new Error('Upload failed: ' + uMsg);
+    }
 
-    // 2. Upload music (if any)
-    var musicStoragePath = '';
+    var musicPath = '';
     if (vidMusicFile) {
-      vidSetStatus('uploading', 'Uploading music file…');
-      musicStoragePath = userId + '/' + comp.slug + '-music.' + vidMusicFile.ext;
-      var musicBlob = dataURLtoBlob(vidMusicFile.dataUrl);
-      var musicUp = await client.storage.from('video-compositions').upload(musicStoragePath, musicBlob, { upsert: true });
-      if (musicUp.error) throw new Error('Music upload failed: ' + musicUp.error.message);
+      vidSetStatus('uploading', 'Uploading music file to GitHub...');
+      var musicUpPath = 'compositions/pending/' + comp.slug + '-music.' + vidMusicFile.ext;
+      var musicB64    = vidMusicFile.dataUrl.split(',')[1];
+      var musicUpRes  = await fetch('https://api.github.com/repos/' + VID_REPO + '/contents/' + musicUpPath, {
+        method: 'PUT',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github+json' },
+        body: JSON.stringify({ message: 'Add music: ' + comp.slug, content: musicB64, branch: branch })
+      });
+      if (!musicUpRes.ok) { var me = await musicUpRes.json(); throw new Error('Music upload failed: ' + (me.message || musicUpRes.status)); }
+      musicPath = musicUpPath;
     }
 
-    // 3. Create job via Vercel proxy (triggers GitHub Actions server-side — no GH PAT in browser)
-    vidSetStatus('rendering', 'Queuing render job…');
-    var jobRes = await fetch(proxyBase + '/api/video-jobs', {
+    // 2. Create job record in Supabase (browser writes directly using its session JWT)
+    vidSetStatus('rendering', 'Queuing render...');
+    var insertRes = await client.from('video_jobs').insert({
+      user_id:          userId,
+      slug:             comp.slug,
+      status:           'queued',
+      platform:         vidCurrentPlatform,
+      composition_path: compPath
+    }).select('id').single();
+
+    if (insertRes.error || !insertRes.data) {
+      console.warn('[Video] Could not create job record:', insertRes.error?.message, '— falling back to legacy polling');
+      throw new Error('__FALLBACK__');
+    }
+    var jobId   = insertRes.data.id;
+    var quality = (vidCurrentPlatform === 'landscape') ? 'high' : 'balanced';
+
+    // 3. Dispatch GitHub Actions — pass job_id so Actions can webhook back to Supabase
+    var dispatchRes = await fetch('https://api.github.com/repos/' + VID_REPO + '/actions/workflows/render-listing-video.yml/dispatches', {
       method: 'POST',
-      headers: { 'x-gateway-secret': proxySecret, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        slug: comp.slug,
-        platform: vidCurrentPlatform,
-        // landscape/feed get high quality; short-form social gets balanced (40% faster)
-        quality: (vidCurrentPlatform === 'landscape') ? 'high' : 'balanced',
-        composition_path: compStoragePath,
-        music_path: musicStoragePath || undefined,
-        user_id: userId
-      })
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github+json' },
+      body: JSON.stringify({ ref: branch, inputs: { job_id: jobId, output_slug: comp.slug, quality: quality, composition_path: compPath, music_path: musicPath } })
     });
-    if (!jobRes.ok) {
-      var je = await jobRes.json().catch(function(){return {};});
-      throw new Error(je.error || 'Failed to queue render job (HTTP ' + jobRes.status + ')');
+    if (!dispatchRes.ok && dispatchRes.status !== 204) {
+      var de = await dispatchRes.json().catch(function(){return {};});
+      await client.from('video_jobs').update({ status: 'failed', error_msg: 'Dispatch failed: ' + (de.message || dispatchRes.status) }).eq('id', jobId);
+      throw new Error('Dispatch failed: ' + (de.message || dispatchRes.status));
     }
-    var jobData = await jobRes.json();
-    var jobId = jobData.jobId;
-    if (!jobId) throw new Error('No jobId returned from video-jobs function');
 
-    // 4. Subscribe to Realtime for live updates
+    // 4. Subscribe to Realtime — GitHub Actions PATCHes Supabase REST directly, which fires this
     return new Promise(function(resolve, reject) {
       var startMs = Date.now();
       var progressPhases = [
-        { until: 30,  pct: 10, msg: 'Installing Chrome + HyperFrames…' },
-        { until: 90,  pct: 30, msg: 'Rendering frames…' },
-        { until: 180, pct: 55, msg: 'Encoding ' + platName + '…' },
-        { until: 360, pct: 75, msg: 'Mixing audio…' },
-        { until: 900, pct: 90, msg: 'Finalizing export…' }
+        { until: 30,  msg: 'Waiting for runner… ' },
+        { until: 90,  msg: 'Rendering frames… ' },
+        { until: 180, msg: 'Encoding ' + platName + '… ' },
+        { until: 360, msg: 'Mixing audio… ' },
+        { until: 2700,msg: 'Finalizing export… ' }
       ];
-
-      // Animate a progress bar while waiting (purely cosmetic — real status comes via Realtime)
       var progressTimer = setInterval(function() {
         var elapsed = Math.round((Date.now() - startMs) / 1000);
-        var phase = progressPhases.find(function(p){ return elapsed < p.until; })
-          || { pct: 95, msg: 'Almost done…' };
-        vidSetStatus('rendering', phase.msg + ' (' + elapsed + 's)');
+        var phase = progressPhases.find(function(p){ return elapsed < p.until; }) || { msg: 'Almost done… ' };
+        vidSetStatus('rendering', phase.msg + '(' + elapsed + 's)');
       }, 4000);
 
-      if (vidRealtimeSub) {
-        try { client.removeChannel(vidRealtimeSub); } catch(e){}
-        vidRealtimeSub = null;
+      if (vidRealtimeSub) { try { client.removeChannel(vidRealtimeSub); } catch(e){} vidRealtimeSub = null; }
+
+      function finish(row, elapsed) {
+        clearInterval(progressTimer);
+        clearInterval(fallbackTimer);
+        if (vidRealtimeSub) { try { client.removeChannel(vidRealtimeSub); } catch(e){} vidRealtimeSub = null; }
+        if (row.status === 'completed') {
+          resolve({ url: row.render_url, elapsed: row.elapsed_sec || elapsed, slug: comp.slug });
+        } else {
+          var actionsUrl = row.run_id ? '\n\nActions log: https://github.com/' + VID_REPO + '/actions/runs/' + row.run_id : '';
+          reject(new Error((row.error_msg || 'Render failed') + actionsUrl));
+        }
       }
 
       vidRealtimeSub = client
         .channel('video-job-' + jobId)
-        .on('postgres_changes', {
-          event:  'UPDATE',
-          schema: 'public',
-          table:  'video_jobs',
-          filter: 'id=eq.' + jobId
-        }, function(payload) {
-          var row = payload.new || {};
-          var elapsed = Math.round((Date.now() - startMs) / 1000);
-
-          if (row.status === 'completed') {
-            clearInterval(progressTimer);
-            client.removeChannel(vidRealtimeSub);
-            vidRealtimeSub = null;
-            resolve({ url: row.render_url, elapsed: row.elapsed_sec || elapsed, slug: comp.slug });
-
-          } else if (row.status === 'failed') {
-            clearInterval(progressTimer);
-            client.removeChannel(vidRealtimeSub);
-            vidRealtimeSub = null;
-            var actionsUrl = 'https://github.com/' + VID_REPO + '/actions/runs/' + (row.run_id || '');
-            reject(new Error((row.error_msg || 'Render failed') + '\n\nActions log: ' + actionsUrl));
-          }
-        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'video_jobs', filter: 'id=eq.' + jobId },
+          function(payload) {
+            var row = payload.new || {};
+            var elapsed = Math.round((Date.now() - startMs) / 1000);
+            if (row.status === 'completed' || row.status === 'failed') finish(row, elapsed);
+          })
         .subscribe(function(status) {
           if (status === 'CHANNEL_ERROR') {
-            clearInterval(progressTimer);
-            reject(new Error('Realtime subscription failed — check your connection and try again.'));
+            // Realtime unavailable — fallback polling will handle it
+            console.warn('[Video] Realtime channel error; falling back to poll');
           }
         });
 
-      // Safety net: if Realtime never fires (e.g. Supabase Realtime not enabled for video_jobs),
-      // fall back to polling the edge function GET endpoint every 15s.
-      // Max wait: 50 min (exceeds the 45-min Actions timeout so we always get a terminal status).
+      // Fallback: poll Supabase DB directly every 15s in case Realtime doesn't fire
+      // (e.g. video_jobs not added to supabase_realtime publication yet)
       var pollAttempts = 0;
-      var MAX_POLLS = 200; // 200 × 15s = 50 min
       var fallbackTimer = setInterval(async function() {
         pollAttempts++;
-        if (pollAttempts > MAX_POLLS) {
-          clearInterval(fallbackTimer);
-          clearInterval(progressTimer);
+        if (pollAttempts > 200) { // 200 × 15s = 50 min
+          clearInterval(fallbackTimer); clearInterval(progressTimer);
           reject(new Error('Timed out after 50 min. Check GitHub Actions for details.'));
           return;
         }
         try {
-          var sr = await fetch(proxyBase + '/api/video-jobs?jobId=' + jobId, {
-            headers: { 'x-gateway-secret': proxySecret }
-          });
-          if (!sr.ok) return;
-          var sdata = await sr.json();
-          if (sdata.status === 'completed') {
-            clearInterval(fallbackTimer);
-            clearInterval(progressTimer);
-            client.removeChannel(vidRealtimeSub);
-            vidRealtimeSub = null;
-            resolve({ url: sdata.render_url, elapsed: sdata.elapsed_sec || Math.round((Date.now()-startMs)/1000), slug: comp.slug });
-          } else if (sdata.status === 'failed') {
-            clearInterval(fallbackTimer);
-            clearInterval(progressTimer);
-            client.removeChannel(vidRealtimeSub);
-            vidRealtimeSub = null;
-            reject(new Error(sdata.error_msg || 'Render failed'));
+          var pr = await client.from('video_jobs').select('status,render_url,error_msg,elapsed_sec,run_id').eq('id', jobId).single();
+          var row = pr.data || {};
+          if (row.status === 'completed' || row.status === 'failed') {
+            finish(row, Math.round((Date.now() - startMs) / 1000));
           }
         } catch(pe){}
       }, 15000);
-
-      // Clear fallback timer when Realtime resolves
-      var origResolve = resolve, origReject = reject;
-      resolve = function(v){ clearInterval(fallbackTimer); origResolve(v); };
-      reject  = function(e){ clearInterval(fallbackTimer); origReject(e); };
     });
   }
 
@@ -1158,6 +1137,16 @@
     return new Blob([u8], { type: mime });
   }
 
+  // ── Update GitHub settings UI based on team PAT availability ────────
+  // Called by sync.js after login/logout and by the init block below.
+  window.vidRefreshTokenUI = function() {
+    var hasteamPat = !!(window._gwTeamRenderPat);
+    var badge = document.getElementById('vid-team-pat-badge');
+    var personalWrap = document.getElementById('vid-personal-pat-wrap');
+    if (badge)        badge.style.display        = hasteamPat ? '' : 'none';
+    if (personalWrap) personalWrap.style.display = hasteamPat ? 'none' : '';
+  };
+
   // ── Main render entry point ───────────────────────────────────────
   window.vidRender = async function() {
     var btn = document.getElementById('vid-gen-btn');
@@ -1166,27 +1155,41 @@
     if (!comp) return;
     btn.disabled = true;
 
+    // Team PAT (from Supabase team_secrets) takes priority over personal PAT
+    var token  = (window._gwTeamRenderPat || localStorage.getItem('gh_pat') || (document.getElementById('vid-gh-token')  || {}).value || '').trim();
+    var branch = (localStorage.getItem('gh_branch') || (document.getElementById('vid-gh-branch') || {}).value || '').trim() || 'main';
+
+    if (!token) {
+      var settingsEl = document.getElementById('vid-settings');
+      if (settingsEl) settingsEl.open = true;
+      var tokenEl = document.getElementById('vid-gh-token');
+      if (tokenEl) tokenEl.focus();
+      vidSetStatus('error', 'GitHub token required — enter it in settings below', {
+        msg: 'Add a GitHub PAT with "repo" + "workflow" scopes in the settings below.\n\nAlso log in via ☁ Sync to enable live progress updates and job history.'
+      });
+      return;
+    }
+
     try {
-      var sync = window.GatewaySync;
+      var sync  = window.GatewaySync;
       var dlUrl;
 
       if (sync && sync.isLoggedIn && sync.isLoggedIn() && sync._client) {
-        // ── Preferred: Supabase flow (no GitHub PAT needed in browser) ──
-        dlUrl = await vidRenderSupabase(comp, platName);
-      } else {
-        // ── Fallback: legacy GitHub PAT flow ──
-        var token = (localStorage.getItem('gh_pat') || document.getElementById('vid-gh-token').value || '').trim();
-        var branch = (localStorage.getItem('gh_branch') || document.getElementById('vid-gh-branch').value || '').trim() || 'main';
-        if (!token) {
-          var settingsEl = document.getElementById('vid-settings');
-          if (settingsEl) settingsEl.open = true;
-          var tokenEl = document.getElementById('vid-gh-token');
-          if (tokenEl) tokenEl.focus();
-          vidSetStatus('error', 'Sign in via ☁ Sync to render without a GitHub token, or add your PAT below.', {
-            msg: 'Log in via ☁ Sync (top nav) for the recommended render path — no GitHub token required.\n\nAlternatively, add a GitHub PAT with "repo" scope in the settings below.'
-          });
-          return;
+        // ── Preferred: Supabase-tracked path ──────────────────────────
+        // Same GitHub upload + dispatch as legacy, but job state lives in
+        // Supabase so Realtime drives the UI instead of polling GitHub API.
+        try {
+          dlUrl = await vidRenderSupabase(comp, platName, token, branch);
+        } catch(e) {
+          if (e.message === '__FALLBACK__') {
+            // Supabase insert failed (table missing, RLS issue, etc.) — fall through
+            dlUrl = await vidRenderLegacy(comp, platName, token, branch);
+          } else {
+            throw e;
+          }
         }
+      } else {
+        // ── Fallback: pure GitHub PAT polling ─────────────────────────
         dlUrl = await vidRenderLegacy(comp, platName, token, branch);
       }
 

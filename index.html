@@ -1620,12 +1620,22 @@
       <details class="vid-settings-box" id="vid-settings">
         <summary>&#9881; GitHub Render Settings</summary>
         <div class="vid-settings-body">
-          <div class="vid-gh-notice" style="margin-bottom:12px">
-            A GitHub Personal Access Token is required to render videos.
-            <a href="https://github.com/settings/tokens/new?scopes=repo,workflow" target="_blank">Create one here</a>
-            with <code>repo</code> and <code>workflow</code> scopes — stored only in your browser.
+
+          <!-- Shown when a team PAT is stored in Supabase team_secrets -->
+          <div id="vid-team-pat-badge" style="display:none;background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.25);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#4CAF50;line-height:1.5">
+            ✓ <strong>Team GitHub PAT active</strong> — all logged-in agents can render without a personal token.
           </div>
-          <div class="form-row"><label>GitHub Token</label><input type="password" id="vid-gh-token" placeholder="ghp_..." oninput="localStorage.setItem('gh_pat',this.value)"></div>
+
+          <!-- Personal PAT section — hidden when team PAT is active -->
+          <div id="vid-personal-pat-wrap">
+            <div class="vid-gh-notice" style="margin-bottom:12px">
+              A GitHub Personal Access Token is required to render videos.
+              <a href="https://github.com/settings/tokens/new?scopes=repo,workflow" target="_blank">Create one here</a>
+              with <code>repo</code> and <code>workflow</code> scopes — stored only in your browser.
+            </div>
+            <div class="form-row"><label>GitHub Token</label><input type="password" id="vid-gh-token" placeholder="ghp_..." oninput="localStorage.setItem('gh_pat',this.value)"></div>
+          </div>
+
           <div class="form-row"><label>Branch</label><input type="text" id="vid-gh-branch" placeholder="main" oninput="localStorage.setItem('gh_branch',this.value)"></div>
         </div>
       </details>

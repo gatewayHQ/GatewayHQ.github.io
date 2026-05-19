@@ -147,10 +147,13 @@
           self._updateUI(session.user.email);
           if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
             self._fetchTeamKey();
+            self._fetchTeamRenderPat();
           }
         } else {
           self._updateUI(null);
-          window._gwTeamClaudeKey = '';
+          window._gwTeamClaudeKey  = '';
+          window._gwTeamRenderPat  = '';
+          if (typeof window.vidRefreshTokenUI === 'function') window.vidRefreshTokenUI();
         }
         if (typeof window.renderAIStatusBadge === 'function') window.renderAIStatusBadge();
       });
@@ -168,6 +171,9 @@
         })
         .then(function () {
           return self._fetchTeamKey();
+        })
+        .then(function () {
+          return self._fetchTeamRenderPat();
         });
     },
 
@@ -187,6 +193,9 @@
         })
         .then(function () {
           return self._fetchTeamKey();
+        })
+        .then(function () {
+          return self._fetchTeamRenderPat();
         });
     },
 
@@ -233,12 +242,41 @@
         });
     },
 
+    // ── Fetch shared GitHub render PAT from team_secrets table ────
+    // Same RLS protection as the Claude key — authenticated users only.
+    // Kept in memory only. If absent, agents fall back to their personal PAT.
+    _fetchTeamRenderPat: function () {
+      if (!this.isLoggedIn()) return Promise.resolve();
+
+      return this._client
+        .from('team_secrets')
+        .select('value')
+        .eq('key', 'gh_render_pat')
+        .single()
+        .then(function (res) {
+          if (res.error) {
+            // PGRST116 = row not found — gh_render_pat is optional, stay silent
+            if (res.error.code !== 'PGRST116') {
+              console.warn('[Sync] gh_render_pat fetch failed:', res.error.message);
+            }
+            return;
+          }
+          var pat = (res.data && res.data.value || '').trim();
+          if (!pat) return;
+          window._gwTeamRenderPat = pat;
+          console.log('[Sync] Team GitHub render PAT loaded ✓');
+          if (typeof window.vidRefreshTokenUI === 'function') window.vidRefreshTokenUI();
+        });
+    },
+
     logout: function () {
       var self = this;
       return this._client.auth.signOut().then(function () {
         self._session = null;
         self._updateUI(null);
         window._gwTeamClaudeKey = '';
+        window._gwTeamRenderPat = '';
+        if (typeof window.vidRefreshTokenUI === 'function') window.vidRefreshTokenUI();
       });
     },
 

@@ -171,15 +171,32 @@ CREATE POLICY "users_delete_own_compositions"
   );
 
 -- ================================================================
--- video-jobs Edge Function secrets (set in Supabase Dashboard →
--- Edge Functions → video-jobs → Secrets):
+-- Team shared GitHub render PAT
 --
---   GH_ACTIONS_PAT       = ghp_...  (repo + actions:write scopes)
---   GH_REPO              = gatewayhq/gatewayhq.github.io
---   GH_BRANCH            = main
---   RENDER_WEBHOOK_SECRET = <random 32-char hex>
+-- Store a single GitHub PAT in team_secrets so every logged-in agent
+-- can render videos without entering a personal token.
 --
--- GitHub Actions repository secrets (Settings → Secrets):
---   SUPABASE_VIDEO_JOBS_URL  = https://<ref>.supabase.co/functions/v1/video-jobs
---   RENDER_WEBHOOK_SECRET    = <same value as above>
+-- Required PAT scopes: repo (contents + actions:write)
+-- Create at: https://github.com/settings/tokens
+--
+-- Run once in SQL Editor (replace ghp_... with your actual PAT):
+--
+--   INSERT INTO team_secrets (key, value)
+--   VALUES ('gh_render_pat', 'ghp_...')
+--   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+--
+-- The browser loads this automatically after login (app/sync.js →
+-- _fetchTeamRenderPat). The token lives in memory only — never
+-- written to localStorage or exposed in the DOM.
+-- ================================================================
+
+-- ================================================================
+-- GitHub Actions repository secrets (Settings → Secrets → Actions):
+--
+--   SUPABASE_URL              = https://<ref>.supabase.co
+--   SUPABASE_SERVICE_ROLE_KEY = <service role key>
+--
+-- These allow the render workflow to write job status directly to
+-- Supabase without going through any proxy. The browser subscribes
+-- to Supabase Realtime (video_jobs table) to receive live updates.
 -- ================================================================
