@@ -150,7 +150,7 @@ function addCoverSlide(pptx, data, config, _L, _U) {
   });
   // Gold hairline at top of bottom strip
   slide.addShape('rect', {
-    x: 0, y: BSTRIP_Y, w: L.W, h: L.snap(0.01),
+    x: 0, y: BSTRIP_Y, w: L.W, h: 0.02, // sub-grid — do not pass through snap()
     fill: { color: config.accentColor },
     line: { color: config.accentColor },
   });

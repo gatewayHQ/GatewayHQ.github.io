@@ -92,18 +92,15 @@ function addInvestmentHighlightsSlide(pptx, data, config, _L, _U) {
     var item = highlights[i];
     if (!item) continue;  // empty slot — background only
 
-    // c. Card title
-    slide.addText(item.title || '', {
-      x: L.snap(card_x + 0.22), y: L.snap(card_y + 0.18),
-      w: L.snap(card_w - 0.44), h: L.snap(0.38),
-      fontFace: L.TYPE.sectionHdr.fontFace,
-      fontSize: L.TYPE.sectionHdr.fontSize,
-      bold: true,
-      color: config.accentColor,
-      valign: 'middle',
-    });
+    var titleText = (item.title       || '').trim();
+    var descText  = (item.description || '').trim();
 
-    // d. Gold left accent bar (vertical, inset from card left edge)
+    // When no " - " separator was used, the entire entry lands in titleText with
+    // an empty descText. A 150-char paragraph in an 18pt bold 0.39"-tall box clips
+    // catastrophically. Detect this and switch to "body-only" card layout.
+    var bodyOnly  = !descText && titleText.length > 40;
+
+    // d. Gold left accent bar (always present)
     slide.addShape('rect', {
       x: L.snap(card_x + ACCENT_BAR_X_OFF),
       y: L.snap(card_y + 0.20),
@@ -113,17 +110,46 @@ function addInvestmentHighlightsSlide(pptx, data, config, _L, _U) {
       line: { color: config.accentColor },
     });
 
-    // e. Description text
-    slide.addText(item.description || '', {
-      x: L.snap(card_x + 0.28), y: L.snap(card_y + 0.64),
-      w: L.snap(card_w - 0.44), h: L.snap(card_h - 0.80),
-      fontFace: L.TYPE.body.fontFace,
-      fontSize: L.TYPE.body.fontSize,
-      color: CARD_TEXT,
-      valign: 'top',
-      lineSpacingMultiple: 1.45,
-      wrap: true,
-    });
+    if (bodyOnly) {
+      // Body-only mode: no separate title line; full paragraph fills the card.
+      // Text starts below the gold top bar with comfortable padding.
+      slide.addText(titleText, {
+        x: L.snap(card_x + 0.28), y: L.snap(card_y + 0.26),
+        w: L.snap(card_w - 0.44), h: L.snap(card_h - 0.42),
+        fontFace: L.TYPE.body.fontFace,
+        fontSize: L.TYPE.body.fontSize,
+        color: CARD_TEXT,
+        valign: 'top',
+        lineSpacingMultiple: 1.55,
+        wrap: true,
+      });
+    } else {
+      // Normal mode: short bold gold title header + body description below.
+      if (titleText) {
+        slide.addText(titleText, {
+          x: L.snap(card_x + 0.22), y: L.snap(card_y + 0.18),
+          w: L.snap(card_w - 0.44), h: L.snap(0.38),
+          fontFace: L.TYPE.sectionHdr.fontFace,
+          fontSize: L.TYPE.sectionHdr.fontSize,
+          bold: true,
+          color: config.accentColor,
+          valign: 'middle',
+          shrinkText: true,   // safety net for slightly-long titles
+        });
+      }
+      if (descText) {
+        slide.addText(descText, {
+          x: L.snap(card_x + 0.28), y: L.snap(card_y + 0.64),
+          w: L.snap(card_w - 0.44), h: L.snap(card_h - 0.80),
+          fontFace: L.TYPE.body.fontFace,
+          fontSize: L.TYPE.body.fontSize,
+          color: CARD_TEXT,
+          valign: 'top',
+          lineSpacingMultiple: 1.45,
+          wrap: true,
+        });
+      }
+    }
   }
 
   return slide;
