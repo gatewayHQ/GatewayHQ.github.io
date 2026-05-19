@@ -1370,24 +1370,19 @@ async function drawJustSoldTemplate(canvas, ctx) {
   ctx.fillStyle = GOLD;
   ctx.fillRect(0, footerY, W, 3);
 
-  // Define logo position first so the agent zone width can respect it
-  var jsLogoSz = 80;
-  var jsLogoX  = W - 60 - jsLogoSz;
-  var jsLogoY  = footerY + 14;
-
   var fY = footerY + 44;
   var footerAgents = smAgents.filter(function(a) {
     return a && a.name && a.name.trim();
   }).slice(0, 2);
 
+  // Agents take the full footer width; Gateway section moves below them centered
+  var agPhotoW = 120, agPhotoH = 152;
   if (footerAgents.length > 0) {
-    // Scale photo slightly when two agents share the footer zone
-    var agPhotoW  = footerAgents.length === 2 ? 96  : 120;
-    var agPhotoH  = footerAgents.length === 2 ? 120 : 152;
-    var agZoneEnd = jsLogoX - 24;
-    var agSlotW   = footerAgents.length === 2
-      ? Math.floor((agZoneEnd - 60 - 20) / 2)
-      : agZoneEnd - 60;
+    agPhotoW = footerAgents.length === 2 ? 96  : 120;
+    agPhotoH = footerAgents.length === 2 ? 120 : 152;
+    var agSlotW = footerAgents.length === 2
+      ? Math.floor((W - 120 - 20) / 2)
+      : W - 120;
 
     for (var ai3 = 0; ai3 < footerAgents.length; ai3++) {
       var ag3 = footerAgents[ai3];
@@ -1432,26 +1427,27 @@ async function drawJustSoldTemplate(canvas, ctx) {
     }
   }
 
-  // Gateway logo — anchored top-right of footer, sized 80×80
+  // Gateway logo + company info — centered below agent block
+  var gwY      = fY + agPhotoH + 20;
+  var jsLogoSz = 60;
+  var jsLogoX  = Math.floor(W / 2 - jsLogoSz / 2);
   try {
     var lSrc = (pal.logoKey === 'dark') ? (LOGO_ROUND_SUBMARK || '') : (LOGO_CIRCLE_LIGHT || '');
     if (lSrc) {
       var lImg = await loadImageAsync(lSrc);
-      ctx.drawImage(lImg, jsLogoX, jsLogoY, jsLogoSz, jsLogoSz);
+      ctx.drawImage(lImg, jsLogoX, gwY, jsLogoSz, jsLogoSz);
     }
   } catch(e) {}
 
-  // Company info — right-aligned, sitting left of the logo
-  var jsCompX = jsLogoX - 16;
-  ctx.textAlign = 'right';
-  ctx.font = 'bold 17px "Montserrat", sans-serif';
+  var gwTextY = gwY + jsLogoSz + 8;
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 15px "Montserrat", sans-serif';
   ctx.fillStyle = CREAM;
-  ctx.fillText('GATEWAY REAL ESTATE ADVISORS', jsCompX, footerY + 38);
-  ctx.font = '400 13px "Montserrat", sans-serif';
+  ctx.fillText('GATEWAY REAL ESTATE ADVISORS', W / 2, gwTextY);
+  ctx.font = '400 12px "Montserrat", sans-serif';
   ctx.fillStyle = LABEL;
-  ctx.fillText('gatewayrealtyadvisors.com', jsCompX, footerY + 58);
-  ctx.fillText('info@gatewayrealtyadvisors.com', jsCompX, footerY + 76);
-  ctx.fillText('700 Nebraska St  \u2022  Sioux City, IA 51101', jsCompX, footerY + 94);
+  ctx.fillText('gatewayrealtyadvisors.com  •  info@gatewayrealtyadvisors.com', W / 2, gwTextY + 18);
+  ctx.fillText('700 Nebraska St  •  Sioux City, IA 51101', W / 2, gwTextY + 36);
 }
 
 async function drawCommercialTemplate(canvas, ctx, templateName) {
