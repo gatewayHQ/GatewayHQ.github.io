@@ -1,0 +1,15 @@
+{
+  "name": "gateway-om-generator",
+  "version": "1.0.0",
+  "description": "Gateway Real Estate Advisors — institutional Offering Memorandum generator",
+  "main": "generate-om.js",
+  "scripts": {
+    "sample": "node -e \"var PptxGenJS=require('pptxgenjs');global.PptxGenJS=PptxGenJS; var BRAND_CONFIG=require('./brand-config');global.BRAND_CONFIG=BRAND_CONFIG; var LAYOUT=require('./layout-constants');global.LAYOUT=LAYOUT; var OMUtils=require('./utils');global.OMUtils=OMUtils; ['01-cover','02-offering-summary','03-investment-highlights','04-property-description','05-unit-mix','06-financial-summary','07-location-overview','08-market-overview','09-section-divider','10-back-cover'].forEach(s=>{require('./slide-modules/'+s);}); var gen=require('./generate-om'); var data=require('./sample-data'); gen(data,{}).then(()=>console.log('Done'));\""
+  },
+  "dependencies": {
+    "pptxgenjs": "^3.12.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

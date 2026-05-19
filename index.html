@@ -418,9 +418,10 @@
   <!-- Template Picker -->
   <div class="tpl-pick-row" id="tpl-pick-row">
     <div class="tpl-pick-card tpl-active" id="tpl-card-1" onclick="selectOMTemplate(1)">
-      <div class="tpl-pick-thumb tpl-t1">📊</div>
-      <div class="tpl-pick-name">Original</div>
-      <div class="tpl-pick-sub">PPTX · Gateway Blue</div>
+      <div class="tpl-pick-badge">UPDATED</div>
+      <div class="tpl-pick-thumb tpl-t1">🏛</div>
+      <div class="tpl-pick-name">Institutional Pro</div>
+      <div class="tpl-pick-sub">PPTX · Navy &amp; Gold · 13.33×7.5</div>
     </div>
     <div class="tpl-pick-card" id="tpl-card-2" onclick="selectOMTemplate(2)">
       <div class="tpl-pick-badge">NEW</div>
@@ -1714,6 +1715,22 @@
 <script src="lib/pptxgen.min.js"></script>
 <script src="lib/sheetjs.min.js"></script>
 <script src="lib/jszip.min.js"></script>
+
+<!-- ── OM Generator — modular 13.33×7.5 institutional system ────── -->
+<script src="pptx/brand-config.js"></script>
+<script src="pptx/layout-constants.js"></script>
+<script src="pptx/utils.js"></script>
+<script src="pptx/slide-modules/01-cover.js"></script>
+<script src="pptx/slide-modules/02-offering-summary.js"></script>
+<script src="pptx/slide-modules/03-investment-highlights.js"></script>
+<script src="pptx/slide-modules/04-property-description.js"></script>
+<script src="pptx/slide-modules/05-unit-mix.js"></script>
+<script src="pptx/slide-modules/06-financial-summary.js"></script>
+<script src="pptx/slide-modules/07-location-overview.js"></script>
+<script src="pptx/slide-modules/08-market-overview.js"></script>
+<script src="pptx/slide-modules/09-section-divider.js"></script>
+<script src="pptx/slide-modules/10-back-cover.js"></script>
+<script src="pptx/generate-om.js"></script>
 
 <!-- Home Valuation dependencies (PDF export + HEIC image conversion) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
