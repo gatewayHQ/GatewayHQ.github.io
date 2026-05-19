@@ -1341,840 +1341,189 @@ function generateGatewayInstitutional() {
 
 // ==== GENERATE PPTX ====
 function generateOM() {
+  var v = function(id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  var n = function(id) { var el = document.getElementById(id); return el ? (+el.value || 0) : 0; };
   try {
-    var v = function(id) { var el = document.getElementById(id); return el ? el.value : ''; };
-    var n = function(id) { var el = document.getElementById(id); return el ? (+el.value || 0) : 0; };
-    var fmt = function(num) { return '$' + num.toLocaleString(); };
-    var fmtK = function(num) {
-      if (Math.abs(num) >= 1000000) return '$' + (num/1000000).toFixed(1) + 'M';
-      if (Math.abs(num) >= 1000) return '$' + Math.round(num/1000) + 'K';
-      return '$' + num.toLocaleString();
-    };
-    var sp = function(t) { return t.toUpperCase().split('').join(' '); };
-
-    // ── Brand Color Palette ──
-    var GOLD = 'C8A84B';  // Gateway Gold — primary accent
-    var NV   = '1E2F39';  // Deep Navy
-    var NV2  = '162530';  // Darker Navy (inset panels)
-    var AC   = 'A2B6C0';  // Slate Blue
-    var DK   = '1A1A1A';  // Near Black
-    var GR   = '8A8A88';  // Warm Gray
-    var CR   = 'E4E3D4';  // Cream
-    var PL   = 'F4F1E8';  // Panel Light (warm off-white for light slides)
-    var PM   = 'E8E4D6';  // Panel Medium (alt rows on light slides)
-    var WH   = 'FFFFFF';  // White
-    var BD   = '3A3A3A';  // Body text
-
-    var pptx = new PptxGenJS();
-    pptx.defineLayout({ name: 'OM', width: 10, height: 5.625 });
-    pptx.layout = 'OM';
-    pptx.author = 'Gateway Real Estate Advisors';
-    pptx.company = 'Gateway Real Estate Advisors';
-    pptx.subject = (v('propName1') + ' ' + v('propName2')).trim() + ' - Offering Memorandum';
-
-    // ── Helper: thin gold rule ──
-    function addGoldLine(slide, x, y, w) {
-      slide.addShape('rect', {x:x, y:y, w:w, h:0.018, fill:{color:GOLD}});
+    if (typeof generateOfferingMemorandum !== 'function') {
+      alert('OM generator not loaded — please refresh the page.');
+      return;
     }
 
-    // ── Helper: gold-accented metric box (for left panels & cover) ──
-    function addGoldMetricBox(slide, x, y, w, h, value, label) {
-      slide.addShape('rect', {x:x, y:y, w:w, h:h, fill:{color:NV2}});
-      slide.addShape('rect', {x:x, y:y, w:w, h:0.04, fill:{color:GOLD}});
-      slide.addText(value, {x:x, y:y+0.06, w:w, h:h*0.5, align:'center', fontSize:17, fontFace:'Georgia', color:WH, bold:true});
-      slide.addText(label, {x:x, y:y+h*0.62, w:w, h:h*0.34, align:'center', fontSize:5.5, fontFace:'Arial', color:GOLD, charSpacing:0.8});
-    }
+    // ── Financial roll-up ──────────────────────────────────────────────────
+    var curVacPct   = parseFloat((document.getElementById('curVacancy') || {}).value) || 0;
+    var pfVacPct    = parseFloat((document.getElementById('pfVacancy')  || {}).value) || 0;
+    var curGRI      = n('curIncome');
+    var pfGRI       = n('pfIncome');
+    var curOtherTot = (curOtherIncome || []).reduce(function(s,e){return s+(+e.amount||0);},0);
+    var pfOtherTot  = (pfOtherIncome  || []).reduce(function(s,e){return s+(+e.amount||0);},0);
+    var curVacLoss  = Math.round(curGRI * curVacPct / 100);
+    var pfVacLoss   = Math.round(pfGRI  * pfVacPct  / 100);
+    var curEGI      = curGRI + curOtherTot - curVacLoss;
+    var pfEGI       = pfGRI  + pfOtherTot  - pfVacLoss;
+    var curExpTot   = (curExpenses || []).reduce(function(s,e){return s+(+e.amount||0);},0);
+    var pfExpTot    = (pfExpenses  || []).reduce(function(s,e){return s+(+e.amount||0);},0);
+    var curNOI      = curEGI - curExpTot;
+    var pfNOI       = pfEGI  - pfExpTot;
+    var askingPrice = n('askingPrice');
+    var totalUnits  = n('totalUnits');
+    var totalSqFt   = (unitData || []).reduce(function(s,u){return s+(u.units||0)*(u.sqft||0);},0);
 
-    // ── Helper: left navy panel (slides 3, 4, 6) ──
-    function addLeftPanel(slide, sectionNum, sectionTitle) {
-      slide.addShape('rect', {x:0, y:0, w:3.0, h:5.625, fill:{color:NV}});
-      slide.addShape('rect', {x:0, y:0, w:3.0, h:0.06, fill:{color:GOLD}});
-      slide.addText(sectionNum, {x:0, y:0.14, w:3.0, h:0.52, align:'center', fontSize:38, fontFace:'Georgia', color:GOLD, bold:true});
-      addGoldLine(slide, 0.3, 0.69, 2.4);
-      slide.addText(sectionTitle.replace(' ', '\n'), {x:0.15, y:0.76, w:2.7, h:0.88, align:'center', fontSize:13, fontFace:'Georgia', color:WH, bold:true, lineSpacingMultiple:1.15});
-    }
-
-    // ── Helper: footer strip ──
-    function addFooter(slide, pageNum, isDark) {
-      var stripColor = isDark ? '0E181F' : PM;
-      slide.addShape('rect', {x:0, y:5.35, w:10, h:0.275, fill:{color:stripColor}});
-      addGoldLine(slide, 0, 5.35, 10);
-      slide.addText('GATEWAY REAL ESTATE ADVISORS', {x:0.25, y:5.37, w:4.5, h:0.22, fontSize:6, fontFace:'Arial', color:isDark ? AC : GR, bold:true, align:'left', charSpacing:1.5});
-      slide.addText('CONFIDENTIAL  ·  NOT FOR DISTRIBUTION', {x:3.8, y:5.37, w:3.2, h:0.22, fontSize:6, fontFace:'Arial', color:isDark ? '3A5A6A' : GR, align:'center'});
-      slide.addText(pageNum + ' / 10', {x:8.5, y:5.37, w:1.25, h:0.22, fontSize:7, fontFace:'Georgia', color:GOLD, align:'right'});
-      var logoData = isDark ? (typeof LOGO_PRIMARY_LIGHT !== 'undefined' ? LOGO_PRIMARY_LIGHT : null) : (typeof LOGO_PRIMARY_DARK !== 'undefined' ? LOGO_PRIMARY_DARK : null);
-      if (logoData) {
-        slide.addImage({data:logoData, x:7.25, y:5.38, w:1.0, h:0.2, sizing:{type:'contain', w:1.0, h:0.2}});
-      }
-    }
-
-    // ── Helper: data row (light-bg slides) ──
-    function addDataRow(slide, x, y, w, h, label, value, isAlt, isBold, fs) {
-      if (isBold) {
-        slide.addShape('rect', {x:x, y:y, w:w, h:h, fill:{color:NV}});
-        slide.addText(label, {x:x+0.1, y:y, w:w*0.62, h:h, fontSize:(fs||8), fontFace:'Arial', color:WH, bold:true, align:'left', valign:'middle'});
-        slide.addText(value, {x:x+w*0.52, y:y, w:w*0.44, h:h, fontSize:(fs||8), fontFace:'Georgia', color:GOLD, bold:true, align:'right', valign:'middle'});
-      } else {
-        var bg = isAlt ? PM : PL;
-        slide.addShape('rect', {x:x, y:y, w:w, h:h, fill:{color:bg}});
-        slide.addText(label, {x:x+0.1, y:y, w:w*0.62, h:h, fontSize:(fs||8), fontFace:'Arial', color:BD, align:'left', valign:'middle'});
-        slide.addText(value, {x:x+w*0.52, y:y, w:w*0.44, h:h, fontSize:(fs||8), fontFace:'Arial', color:NV, bold:true, align:'right', valign:'middle'});
-      }
-    }
-
-    // ── Helper: NOI / total highlight row (gold) ──
-    function addNOIRow(slide, x, y, w, h, label, value, fs) {
-      slide.addShape('rect', {x:x, y:y, w:w, h:h, fill:{color:GOLD}});
-      slide.addText(label, {x:x+0.1, y:y, w:w*0.6, h:h, fontSize:(fs||8.5), fontFace:'Arial', color:NV, bold:true, align:'left', valign:'middle'});
-      slide.addText(value, {x:x+w*0.52, y:y, w:w*0.44, h:h, fontSize:(fs||8.5), fontFace:'Georgia', color:NV, bold:true, align:'right', valign:'middle'});
-    }
-
-    var stateFips = document.getElementById('mktState') ? document.getElementById('mktState').value : '';
-    var stateName = typeof STATE_NAMES !== 'undefined' ? (STATE_NAMES[stateFips] || '') : '';
-
-    // ════════════════════════════════════════════════
-    // SLIDE 1: COVER
-    // ════════════════════════════════════════════════
-    var s1 = pptx.addSlide();
-    s1.background = {color:DK};
-
-    // Gold top cap
-    s1.addShape('rect', {x:0, y:0, w:10, h:0.06, fill:{color:GOLD}});
-
-    // Brokerage name bar
-    s1.addShape('rect', {x:0, y:0.06, w:10, h:0.44, fill:{color:NV}});
-    s1.addText('GATEWAY REAL ESTATE ADVISORS', {x:0, y:0.06, w:10, h:0.44, align:'center', fontSize:8.5, fontFace:'Arial', color:AC, charSpacing:2.5, bold:true});
-    s1.addShape('rect', {x:0, y:0.5, w:10, h:0.004, fill:{color:'2A3F4D'}});
-
-    // Hero photo — left 53%
-    if (photos[0]) {
-      s1.addImage({data:photos[0], x:0, y:0.5, w:5.3, h:4.85, sizing:{type:'cover', w:5.3, h:4.85}});
-      s1.addShape('rect', {x:0, y:0.5, w:5.3, h:4.85, fill:{type:'none'}, line:{color:'2A3F4D', width:0.5}});
-    } else {
-      s1.addShape('rect', {x:0, y:0.5, w:5.3, h:4.85, fill:{color:NV}});
-      s1.addText('PROPERTY\nPHOTOGRAPHY', {x:0, y:0.5, w:5.3, h:4.85, align:'center', valign:'middle', fontSize:14, fontFace:'Georgia', color:AC, italic:true, lineSpacingMultiple:1.3});
-    }
-
-    // "OFFERING MEMORANDUM" label
-    s1.addText('OFFERING MEMORANDUM', {x:5.5, y:0.65, w:4.3, h:0.28, align:'left', fontSize:8, fontFace:'Arial', color:GOLD, charSpacing:2.0, bold:true});
-
-    // Property name
-    s1.addText(v('propName1').toUpperCase(), {x:5.5, y:0.98, w:4.3, h:0.72, fontSize:38, fontFace:'Georgia', color:WH, bold:true, align:'left', shrinkText:true});
-    s1.addText(v('propName2').toUpperCase(), {x:5.5, y:1.65, w:4.3, h:0.48, fontSize:26, fontFace:'Georgia', color:AC, bold:false, align:'left', shrinkText:true});
-
-    // Gold separator
-    addGoldLine(s1, 5.5, 2.18, 4.3);
-
-    // Address
-    s1.addText(v('address').toUpperCase(), {x:5.5, y:2.24, w:4.3, h:0.28, fontSize:8, fontFace:'Arial', color:GR, align:'left', charSpacing:0.5});
-
-    // Metric boxes (2×2)
-    var mboxes = [
-      {x:5.5,  y:2.68, l:'ASKING PRICE', val:fmtK(n('askingPrice'))},
-      {x:7.85, y:2.68, l:'TOTAL UNITS',  val:''+n('totalUnits')},
-      {x:5.5,  y:3.58, l:'CAP RATE',     val:n('capRate').toFixed(1)+'%'},
-      {x:7.85, y:3.58, l:'PRICE / UNIT', val:fmtK(n('pricePerUnit'))}
-    ];
-    mboxes.forEach(function(b) {
-      addGoldMetricBox(s1, b.x, b.y, 2.2, 0.78, b.val, b.l);
+    // ── Income schedule ────────────────────────────────────────────────────
+    var incomeItems = [];
+    incomeItems.push({label:'Gross Rental Income', current:curGRI, proforma:pfGRI});
+    (curOtherIncome || []).forEach(function(o, i) {
+      var pf = (pfOtherIncome || [])[i] || {};
+      incomeItems.push({label:o.name||'Other Income', current:+o.amount||0, proforma:+pf.amount||+o.amount||0});
     });
-
-    // Bottom strip
-    s1.addShape('rect', {x:0, y:5.35, w:10, h:0.275, fill:{color:'0A1218'}});
-    addGoldLine(s1, 0, 5.35, 10);
-    s1.addText('Exclusively Offered by Gateway Real Estate Advisors  ·  All information deemed reliable but not guaranteed', {x:0.3, y:5.37, w:7.5, h:0.22, fontSize:6.5, fontFace:'Arial', color:GR, italic:true, align:'left'});
-    s1.addText('01 / 08', {x:8.8, y:5.37, w:0.9, h:0.22, fontSize:7, fontFace:'Georgia', color:GOLD, align:'right'});
-
-    // ════════════════════════════════════════════════
-    // SLIDE 2: TABLE OF CONTENTS
-    // ════════════════════════════════════════════════
-    var s2 = pptx.addSlide();
-    s2.background = {color:NV};
-
-    // Left accent stripe
-    s2.addShape('rect', {x:0, y:0, w:0.28, h:5.625, fill:{color:NV2}});
-    s2.addShape('rect', {x:0, y:0, w:0.06, h:5.625, fill:{color:GOLD}});
-
-    // Heading
-    s2.addText('TABLE OF', {x:0.65, y:0.28, w:9, h:0.52, fontSize:40, fontFace:'Georgia', color:WH, bold:true, align:'left'});
-    s2.addText('CONTENTS', {x:0.65, y:0.78, w:9, h:0.52, fontSize:40, fontFace:'Georgia', color:GOLD, bold:false, align:'left'});
-    addGoldLine(s2, 0.65, 1.36, 9.1);
-
-    var tocItems = [
-      {num:'01', title:'EXECUTIVE SUMMARY',    desc:'Investment thesis, key metrics, and opportunity overview',       pg:'03'},
-      {num:'02', title:'PROPERTY OVERVIEW',    desc:'Building details, unit mix, features, and specifications',       pg:'04'},
-      {num:'03', title:'FINANCIAL ANALYSIS',   desc:'Current income, pro forma projections, and key assumptions',     pg:'05'},
-      {num:'04', title:'MARKET OVERVIEW',      desc:'Demographics, economic drivers, and market trends',              pg:'06'},
-      {num:'05', title:'PHOTO GALLERY',        desc:'Property photography and visual documentation',                  pg:'07'},
-      {num:'06', title:'CONTACT & DISCLAIMER', desc:'Agent contact information and confidentiality notice',           pg:'08'},
-      {num:'07', title:'ABOUT THE AGENTS',     desc:'Agent profiles, credentials, and expertise',                    pg:'09'},
-      {num:'08', title:'ABOUT GATEWAY',        desc:'Company overview, track record, and advisory services',         pg:'10'}
-    ];
-
-    tocItems.forEach(function(item, i) {
-      var ty = 1.45 + i * 0.50;
-      // Gold number
-      s2.addText(item.num, {x:0.65, y:ty, w:0.6, h:0.55, fontSize:20, fontFace:'Georgia', color:GOLD, bold:true, align:'left', valign:'middle'});
-      // Thin divider
-      s2.addShape('rect', {x:1.3, y:ty+0.08, w:0.005, h:0.38, fill:{color:AC}});
-      // Title + description
-      s2.addText(item.title, {x:1.42, y:ty+0.04, w:6.5, h:0.24, fontSize:11, fontFace:'Arial', color:WH, bold:true, align:'left'});
-      s2.addText(item.desc,  {x:1.42, y:ty+0.28, w:6.5, h:0.2,  fontSize:8,  fontFace:'Arial', color:AC,  align:'left'});
-      // Page number
-      s2.addText('p.' + item.pg, {x:8.6, y:ty+0.1, w:1.0, h:0.3, fontSize:12, fontFace:'Georgia', color:GR, align:'right', valign:'middle'});
-      // Row separator
-      if (i < tocItems.length - 1) {
-        s2.addShape('rect', {x:0.65, y:ty+0.57, w:9.1, h:0.004, fill:{color:'2A3F4D'}});
-      }
-    });
-
-    addFooter(s2, '02', true);
-
-    // ════════════════════════════════════════════════
-    // SLIDE 3: EXECUTIVE SUMMARY
-    // ════════════════════════════════════════════════
-    var s3 = pptx.addSlide();
-    s3.background = {color:PL};
-
-    addLeftPanel(s3, '01', 'EXECUTIVE SUMMARY');
-
-    // Key investment metrics in left panel (2×2 grid)
-    var inv_metrics = [
-      {val:fmtK(n('askingPrice')),         label:'ASKING PRICE'},
-      {val:fmtK(n('noi')),                 label:'CURRENT NOI'},
-      {val:n('capRate').toFixed(2) + '%',  label:'CAP RATE'},
-      {val:n('grm') + 'x',                 label:'GROSS RENT MULT.'}
-    ];
-    inv_metrics.forEach(function(m, i) {
-      var mRow = Math.floor(i / 2);
-      var mCol = i % 2;
-      addGoldMetricBox(s3, 0.2 + mCol * 1.3, 1.78 + mRow * 0.92, 1.25, 0.80, m.val, m.label);
-    });
-
-    addGoldLine(s3, 0.2, 3.54, 2.6);
-    s3.addText(n('totalUnits') + ' UNITS', {x:0, y:3.65, w:3.0, h:0.28, align:'center', fontSize:14, fontFace:'Georgia', color:WH, bold:true});
-    s3.addText((v('occupancy') || '100%') + ' OCCUPIED', {x:0, y:3.93, w:3.0, h:0.22, align:'center', fontSize:8, fontFace:'Arial', color:AC, charSpacing:1.0});
-
-    // Right content
-    var r3x = 3.2;
-    var r3w = 6.65;
-
-    s3.addText('Executive Summary', {x:r3x, y:0.22, w:r3w, h:0.4, fontSize:20, fontFace:'Georgia', color:NV, bold:true});
-    addGoldLine(s3, r3x, 0.64, r3w);
-    s3.addText(v('execDesc'), {x:r3x, y:0.74, w:r3w, h:0.78, fontSize:9, fontFace:'Arial', color:BD, lineSpacingMultiple:1.5});
-
-    // Callout bar
-    if (v('callout')) {
-      s3.addShape('rect', {x:r3x, y:1.6, w:r3w, h:0.44, fill:{color:NV}});
-      s3.addShape('rect', {x:r3x, y:1.6, w:0.06, h:0.44, fill:{color:GOLD}});
-      s3.addText(v('callout'), {x:r3x+0.15, y:1.6, w:r3w-0.2, h:0.44, fontSize:8.5, fontFace:'Arial', color:AC, italic:true, valign:'middle'});
+    if (curVacLoss > 0 || pfVacLoss > 0) {
+      incomeItems.push({label:'Vacancy Loss (' + curVacPct.toFixed(1) + '%)', current:-curVacLoss, proforma:-pfVacLoss});
     }
+    incomeItems.push({label:'Effective Gross Income', current:curEGI, proforma:pfEGI});
 
-    // Investment highlights
-    s3.addText('INVESTMENT HIGHLIGHTS', {x:r3x, y:2.18, w:r3w, h:0.26, fontSize:10, fontFace:'Arial', color:NV, bold:true, charSpacing:0.5});
-    addGoldLine(s3, r3x, 2.44, r3w);
-
-    var highlights = [v('hl1'), v('hl2'), v('hl3'), v('hl4')];
-    highlights.forEach(function(h, i) {
-      if (!h) return;
-      var hCol = i < 2 ? r3x : r3x + r3w / 2 + 0.1;
-      var hRow = i % 2;
-      var hy = 2.54 + hRow * 0.7;
-      var sep = h.indexOf(' - ') !== -1 ? h.indexOf(' - ') : (h.length > 35 ? 35 : h.length);
-      var hlTitle = h.substring(0, sep).toUpperCase();
-      var hlDesc  = h.substring(sep).replace(/^ - /, '');
-      s3.addShape('rect', {x:hCol, y:hy, w:0.04, h:0.55, fill:{color:GOLD}});
-      s3.addText(hlTitle, {x:hCol+0.12, y:hy+0.02, w:r3w/2-0.3, h:0.2, fontSize:8, fontFace:'Arial', color:NV, bold:true});
-      if (hlDesc) {
-        s3.addText(hlDesc, {x:hCol+0.12, y:hy+0.22, w:r3w/2-0.3, h:0.28, fontSize:7.5, fontFace:'Arial', color:BD, lineSpacingMultiple:1.2});
-      }
-    });
-
-    addFooter(s3, '03', false);
-
-    // ════════════════════════════════════════════════
-    // SLIDE 4: PROPERTY OVERVIEW
-    // ════════════════════════════════════════════════
-    var s4 = pptx.addSlide();
-    s4.background = {color:PL};
-
-    addLeftPanel(s4, '02', 'PROPERTY OVERVIEW');
-
-    // Key specs list in left panel
-    var totalSqFt = unitData.reduce(function(s,u){ return s + u.units * u.sqft; }, 0);
-    var specs = [
-      {label:'YEAR BUILT',   val:v('yearBuilt') || '—'},
-      {label:'BUILDING TYPE', val:v('propType') || '—'},
-      {label:'LOT SIZE',     val:v('lotSize') || '—'},
-      {label:'PARKING',      val:v('parking') || '—'},
-      {label:'OCCUPANCY',    val:v('occupancy') || '100%'}
-    ];
-    specs.forEach(function(spec, i) {
-      var sy = 1.78 + i * 0.44;
-      s4.addShape('rect', {x:0.2, y:sy, w:2.6, h:0.38, fill:{color:NV2}});
-      s4.addShape('rect', {x:0.2, y:sy, w:2.6, h:0.03, fill:{color:GOLD}});
-      s4.addText(spec.label, {x:0.28, y:sy+0.04, w:2.44, h:0.16, fontSize:6,   fontFace:'Arial', color:GOLD, charSpacing:0.8});
-      s4.addText(spec.val,   {x:0.28, y:sy+0.2,  w:2.44, h:0.17, fontSize:9,   fontFace:'Arial', color:WH,   bold:true});
-    });
-
-    // Right content
-    var r4x = 3.2;
-    var r4w = 6.65;
-
-    s4.addText('Property Overview', {x:r4x, y:0.22, w:r4w, h:0.4, fontSize:20, fontFace:'Georgia', color:NV, bold:true});
-    addGoldLine(s4, r4x, 0.64, r4w);
-    s4.addText(v('propDesc'), {x:r4x, y:0.74, w:r4w, h:1.18, fontSize:7.5, fontFace:'Arial', color:BD, lineSpacingMultiple:1.45});
-
-    // Unit mix table — uses addTable for reliable cross-viewer rendering
-    s4.addText('UNIT MIX', {x:r4x, y:2.06, w:r4w, h:0.22, fontSize:9, fontFace:'Arial', color:NV, bold:true});
-    addGoldLine(s4, r4x, 2.28, r4w);
-
-    var totalAllRent = unitData.reduce(function(s,r){ return s + r.units * r.rent; }, 0);
-    var umColW  = [2.0, 0.85, 1.2, 1.55, 1.05]; // must sum to r4w (6.65)
-    var umVisRows = unitData.filter(function(u){ return u.type || u.units > 0; });
-    var umRowH  = umVisRows.length <= 4 ? 0.26 : (umVisRows.length <= 6 ? 0.22 : 0.18);
-    var umStartY = 2.34;
-    var totUnits = unitData.reduce(function(s,u){ return s + u.units; }, 0);
-
-    // Build table rows: header + data + totals
-    var hdrCell = function(txt, al) {
-      return { text: txt, options: { fill:{color:NV}, color:GOLD, bold:true, fontSize:6.5, fontFace:'Arial', align:al||'center', valign:'middle', border:{type:'none'} } };
-    };
-    var umTableRows = [
-      [ hdrCell('UNIT TYPE','left'), hdrCell('UNITS'), hdrCell('RENT/MO'), hdrCell('MONTHLY TOTAL'), hdrCell('% MIX') ]
-    ];
-    umVisRows.forEach(function(u, ri) {
-      var bg  = ri % 2 === 0 ? PL : PM;
-      var tr2 = u.units * u.rent;
-      var pct = totalAllRent > 0 ? ((tr2 / totalAllRent) * 100).toFixed(0) : '0';
-      var dc  = function(txt, al, clr, bld) {
-        return { text: txt, options: { fill:{color:bg}, color:clr||BD, bold:!!bld, fontSize:8, fontFace:'Arial', align:al||'center', valign:'middle', border:{type:'none'} } };
+    // ── Expense schedule ───────────────────────────────────────────────────
+    var expenseItems = (curExpenses || []).filter(function(e){return e.name;}).map(function(e, i) {
+      return {
+        label:    e.name,
+        current:  +e.amount || 0,
+        proforma: +((pfExpenses||[])[i] && (pfExpenses||[])[i].amount) || +e.amount || 0,
       };
-      umTableRows.push([
-        dc(u.type, 'left', NV, true),
-        dc(''+u.units),
-        dc('$'+u.rent.toLocaleString()),
-        dc('$'+tr2.toLocaleString()),
-        dc(pct+'%')
-      ]);
     });
-    if (umVisRows.length > 0) {
-      var tc = function(txt) {
-        return { text: txt, options: { fill:{color:NV2}, color:WH, bold:true, fontSize:8, fontFace:'Arial', align:'center', valign:'middle', border:{type:'none'} } };
-      };
-      umTableRows.push([ tc('TOTAL'), tc(''+totUnits), tc(''), tc('$'+totalAllRent.toLocaleString()), tc('100%') ]);
-    }
+    expenseItems.push({label:'Total Expenses', current:curExpTot, proforma:pfExpTot});
 
-    s4.addTable(umTableRows, {
-      x: r4x, y: umStartY, w: r4w,
-      rowH: umRowH,
-      colW: umColW,
-      border: {type:'none'},
-      autoPage: false
+    // ── Investment highlights ───────────────────────────────────────────────
+    var highlights = [v('hl1'),v('hl2'),v('hl3'),v('hl4')].filter(Boolean).map(function(h) {
+      var sep = h.indexOf(' - ');
+      return sep !== -1
+        ? {title:h.substring(0,sep), description:h.substring(sep+3)}
+        : {title:h, description:''};
     });
 
-    // Summary metric boxes if there is room above the features strip
-    if (umVisRows.length > 0) {
-      var totRowY = umStartY + (umVisRows.length + 2) * umRowH;
-      var boxY = totRowY + 0.16;
-      if (boxY + 0.72 < 5.05) {
-        var annRent = totalAllRent * 12;
-        var sbW = r4w / 3 - 0.1;
-        [
-          {val:''+totUnits,         label:'TOTAL UNITS'},
-          {val:fmtK(totalAllRent),  label:'MONTHLY INCOME'},
-          {val:fmtK(annRent),       label:'ANNUAL INCOME'}
-        ].forEach(function(sb, i) {
-          addGoldMetricBox(s4, r4x + i * (sbW + 0.15), boxY, sbW, 0.68, sb.val, sb.label);
-        });
-      }
-    }
-
-    // Features strip
-    var feats = v('features');
-    if (feats) {
-      s4.addShape('rect', {x:r4x, y:5.12, w:r4w, h:0.22, fill:{color:CR}});
-      var featFormatted = feats.split(',').map(function(f){ return f.trim().toUpperCase(); }).join('    ·    ');
-      s4.addText(featFormatted, {x:r4x, y:5.12, w:r4w, h:0.22, fontSize:7.5, fontFace:'Arial', color:NV, align:'center', valign:'middle', bold:true});
-    }
-
-    addFooter(s4, '04', false);
-
-    // ════════════════════════════════════════════════
-    // SLIDE 5: FINANCIAL ANALYSIS (full-width, gold accents)
-    // ════════════════════════════════════════════════
-    var s5 = pptx.addSlide();
-    s5.background = {color:PL};
-
-    // Header band
-    s5.addShape('rect', {x:0, y:0, w:10, h:0.7, fill:{color:NV}});
-    s5.addShape('rect', {x:0, y:0, w:0.06, h:0.7, fill:{color:GOLD}});
-    addGoldLine(s5, 0, 0.7, 10);
-    s5.addText('03  FINANCIAL ANALYSIS', {x:0.35, y:0.12, w:9, h:0.46, fontSize:20, fontFace:'Georgia', color:WH, bold:true, align:'left'});
-
-    // Summary stat boxes
-    var _curGRI = n('curIncome');
-    var _pfGRI  = n('pfIncome');
-    var _curOtherTotPDF = curOtherIncome.reduce(function(s,e){ return s+(+e.amount||0); }, 0);
-    var _pfOtherTotPDF  = pfOtherIncome.reduce(function(s,e){ return s+(+e.amount||0); }, 0);
-    var _cvpPDF = parseFloat((document.getElementById('curVacancy')||{}).value)||0;
-    var _pvpPDF = parseFloat((document.getElementById('pfVacancy') ||{}).value)||0;
-    var _curVacLossPDF = Math.round((_curGRI - _curOtherTotPDF) * _cvpPDF / 100);
-    var _pfVacLossPDF  = Math.round((_pfGRI  - _pfOtherTotPDF)  * _pvpPDF  / 100);
-    var curEGI = _curGRI - _curVacLossPDF;
-    var pfEGI  = _pfGRI  - _pfVacLossPDF;
-    var curTotExp   = curExpenses.reduce(function(s,e){ return s + e.amount; }, 0);
-    var pfTotExpRaw = pfExpenses.reduce(function(s,e){ return s + e.amount; }, 0);
-    var pfTotExp    = pfTotExpRaw || curTotExp;
-    var curNOI = curEGI - curTotExp;
-    var pfNOI  = pfEGI  - pfTotExp;
-    var noiGrowth = curNOI > 0 ? '+' + (((pfNOI - curNOI) / curNOI) * 100).toFixed(1) + '%' : '—';
-
-    var finBoxes = [
-      {val:fmtK(curEGI),  label:'CURRENT INCOME',   sub:'Effective Gross',   accent:AC},
-      {val:fmtK(curNOI),  label:'CURRENT NOI',       sub:'Net Operating',     accent:AC},
-      {val:fmtK(pfEGI),   label:'PRO FORMA INCOME',  sub:'Stabilized Gross',  accent:GOLD},
-      {val:fmtK(pfNOI),   label:'PRO FORMA NOI',     sub:noiGrowth + ' vs Current', accent:GOLD}
-    ];
-    finBoxes.forEach(function(b, i) {
-      var bx = 0.35 + i * 2.35;
-      s5.addShape('rect', {x:bx, y:0.82, w:2.2, h:0.72, fill:{color:NV2}});
-      s5.addShape('rect', {x:bx, y:0.82, w:2.2, h:0.04, fill:{color:b.accent}});
-      s5.addText(b.val,   {x:bx, y:0.88, w:2.2, h:0.35, align:'center', fontSize:20, fontFace:'Georgia', color:WH,   bold:true});
-      s5.addText(b.label, {x:bx, y:1.26, w:2.2, h:0.16, align:'center', fontSize:6,  fontFace:'Arial',   color:b.accent, charSpacing:0.5});
-      s5.addText(b.sub,   {x:bx, y:1.43, w:2.2, h:0.12, align:'center', fontSize:5.5,fontFace:'Arial',   color:GR});
-    });
-
-    // Dynamic row sizing
-    var curOI  = curOtherIncome.filter(function(x){ return x.name && x.amount; });
-    var pfOI   = pfOtherIncome.filter(function(x){ return x.name && x.amount; });
-    var curExp      = curExpenses.filter(function(x){ return x.name && x.amount; });
-    var pfHasValues = pfExpenses.some(function(x){ return x.amount > 0; });
-    var pfExpBase   = pfHasValues ? pfExpenses : curExpenses;
-    var pfExp       = pfExpBase.filter(function(x){ return x.name && x.amount; });
-    var dataRowCount = Math.max(1 + curOI.length + curExp.length, 1 + pfOI.length + pfExp.length);
-    var rowH = Math.min(0.22, Math.max(0.14, 2.1 / Math.max(dataRowCount, 1)));
-    var totH = Math.min(0.26, rowH + 0.04);
-    var fs5  = rowH >= 0.19 ? 8 : (rowH >= 0.16 ? 7 : 6.5);
-    var secH = Math.min(0.22, rowH);
-    var colStart = 1.72;
-
-    // Column headings
-    s5.addText('CURRENT OPERATIONS', {x:0.35, y:colStart, w:4.35, h:0.24, fontSize:10, fontFace:'Arial', color:NV, bold:true});
-    addGoldLine(s5, 0.35, colStart+0.25, 4.35);
-    s5.addText('PRO FORMA PROJECTIONS', {x:5.3, y:colStart, w:4.35, h:0.24, fontSize:10, fontFace:'Arial', color:NV, bold:true});
-    addGoldLine(s5, 5.3, colStart+0.25, 4.35);
-
-    // Center divider
-    s5.addShape('rect', {x:4.88, y:colStart, w:0.24, h:3.45, fill:{color:PM}});
-
-    // ─ Current Operations ─
-    var cy = colStart + 0.34;
-    s5.addText('INCOME', {x:0.35, y:cy, w:4.35, h:secH, fontSize:fs5, fontFace:'Arial', color:GOLD, bold:true, charSpacing:1.5}); cy += secH;
-    var curGPI = n('curIncome');
-    var curTotOI = curOtherIncome.reduce(function(s,e){ return s + e.amount; }, 0);
-    addDataRow(s5, 0.35, cy, 4.35, rowH, 'Gross Rent Income', fmt(curGPI - curTotOI), true, false, fs5); cy += rowH;
-    if (_curVacLossPDF > 0) { addDataRow(s5, 0.35, cy, 4.35, rowH, 'Less: Vacancy/Credit Loss', '('+fmt(_curVacLossPDF)+')', false, false, fs5); cy += rowH; }
-    curOI.forEach(function(item, i) {
-      addDataRow(s5, 0.35, cy, 4.35, rowH, item.name, fmt(item.amount), (i+1)%2!==0, false, fs5); cy += rowH;
-    });
-    addDataRow(s5, 0.35, cy, 4.35, totH, 'EFFECTIVE GROSS INCOME', fmt(curEGI), false, true, fs5); cy += totH + 0.06;
-    s5.addText('EXPENSES', {x:0.35, y:cy, w:4.35, h:secH, fontSize:fs5, fontFace:'Arial', color:GOLD, bold:true, charSpacing:1.5}); cy += secH;
-    curExp.forEach(function(exp, i) {
-      addDataRow(s5, 0.35, cy, 4.35, rowH, exp.name, fmt(exp.amount), i%2!==0, false, fs5); cy += rowH;
-    });
-    addDataRow(s5, 0.35, cy, 4.35, totH, 'TOTAL EXPENSES', fmt(curTotExp), false, true, fs5); cy += totH + 0.06;
-    addNOIRow(s5, 0.35, cy, 4.35, totH+0.02, 'NET OPERATING INCOME', fmt(curNOI), fs5);
-
-    // ─ Pro Forma Projections ─
-    var py5 = colStart + 0.34;
-    s5.addText('INCOME', {x:5.3, y:py5, w:4.35, h:secH, fontSize:fs5, fontFace:'Arial', color:GOLD, bold:true, charSpacing:1.5}); py5 += secH;
-    var pfGPI   = n('pfIncome');
-    var pfTotOI = pfOtherIncome.reduce(function(s,e){ return s + e.amount; }, 0);
-    addDataRow(s5, 5.3, py5, 4.35, rowH, 'Gross Rent Income', fmt(pfGPI - pfTotOI), true, false, fs5); py5 += rowH;
-    if (_pfVacLossPDF > 0) { addDataRow(s5, 5.3, py5, 4.35, rowH, 'Less: Vacancy/Credit Loss', '('+fmt(_pfVacLossPDF)+')', false, false, fs5); py5 += rowH; }
-    pfOI.forEach(function(item, i) {
-      addDataRow(s5, 5.3, py5, 4.35, rowH, item.name, fmt(item.amount), (i+1)%2!==0, false, fs5); py5 += rowH;
-    });
-    addDataRow(s5, 5.3, py5, 4.35, totH, 'EFFECTIVE GROSS INCOME', fmt(pfEGI), false, true, fs5); py5 += totH + 0.06;
-    s5.addText('EXPENSES', {x:5.3, y:py5, w:4.35, h:secH, fontSize:fs5, fontFace:'Arial', color:GOLD, bold:true, charSpacing:1.5}); py5 += secH;
-    pfExp.forEach(function(exp, i) {
-      addDataRow(s5, 5.3, py5, 4.35, rowH, exp.name, fmt(exp.amount), i%2!==0, false, fs5); py5 += rowH;
-    });
-    addDataRow(s5, 5.3, py5, 4.35, totH, 'TOTAL EXPENSES', fmt(pfTotExp), false, true, fs5); py5 += totH + 0.06;
-    addNOIRow(s5, 5.3, py5, 4.35, totH+0.02, 'NET OPERATING INCOME', fmt(pfNOI), fs5);
-
-    addFooter(s5, '05', false);
-
-    // ════════════════════════════════════════════════
-    // SLIDE 6: MARKET OVERVIEW
-    // ════════════════════════════════════════════════
-    var s6 = pptx.addSlide();
-    s6.background = {color:PL};
-
-    addLeftPanel(s6, '04', 'MARKET OVERVIEW');
-
-    // Market key stats (2×2) in left panel
-    var mktStats = [
-      {val:v('population') || '—',   label:'CITY POP.'},
-      {val:v('medianIncome') || '—', label:'MEDIAN INCOME'},
-      {val:v('unemployment') || '—', label:'UNEMPLOYMENT'},
-      {val:v('avgRent') || '—',      label:'MEDIAN RENT'}
-    ];
-    mktStats.forEach(function(m, i) {
-      var mRow = Math.floor(i / 2);
-      var mCol = i % 2;
-      addGoldMetricBox(s6, 0.2 + mCol * 1.3, 1.78 + mRow * 0.92, 1.25, 0.80, m.val, m.label);
-    });
-
-    var cityState = [v('mktCity'), stateName].filter(Boolean).join(', ');
-    if (cityState) {
-      s6.addText(cityState.toUpperCase(), {x:0, y:3.65, w:3.0, h:0.28, align:'center', fontSize:9, fontFace:'Arial', color:WH, bold:true, shrinkText:true});
-    }
-
-    // Right content
-    var r6x = 3.2;
-    var r6w = 6.65;
-
-    s6.addText('Market Overview', {x:r6x, y:0.22, w:r6w, h:0.4, fontSize:20, fontFace:'Georgia', color:NV, bold:true});
-    addGoldLine(s6, r6x, 0.64, r6w);
-    s6.addText(v('mktDesc'), {x:r6x, y:0.74, w:r6w, h:0.48, fontSize:8.5, fontFace:'Arial', color:BD, lineSpacingMultiple:1.4});
-
-    // Demographics two-column
-    s6.addText('DEMOGRAPHICS & ECONOMICS', {x:r6x, y:1.3, w:r6w, h:0.24, fontSize:9.5, fontFace:'Arial', color:NV, bold:true, charSpacing:0.3});
-    addGoldLine(s6, r6x, 1.54, r6w);
-
-    var demoLeft = [
-      ['County',                    v('mktCounty') || '—'],
-      ['Median Household Income',   v('medianIncome') || '—'],
-      ['Median Age',                v('medianAge') || '—'],
-      ['Median Gross Rent',         v('avgRent') || '—']
-    ];
-    var demoRight = [
-      ['Total Households',          v('households') || '—'],
-      ['Owner Occupied',            v('ownerOcc') || '—'],
-      ['Renter Occupied',           v('renterOcc') || '—'],
-      ['Avg Household Size',        v('hhSize') || '—']
-    ];
-    var demoRH = 0.265;
-    demoLeft.forEach(function(row, i) {
-      addDataRow(s6, r6x, 1.62 + i * demoRH, r6w/2 - 0.1, demoRH, row[0], row[1], i%2!==0, false, 7.5);
-    });
-    demoRight.forEach(function(row, i) {
-      addDataRow(s6, r6x + r6w/2 + 0.1, 1.62 + i * demoRH, r6w/2 - 0.1, demoRH, row[0], row[1], i%2!==0, false, 7.5);
-    });
-
-    // Market drivers — 3 navy cards
-    s6.addText('MARKET DRIVERS', {x:r6x, y:2.78, w:r6w, h:0.24, fontSize:9.5, fontFace:'Arial', color:NV, bold:true, charSpacing:0.3});
-    addGoldLine(s6, r6x, 3.02, r6w);
-
-    var drivers = [
-      {title:v('drv1Title') || 'REGIONAL HUB',      desc:v('drv1Desc') || (v('mktCity') + ' serves as the commercial and healthcare center for the surrounding area.')},
-      {title:v('drv2Title') || 'AFFORDABLE LIVING',  desc:v('drv2Desc') || 'Low cost of living and affordable housing attract and retain working families.'},
-      {title:v('drv3Title') || 'STABLE ECONOMY',     desc:v('drv3Desc') || 'Diversified base of healthcare, manufacturing, and retail provides consistent employment.'}
-    ];
-    var drvW = r6w / 3 - 0.07;
-    drivers.forEach(function(d, i) {
-      var dx = r6x + i * (drvW + 0.1);
-      s6.addShape('rect', {x:dx, y:3.1, w:drvW, h:1.1, fill:{color:NV}});
-      s6.addShape('rect', {x:dx, y:3.1, w:drvW, h:0.04, fill:{color:GOLD}});
-      s6.addText(d.title.toUpperCase(), {x:dx+0.1, y:3.15, w:drvW-0.15, h:0.2,  fontSize:7.5, fontFace:'Arial', color:GOLD, bold:true});
-      s6.addText(d.desc,                {x:dx+0.1, y:3.36, w:drvW-0.15, h:0.78, fontSize:7,   fontFace:'Arial', color:AC,   lineSpacingMultiple:1.25});
-    });
-
-    addFooter(s6, '06', false);
-
-    // ════════════════════════════════════════════════
-    // SLIDE 7: PHOTO GALLERY — Featured Layout
-    // ════════════════════════════════════════════════
-    var s7 = pptx.addSlide();
-    s7.background = {color:'0F1920'};
-
-    // Header
-    s7.addShape('rect', {x:0, y:0, w:10, h:0.52, fill:{color:NV}});
-    addGoldLine(s7, 0, 0, 10);
-    s7.addText('05  PHOTO GALLERY', {x:0.35, y:0.07, w:9, h:0.4, fontSize:18, fontFace:'Georgia', color:WH, bold:true, align:'left'});
-    addGoldLine(s7, 0, 0.52, 10);
-
-    var galleryPhotos = photos.filter(function(p){ return !!p; });
-
-    if (galleryPhotos.length === 0) {
-      // 3×2 placeholder grid
-      for (var pi = 0; pi < 6; pi++) {
-        var pgc = pi % 3;
-        var pgr = Math.floor(pi / 3);
-        var ppx = 0.2 + pgc * 3.25;
-        var ppy = 0.62 + pgr * 2.3;
-        s7.addShape('rect', {x:ppx, y:ppy, w:3.15, h:2.18, fill:{color:NV}});
-        s7.addShape('rect', {x:ppx, y:ppy, w:3.15, h:0.04, fill:{color:GOLD}});
-        s7.addText('PHOTO ' + (pi+1), {x:ppx, y:ppy, w:3.15, h:2.18, align:'center', valign:'middle', fontSize:10, fontFace:'Arial', color:GR});
-      }
-    } else if (galleryPhotos.length === 1) {
-      s7.addImage({data:galleryPhotos[0], x:0.2, y:0.62, w:9.6, h:4.6, sizing:{type:'cover', w:9.6, h:4.6}});
-      s7.addShape('rect', {x:0.2, y:0.62, w:9.6, h:4.6, fill:{type:'none'}, line:{color:GOLD, width:0.5}});
-    } else {
-      // Featured: large photo left + thumbnails right
-      var featW = 5.65;
-      var featH = 4.58;
-      s7.addImage({data:galleryPhotos[0], x:0.2, y:0.62, w:featW, h:featH, sizing:{type:'cover', w:featW, h:featH}});
-      s7.addShape('rect', {x:0.2, y:0.62, w:featW, h:featH, fill:{type:'none'}, line:{color:GOLD, width:0.75}});
-
-      // Thumbnails right: up to 4 in 2×2
-      var tW = 1.95;
-      var tH = (featH - 0.1) / 2;
-      var tGap = 0.1;
-      var tStartX = 0.2 + featW + 0.15;
-      var tStartY = 0.62;
-      for (var ti = 1; ti <= Math.min(4, galleryPhotos.length - 1); ti++) {
-        var tc = (ti - 1) % 2;
-        var trow = Math.floor((ti - 1) / 2);
-        var tx = tStartX + tc * (tW + tGap);
-        var ty2 = tStartY + trow * (tH + tGap);
-        s7.addImage({data:galleryPhotos[ti], x:tx, y:ty2, w:tW, h:tH, sizing:{type:'cover', w:tW, h:tH}});
-        s7.addShape('rect', {x:tx, y:ty2, w:tW, h:tH, fill:{type:'none'}, line:{color:'2A3F4D', width:0.5}});
-      }
-
-      // "+N MORE" badge if extra photos
-      if (galleryPhotos.length > 5) {
-        s7.addShape('rect', {x:tStartX + tW + tGap, y:tStartY + tH + tGap, w:tW, h:tH, fill:{color:NV2}});
-        s7.addShape('rect', {x:tStartX + tW + tGap, y:tStartY + tH + tGap, w:tW, h:0.04, fill:{color:GOLD}});
-        s7.addText('+' + (galleryPhotos.length - 5) + '\nMORE', {x:tStartX + tW + tGap, y:tStartY + tH + tGap, w:tW, h:tH, align:'center', valign:'middle', fontSize:16, fontFace:'Georgia', color:GOLD, bold:true, lineSpacingMultiple:1.2});
-      }
-    }
-
-    addFooter(s7, '07', true);
-
-    // ════════════════════════════════════════════════
-    // SLIDE 8: ABOUT THE AGENTS
-    // ════════════════════════════════════════════════
-    var visAgents   = agents.filter(function(a){ return (a.name || '').trim(); });
-    var s9 = pptx.addSlide();
-    s9.background = {color:PL};
-
-    // Left accent panel
-    s9.addShape('rect', {x:0, y:0, w:3.2, h:5.625, fill:{color:NV}});
-    s9.addShape('rect', {x:0, y:0, w:3.2, h:0.06, fill:{color:GOLD}});
-    s9.addText('08', {x:0, y:0.14, w:3.2, h:0.52, align:'center', fontSize:38, fontFace:'Georgia', color:GOLD, bold:true});
-    addGoldLine(s9, 0.3, 0.69, 2.6);
-    s9.addText('ABOUT THE\nAGENTS', {x:0.15, y:0.76, w:2.9, h:0.9, align:'center', fontSize:13, fontFace:'Georgia', color:WH, bold:true, lineSpacingMultiple:1.15});
-
-    // Stats from gateway_about_company
-    var gwAbout = {};
-    try { gwAbout = JSON.parse(localStorage.getItem('gateway_about_company') || '{}'); } catch(e) {}
-
-    var leftY = 1.82;
-    var lStats = [
-      { l: 'BROKERAGE', v: 'Gateway Real Estate Advisors' },
-      { l: 'SPECIALIZATION', v: 'Multifamily Investment' },
-      { l: 'MARKET AREA', v: 'Iowa, Nebraska, South Dakota' }
-    ];
-    lStats.forEach(function(s) {
-      s9.addShape('rect', {x:0.2, y:leftY, w:2.8, h:0.42, fill:{color:NV2}});
-      s9.addText(s.l, {x:0.3, y:leftY+0.02, w:2.6, h:0.15, fontSize:6, fontFace:'Arial', color:GOLD, charSpacing:0.6});
-      s9.addText(s.v, {x:0.3, y:leftY+0.18, w:2.6, h:0.22, fontSize:8.5, fontFace:'Georgia', color:WH});
-      leftY += 0.48;
-    });
-
-    addGoldLine(s9, 0, 5.35, 3.2);
-
-    // Right panel: agent profile cards
-    var r9x = 3.4, r9w = 6.4;
-    s9.addText('Listing Agents', {x:r9x, y:0.22, w:r9w, h:0.38, fontSize:20, fontFace:'Georgia', color:NV, bold:true});
-    addGoldLine(s9, r9x, 0.62, r9w);
-    s9.addText('EXCLUSIVELY OFFERED BY GATEWAY REAL ESTATE ADVISORS', {x:r9x, y:0.68, w:r9w, h:0.2, fontSize:7, fontFace:'Arial', color:GR, charSpacing:1.2});
-
-    var cardY9 = 1.0;
-    var cardH9 = visAgents.length > 1 ? (3.8 / visAgents.length) - 0.12 : 1.6;
-    var cardW9 = r9w;
-
-    visAgents.forEach(function(a, idx) {
-      var cy = cardY9 + idx * (cardH9 + 0.14);
-
-      // Card background
-      s9.addShape('rect', {x:r9x, y:cy, w:cardW9, h:cardH9, fill:{color:WH}});
-      s9.addShape('rect', {x:r9x, y:cy, w:0.04, h:cardH9, fill:{color:GOLD}});
-      s9.addShape('rect', {x:r9x, y:cy+cardH9-0.005, w:cardW9, h:0.005, fill:{color:PM}});
-
-      // Agent info — two columns inside card
-      var nameX = r9x + 0.18, nameW = cardW9 * 0.55;
-      var contactX = r9x + nameW + 0.3, contactW = cardW9 - nameW - 0.5;
-      var ty = cy + 0.1;
-
-      s9.addText((a.name || '').toUpperCase(), {x:nameX, y:ty, w:nameW, h:0.26, fontSize:12, fontFace:'Georgia', color:NV, bold:true});
-      if (a.title) {
-        s9.addText(a.title, {x:nameX, y:ty+0.27, w:nameW, h:0.18, fontSize:8, fontFace:'Arial', color:GOLD});
-      }
-      if (a.company) {
-        s9.addText(a.company, {x:nameX, y:ty+0.47, w:nameW, h:0.18, fontSize:8, fontFace:'Arial', color:GR});
-      }
-      if (a.licenses) {
-        s9.addText(a.licenses, {x:nameX, y:ty+0.66, w:nameW, h:0.18, fontSize:7, fontFace:'Arial', color:GR, italic:true});
-      }
-
-      // Contact column
-      if (a.phone) {
-        s9.addText('PHONE', {x:contactX, y:ty, w:contactW, h:0.14, fontSize:6, fontFace:'Arial', color:GOLD, charSpacing:0.5});
-        s9.addText(a.phone, {x:contactX, y:ty+0.14, w:contactW, h:0.18, fontSize:9, fontFace:'Georgia', color:NV, bold:true});
-      }
-      if (a.email) {
-        s9.addText('EMAIL', {x:contactX, y:ty+0.38, w:contactW, h:0.14, fontSize:6, fontFace:'Arial', color:GOLD, charSpacing:0.5});
-        s9.addText(a.email, {x:contactX, y:ty+0.52, w:contactW, h:0.16, fontSize:8, fontFace:'Arial', color:BD});
-      }
-    });
-
-    // Footer strip
-    s9.addShape('rect', {x:r9x, y:4.96, w:r9w, h:0.36, fill:{color:CR}});
-    s9.addText('All information deemed reliable but not guaranteed. For additional information contact the listing agents.', {x:r9x+0.1, y:4.96, w:r9w-0.2, h:0.36, fontSize:6.5, fontFace:'Arial', color:NV, align:'center', valign:'middle', italic:true});
-
-    addFooter(s9, '08', false);
-
-    // ════════════════════════════════════════════════
-    // SLIDE 9: ABOUT GATEWAY REAL ESTATE ADVISORS
-    // ════════════════════════════════════════════════
-    var s10 = pptx.addSlide();
-    s10.background = {color:NV};
-
-    // Gold top stripe
-    s10.addShape('rect', {x:0, y:0, w:10, h:0.06, fill:{color:GOLD}});
-    // Right cream panel for content
-    s10.addShape('rect', {x:4.2, y:0, w:5.8, h:5.625, fill:{color:PL}});
-    addGoldLine(s10, 4.2, 0, 5.8);
-
-    // Left side — company identity
-    s10.addText('09', {x:0.3, y:0.2, w:3.5, h:0.55, fontSize:38, fontFace:'Georgia', color:GOLD, bold:true, align:'left'});
-    addGoldLine(s10, 0.3, 0.78, 3.6);
-    s10.addText('ABOUT\nGATEWAY', {x:0.3, y:0.88, w:3.6, h:0.88, fontSize:22, fontFace:'Georgia', color:WH, bold:true, lineSpacingMultiple:1.15, align:'left'});
-    s10.addText('REAL ESTATE ADVISORS', {x:0.3, y:1.76, w:3.6, h:0.24, fontSize:8, fontFace:'Arial', color:GOLD, charSpacing:1.5, align:'left'});
-
-    // Company stat boxes
-    var gwStats = [
-      {l: gwAbout.stat1l || 'Transactions', v: gwAbout.stat1v || '—'},
-      {l: gwAbout.stat2l || 'Volume Closed', v: gwAbout.stat2v || '—'},
-      {l: gwAbout.stat3l || 'Years in Market', v: gwAbout.stat3v || '—'}
-    ];
-    gwStats.forEach(function(gs, gi) {
-      addGoldMetricBox(s10, 0.3 + gi * 1.25, 2.18, 1.15, 0.85, gs.v, gs.l);
-    });
-
-    // Services list
-    var svcs = [gwAbout.svc1, gwAbout.svc2, gwAbout.svc3, gwAbout.svc4, gwAbout.svc5].filter(Boolean);
-    if (svcs.length) {
-      addGoldLine(s10, 0.3, 3.22, 3.6);
-      s10.addText('OUR SERVICES', {x:0.3, y:3.3, w:3.6, h:0.2, fontSize:7, fontFace:'Arial', color:GOLD, charSpacing:1.2});
-      svcs.forEach(function(svc, si) {
-        s10.addShape('rect', {x:0.3, y:3.56 + si * 0.26, w:0.04, h:0.15, fill:{color:GOLD}});
-        s10.addText(svc, {x:0.42, y:3.56 + si * 0.26, w:3.5, h:0.2, fontSize:8.5, fontFace:'Arial', color:AC, valign:'middle'});
+    // ── Broker profiles ────────────────────────────────────────────────────
+    var brokers = [];
+    try {
+      var _apRaw  = (window.GW && GW.getAgentProfiles) ? GW.getAgentProfiles() : {};
+      var _agSeen = {};
+      Object.keys(_apRaw).forEach(function(k) {
+        if (brokers.length >= 2) return;
+        var ap = _apRaw[k];
+        var an = (ap && ap.name || '').trim();
+        if (an && !_agSeen[an]) {
+          _agSeen[an] = 1;
+          brokers.push({name:ap.name||'', title:ap.title||'', phone:ap.phone||'', email:ap.email||'', photoUrl:ap.photo||null});
+        }
       });
-    }
+    } catch(e2) {}
 
-    // Right panel — company description
-    var r10x = 4.45, r10w = 5.3;
-    s10.addText('Who We Are', {x:r10x, y:0.28, w:r10w, h:0.38, fontSize:18, fontFace:'Georgia', color:NV, bold:true});
-    addGoldLine(s10, r10x, 0.68, r10w);
-    s10.addText(gwAbout.para1 || 'Gateway Real Estate Advisors is a premier commercial real estate brokerage specializing in multifamily investment properties across the Midwest. We bring institutional-quality analysis, marketing, and execution to every assignment.', {x:r10x, y:0.80, w:r10w, h:1.2, fontSize:9, fontFace:'Arial', color:BD, lineSpacingMultiple:1.6});
-    if (gwAbout.para2) {
-      s10.addText(gwAbout.para2, {x:r10x, y:2.06, w:r10w, h:0.9, fontSize:9, fontFace:'Arial', color:BD, lineSpacingMultiple:1.6});
-    }
+    // ── Market state name ──────────────────────────────────────────────────
+    var stateFips = v('mktState');
+    var stateName = typeof STATE_NAMES !== 'undefined' ? (STATE_NAMES[stateFips] || stateFips) : stateFips;
 
-    // Why Gateway section
-    addGoldLine(s10, r10x, 3.08, r10w);
-    s10.addText('WHY GATEWAY', {x:r10x, y:3.16, w:r10w, h:0.2, fontSize:7.5, fontFace:'Arial', color:GOLD, charSpacing:1.5, bold:true});
+    // ── Assemble data object ───────────────────────────────────────────────
+    var data = {
+      property: {
+        name:         (v('propName1') + ' ' + v('propName2')).trim() || 'Property Name',
+        address:      v('address'),
+        type:         v('propType') || 'Multifamily',
+        units:        totalUnits,
+        yearBuilt:    v('yearBuilt'),
+        stories:      v('buildings') || '',
+        lotSize:      v('lotSize'),
+        parking:      v('parking'),
+        buildingSize: totalSqFt,
+        images: {
+          hero:   (photos || [])[0] || null,
+          photos: (photos || []).filter(Boolean),
+        },
+        amenities:   v('features')
+          ? v('features').split(',').map(function(f){return f.trim();}).filter(Boolean)
+          : [],
+        description: v('propDesc'),
+        highlights:  highlights,
+        execSummary: v('execDesc'),
+        callout:     v('callout'),
+        occupancy:   parseFloat(v('occupancy')) || 100,
+      },
+      financials: {
+        askingPrice:   askingPrice,
+        pricePerUnit:  totalUnits > 0 ? Math.round(askingPrice / totalUnits) : n('pricePerUnit'),
+        pricePerSF:    totalSqFt  > 0 ? Math.round(askingPrice / totalSqFt * 100) / 100 : 0,
+        capRate:       parseFloat(v('capRate'))  || 0,
+        grm:           parseFloat(v('grm'))      || 0,
+        noi:           curNOI > 0 ? curNOI : n('noi'),
+        grossRevenue:  curGRI,
+        totalExpenses: curExpTot,
+        occupancy:     parseFloat(v('occupancy')) || 100,
+        incomeItems:   incomeItems,
+        expenseItems:  expenseItems,
+        proforma: {
+          grossRevenue:  pfGRI,
+          totalExpenses: pfExpTot,
+          noi:           pfNOI,
+          capRate:       askingPrice > 0 ? Math.round(pfNOI / askingPrice * 10000) / 100 : 0,
+        },
+      },
+      unitMix: (unitData || [])
+        .filter(function(u){ return u.type || u.units > 0; })
+        .map(function(u) {
+          return {type:u.type||'', count:u.units||0, sf:u.sqft||0, marketRent:u.rent||0, inPlaceRent:u.rent||0};
+        }),
+      market: {
+        submarket:    v('mktCity') + (stateName ? ', ' + stateName : ''),
+        city:         v('mktCity'),
+        state:        stateName,
+        avgRent:      v('avgRent'),
+        population:   v('population'),
+        medianIncome: v('medianIncome'),
+        unemployment: v('unemployment'),
+        medianAge:    v('medianAge'),
+        households:   v('households'),
+        renterOcc:    v('renterOcc'),
+        ownerOcc:     v('ownerOcc'),
+        mapUrl:       null,
+        description:  v('mktDesc'),
+        drivers: [
+          {title:v('drv1Title'), description:v('drv1Desc')},
+          {title:v('drv2Title'), description:v('drv2Desc')},
+          {title:v('drv3Title'), description:v('drv3Desc')},
+        ].filter(function(d){ return !!d.title; }),
+        comps: [],
+      },
+      location: {
+        description: v('mktDesc'),
+        mapUrl:      null,
+        demographics:[],
+      },
+      brokerage: {
+        name:         'Gateway Real Estate Advisors',
+        disclaimer:   v('disclaimer') ||
+          'This Offering Memorandum is intended solely for the use of the party to whom it is delivered. ' +
+          'The information herein has been obtained from sources believed reliable but has not been independently ' +
+          'verified. Prospective purchasers should make their own investigations and inquiries. All projections ' +
+          'are forward-looking estimates; actual results may vary materially.',
+        logoUrl:      typeof LOGO_PRIMARY_DARK  !== 'undefined' ? LOGO_PRIMARY_DARK  : null,
+        logoLightUrl: typeof LOGO_PRIMARY_LIGHT !== 'undefined' ? LOGO_PRIMARY_LIGHT : null,
+        brokers:      brokers,
+      },
+    };
 
-    var whyPoints = [
-      'Specialized multifamily expertise across Midwest markets',
-      'Proven marketing reach driving competitive offer environments',
-      'Full-service advisory from valuation through closing'
-    ];
-    whyPoints.forEach(function(pt, pi) {
-      s10.addShape('rect', {x:r10x, y:3.44 + pi * 0.36, w:0.035, h:0.14, fill:{color:GOLD}});
-      s10.addText(pt, {x:r10x+0.1, y:3.44 + pi * 0.36, w:r10w-0.1, h:0.28, fontSize:8.5, fontFace:'Arial', color:BD, lineSpacingMultiple:1.4, valign:'middle'});
-    });
-
-    // Bottom tagline
-    s10.addShape('rect', {x:r10x, y:4.92, w:r10w, h:0.48, fill:{color:NV2}});
-    s10.addShape('rect', {x:r10x, y:4.92, w:r10w, h:0.04, fill:{color:GOLD}});
-    s10.addText('Exclusively Offered by Gateway Real Estate Advisors  ·  gateway.com  ·  Sioux City, Iowa', {x:r10x+0.1, y:4.93, w:r10w-0.2, h:0.44, fontSize:8, fontFace:'Arial', color:AC, align:'center', valign:'middle'});
-
-    addFooter(s10, '09', true);
-    // ════════════════════════════════════════════════
-    // SLIDE 10: CONTACT
-    // ════════════════════════════════════════════════
-    var s8 = pptx.addSlide();
-    s8.background = {color:NV};
-
-    s8.addShape('rect', {x:0, y:0, w:10, h:0.06, fill:{color:GOLD}});
-    addGoldLine(s8, 0, 5.35, 10);
-
-    // Logo
-    if (typeof LOGO_ROUND_SUBMARK !== 'undefined' && LOGO_ROUND_SUBMARK) {
-      s8.addImage({data:LOGO_ROUND_SUBMARK, x:3.9, y:0.22, w:2.2, h:2.2, sizing:{type:'contain', w:2.2, h:2.2}});
-    } else if (typeof LOGO_PRIMARY_LIGHT !== 'undefined' && LOGO_PRIMARY_LIGHT) {
-      s8.addImage({data:LOGO_PRIMARY_LIGHT, x:2.5, y:0.4, w:5.0, h:1.6, sizing:{type:'contain', w:5.0, h:1.6}});
-    }
-
-    addGoldLine(s8, 1.5, 2.55, 7.0);
-    s8.addText('EXCLUSIVELY OFFERED BY', {x:0, y:2.65, w:10, h:0.28, align:'center', fontSize:9, fontFace:'Arial', color:GOLD, charSpacing:2.5, bold:true});
-    addGoldLine(s8, 1.5, 2.93, 7.0);
-
-    // Agent cards
-    var numAgents   = visAgents.length || 1;
-    var agentCardW  = Math.min(2.65, (8.4 / numAgents) - 0.35);
-    var agentGap    = 0.38;
-    var totalAgentW = numAgents * agentCardW + (numAgents - 1) * agentGap;
-    var agentStartX = (10 - totalAgentW) / 2;
-
-    visAgents.forEach(function(a, idx) {
-      var ax = agentStartX + idx * (agentCardW + agentGap);
-      var ay = 3.06;
-      var ach = 2.0;
-
-      s8.addShape('rect', {x:ax, y:ay, w:agentCardW, h:ach, fill:{color:NV2}});
-      s8.addShape('rect', {x:ax, y:ay, w:agentCardW, h:0.045, fill:{color:GOLD}});
-
-      s8.addText((a.name || '').toUpperCase(), {x:ax, y:ay+0.08, w:agentCardW, h:0.28, align:'center', fontSize:13, fontFace:'Georgia', color:WH, bold:true});
-      if (a.title) {
-        s8.addText(a.title, {x:ax+0.1, y:ay+0.37, w:agentCardW-0.2, h:0.18, align:'center', fontSize:8, fontFace:'Arial', color:GOLD});
-      }
-      s8.addShape('rect', {x:ax+0.28, y:ay+0.58, w:agentCardW-0.56, h:0.003, fill:{color:AC}});
-      if (a.company) {
-        s8.addText(a.company, {x:ax+0.1, y:ay+0.64, w:agentCardW-0.2, h:0.18, align:'center', fontSize:7.5, fontFace:'Arial', color:AC});
-      }
-      if (a.phone) {
-        s8.addText(a.phone, {x:ax+0.1, y:ay+0.86, w:agentCardW-0.2, h:0.18, align:'center', fontSize:8, fontFace:'Arial', color:WH});
-      }
-      if (a.email) {
-        s8.addText(a.email, {x:ax+0.1, y:ay+1.06, w:agentCardW-0.2, h:0.18, align:'center', fontSize:7.5, fontFace:'Arial', color:AC});
-      }
-      if (a.licenses) {
-        s8.addText(a.licenses, {x:ax+0.1, y:ay+1.28, w:agentCardW-0.2, h:0.18, align:'center', fontSize:6.5, fontFace:'Arial', color:GR, italic:true});
-      }
-    });
-
-    // Disclaimer
-    var disc = document.getElementById('disclaimer') ? document.getElementById('disclaimer').value : '';
-    if (disc) {
-      s8.addText(disc, {x:0.6, y:5.06, w:8.8, h:0.26, fontSize:6.5, fontFace:'Arial', color:'3A5060', align:'center'});
-    }
-
-    addFooter(s8, '10', true);
-
-
-    // ════════════════════════════════════════════════
-    // GENERATE FILE
-    // ════════════════════════════════════════════════
-    var fileName = ((v('propName1') + ' ' + v('propName2')).trim() || 'Property') + ' - Offering Memorandum.pptx';
     if (window.GW) GW.showLoading('Building Offering Memorandum…');
-    pptx.writeFile({fileName: fileName}).then(function() {
+
+    var promise = generateOfferingMemorandum(data, {});
+    if (promise && typeof promise.then === 'function') {
+      promise.then(function() {
+        if (window.GW) GW.hideLoading();
+        showStatus('OM generated: ' + data.property.name + ' — Offering Memorandum.pptx');
+      }).catch(function(e) {
+        if (window.GW) GW.hideLoading();
+        alert('Error generating OM: ' + (e && e.message || e));
+      });
+    } else {
       if (window.GW) GW.hideLoading();
-      showStatus('OM generated: ' + fileName);
-    }).catch(function(e) {
-      if (window.GW) GW.hideLoading();
-      alert('Error generating OM: ' + e.message);
-    });
+    }
 
   } catch (e) {
     if (window.GW) GW.hideLoading();
-    alert('Error: ' + e.message + '\n\n' + e.stack);
+    alert('Error generating OM: ' + (e && e.message || e) + '\n\n' + (e && e.stack || ''));
   }
 }
 
