@@ -94,25 +94,20 @@
       var url = syncCfg.supabaseUrl     || cfg.supabaseUrl     || '';
       var key = syncCfg.supabaseAnonKey || cfg.supabaseAnonKey || '';
 
-      console.log('[Sync] init — url:', url ? url.slice(0, 30) + '…' : '(empty)',
-                  '| key:', key ? key.slice(0, 18) + '…' : '(empty)');
-
       if (!url || !key) {
         this._initError = 'no_config';
         console.warn('[Sync] No Supabase credentials found in SYNC_CONFIG or CONFIG');
         return;
       }
 
-      // Supabase JS v2 CDN must expose window.supabase.createClient
       if (!window.supabase || typeof window.supabase.createClient !== 'function') {
         this._initError = 'cdn_failed';
-        console.error('[Sync] Supabase JS library not available on window.supabase — CDN may have failed to load');
+        console.error('[Sync] Supabase JS library not available — CDN may have failed to load');
         return;
       }
 
       try {
         this._client = window.supabase.createClient(url, key);
-        console.log('[Sync] Client created OK');
         this._restoreSession();
       } catch (e) {
         this._initError = 'client_error';
@@ -128,19 +123,18 @@
     // ── Auth ──────────────────────────────────────────────────────
     _restoreSession: function () {
       var self = this;
+
+      // getSession() restores the session reference and pulls cloud data.
+      // Team-key fetches and UI updates live exclusively in onAuthStateChange
+      // (which fires INITIAL_SESSION before getSession resolves) — removing
+      // the duplicate _fetchTeamKey() call that previously ran in both paths.
       this._client.auth.getSession().then(function (res) {
         if (res.data && res.data.session) {
           self._session = res.data.session;
-          self._updateUI(res.data.session.user.email);
           self._pullAll();
-          self._fetchTeamKey();
         }
       });
 
-      // Keep session and AI badge in sync whenever Supabase refreshes the token.
-      // INITIAL_SESSION fires synchronously on page load (before getSession resolves),
-      // so fetching the team key here eliminates the timing race where AI fails
-      // immediately after a page reload before getSession() has returned.
       this._client.auth.onAuthStateChange(function (event, session) {
         self._session = session;
         if (session) {
