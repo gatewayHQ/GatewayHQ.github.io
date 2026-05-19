@@ -1137,6 +1137,16 @@
     return new Blob([u8], { type: mime });
   }
 
+  // ── Update GitHub settings UI based on team PAT availability ────────
+  // Called by sync.js after login/logout and by the init block below.
+  window.vidRefreshTokenUI = function() {
+    var hasteamPat = !!(window._gwTeamRenderPat);
+    var badge = document.getElementById('vid-team-pat-badge');
+    var personalWrap = document.getElementById('vid-personal-pat-wrap');
+    if (badge)        badge.style.display        = hasteamPat ? '' : 'none';
+    if (personalWrap) personalWrap.style.display = hasteamPat ? 'none' : '';
+  };
+
   // ── Main render entry point ───────────────────────────────────────
   window.vidRender = async function() {
     var btn = document.getElementById('vid-gen-btn');
@@ -1145,7 +1155,8 @@
     if (!comp) return;
     btn.disabled = true;
 
-    var token  = (localStorage.getItem('gh_pat')     || (document.getElementById('vid-gh-token')  || {}).value || '').trim();
+    // Team PAT (from Supabase team_secrets) takes priority over personal PAT
+    var token  = (window._gwTeamRenderPat || localStorage.getItem('gh_pat') || (document.getElementById('vid-gh-token')  || {}).value || '').trim();
     var branch = (localStorage.getItem('gh_branch') || (document.getElementById('vid-gh-branch') || {}).value || '').trim() || 'main';
 
     if (!token) {
