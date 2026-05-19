@@ -421,10 +421,9 @@ function selectOMTemplate(n) {
 
 function exportOM() {
   var tpl = parseInt(localStorage.getItem('gateway_om_template_selection') || '1', 10);
-  if (tpl === 4) generateGatewayInstitutional();
-  else if (tpl === 3) generateGatewayCanvas();
+  if (tpl === 3) generateGatewayCanvas();
   else if (tpl === 2) generateGatewaySignature();
-  else generateOM();
+  else generateOM(); // tpl=1 and legacy tpl=4 both use the modular system
 }
 
 // ==== GATEWAY SIGNATURE TEMPLATE ====
