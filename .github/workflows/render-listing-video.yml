@@ -90,18 +90,22 @@ jobs:
         id: timer
         run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
 
-      # ── Notify: render has started ────────────────────────────────
+      # ── Notify Supabase: render has started ──────────────────────
+      # Writes directly to Supabase REST API — no proxy needed.
+      # Requires repo secrets: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
       - name: Notify rendering started
         if: inputs.job_id != ''
         env:
-          WEBHOOK_URL:    ${{ secrets.VIDEO_JOBS_WEBHOOK_URL }}
-          WEBHOOK_SECRET: ${{ secrets.RENDER_WEBHOOK_SECRET }}
+          SB_URL: ${{ secrets.SUPABASE_URL }}
+          SB_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          curl -sf -X PATCH "${WEBHOOK_URL}?jobId=${{ inputs.job_id }}" \
+          [ -z "$SB_URL" ] && echo "::warning::SUPABASE_URL not set — skipping callback" && exit 0
+          curl -sf -X PATCH "${SB_URL}/rest/v1/video_jobs?id=eq.${{ inputs.job_id }}" \
+            -H "apikey: ${SB_KEY}" \
+            -H "Authorization: Bearer ${SB_KEY}" \
             -H "Content-Type: application/json" \
-            -H "X-Webhook-Secret: ${WEBHOOK_SECRET}" \
             -d "{\"status\":\"rendering\",\"run_id\":\"${{ github.run_id }}\"}" \
-          || echo "::warning::Status callback failed (non-fatal)"
+          || echo "::warning::Supabase status update failed (non-fatal)"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -218,15 +222,16 @@ jobs:
           git commit -m "Rendered video: ${{ inputs.output_slug }}" || echo "Nothing to commit"
           git push
 
-      # ── Report final status ───────────────────────────────────────
+      # ── Report final status to Supabase ──────────────────────────
       - name: Report final status
         if: always() && inputs.job_id != ''
         env:
-          WEBHOOK_URL:    ${{ secrets.VIDEO_JOBS_WEBHOOK_URL }}
-          WEBHOOK_SECRET: ${{ secrets.RENDER_WEBHOOK_SECRET }}
-          JOB_STATUS:     ${{ job.status }}
-          START_EPOCH:    ${{ steps.timer.outputs.epoch }}
+          SB_URL:      ${{ secrets.SUPABASE_URL }}
+          SB_KEY:      ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JOB_STATUS:  ${{ job.status }}
+          START_EPOCH: ${{ steps.timer.outputs.epoch }}
         run: |
+          [ -z "$SB_URL" ] && echo "::warning::SUPABASE_URL not set — skipping final callback" && exit 0
           ELAPSED=$(( $(date +%s) - START_EPOCH ))
           if [ "$JOB_STATUS" = "success" ]; then
             RENDER_URL="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/renders/${{ inputs.output_slug }}.mp4"
@@ -236,8 +241,9 @@ jobs:
             PAYLOAD=$(printf '{"status":"failed","error_msg":"Render workflow %s — check the Actions log for details.","elapsed_sec":%d,"run_id":"%s"}' \
               "$JOB_STATUS" "$ELAPSED" "${{ github.run_id }}")
           fi
-          curl -sf -X PATCH "${WEBHOOK_URL}?jobId=${{ inputs.job_id }}" \
+          curl -sf -X PATCH "${SB_URL}/rest/v1/video_jobs?id=eq.${{ inputs.job_id }}" \
+            -H "apikey: ${SB_KEY}" \
+            -H "Authorization: Bearer ${SB_KEY}" \
             -H "Content-Type: application/json" \
-            -H "X-Webhook-Secret: ${WEBHOOK_SECRET}" \
             -d "$PAYLOAD" \
-          || echo "::warning::Final callback failed (video may still be accessible)"
+          || echo "::warning::Final Supabase update failed (video may still be accessible in renders/)"
