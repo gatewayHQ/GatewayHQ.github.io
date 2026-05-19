@@ -1,5 +1,21 @@
 name: Render Listing Video
 
+# ================================================================
+# Triggered by the browser (via video-jobs Supabase Edge Function)
+# or manually from the Actions tab.
+#
+# Supabase flow (preferred):
+#   job_id, output_slug, composition_url, music_url
+#
+# Legacy browser flow (GH PAT in browser):
+#   output_slug, composition_path, music_path
+#   (job_id is empty — no Supabase callbacks)
+#
+# Required repository secrets for Supabase callbacks:
+#   SUPABASE_VIDEO_JOBS_URL   = https://<ref>.supabase.co/functions/v1/video-jobs
+#   RENDER_WEBHOOK_SECRET     = <random 32-char hex>
+# ================================================================
+
 on:
   workflow_dispatch:
     inputs:
@@ -7,12 +23,32 @@ on:
         description: 'Output filename (no .mp4)'
         required: true
         type: string
+
+      # ── Supabase flow: pass signed URLs ──────────────────────────
+      job_id:
+        description: 'Supabase video_jobs UUID (enables status callbacks)'
+        required: false
+        default: ''
+        type: string
+      composition_url:
+        description: 'Signed URL to download composition HTML'
+        required: false
+        default: ''
+        type: string
+      music_url:
+        description: 'Signed URL to download music file (optional)'
+        required: false
+        default: ''
+        type: string
+
+      # ── Legacy flow: repo-relative file paths ────────────────────
       composition_path:
-        description: 'Repo-relative path to composition HTML'
-        required: true
+        description: 'Repo-relative path to composition HTML (legacy)'
+        required: false
+        default: ''
         type: string
       music_path:
-        description: 'Repo-relative path to music file (optional)'
+        description: 'Repo-relative path to music file (legacy, optional)'
         required: false
         default: ''
         type: string
@@ -23,7 +59,7 @@ permissions:
 jobs:
   render:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45   # was 15 — complex compositions need the headroom
 
     steps:
       - name: Checkout
@@ -31,6 +67,25 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # ── Record start time for elapsed reporting ──────────────────
+      - name: Record start time
+        id: timer
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      # ── Notify Supabase: render has started ──────────────────────
+      - name: Notify rendering started
+        if: inputs.job_id != ''
+        env:
+          WEBHOOK_URL:    ${{ secrets.SUPABASE_VIDEO_JOBS_URL }}
+          WEBHOOK_SECRET: ${{ secrets.RENDER_WEBHOOK_SECRET }}
+        run: |
+          curl -sf -X PATCH "${WEBHOOK_URL}/${{ inputs.job_id }}" \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Secret: ${WEBHOOK_SECRET}" \
+            -d "{\"status\":\"rendering\",\"run_id\":\"${{ github.run_id }}\"}" \
+          || echo "::warning::Supabase status callback failed (non-fatal)"
+
+      # ── Node + FFmpeg ────────────────────────────────────────────
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -39,22 +94,53 @@ jobs:
       - name: Install FFmpeg
         run: sudo apt-get install -y ffmpeg
 
+      # ── HyperFrames + Puppeteer Chrome ───────────────────────────
       - name: Install HyperFrames CLI
         run: npm install -g hyperframes
 
       - name: Install Chrome for Puppeteer
         run: |
-          # Install Chrome for the globally-installed Puppeteer that HyperFrames uses.
-          # Must run from the global node_modules root so npx finds the right puppeteer.
           GLOBAL_ROOT=$(npm root -g)
           cd "$GLOBAL_ROOT"
           npx puppeteer browsers install chrome
 
+      # ── Fetch composition (Supabase signed URL or legacy git path) ─
       - name: Prepare composition
         run: |
           mkdir -p /tmp/hf-render
-          cp "${{ github.workspace }}/${{ inputs.composition_path }}" /tmp/hf-render/index.html
+          COMP_URL="${{ inputs.composition_url }}"
+          COMP_PATH="${{ inputs.composition_path }}"
+          if [ -n "$COMP_URL" ]; then
+            echo "Downloading composition from Supabase Storage…"
+            curl -fsSL "$COMP_URL" -o /tmp/hf-render/index.html
+          elif [ -n "$COMP_PATH" ]; then
+            echo "Copying composition from git checkout…"
+            cp "${{ github.workspace }}/$COMP_PATH" /tmp/hf-render/index.html
+          else
+            echo "::error::No composition source provided (composition_url or composition_path required)"
+            exit 1
+          fi
 
+      # ── Fetch music if provided (Supabase signed URL or legacy) ──
+      - name: Prepare music
+        id: music
+        run: |
+          MUSIC_URL="${{ inputs.music_url }}"
+          MUSIC_PATH="${{ inputs.music_path }}"
+          if [ -n "$MUSIC_URL" ]; then
+            EXT="${MUSIC_URL##*.}"
+            EXT="${EXT%%\?*}"   # strip query string from extension
+            DEST="/tmp/music.${EXT:-mp3}"
+            echo "Downloading music from Supabase Storage…"
+            curl -fsSL "$MUSIC_URL" -o "$DEST"
+            echo "path=$DEST" >> "$GITHUB_OUTPUT"
+          elif [ -n "$MUSIC_PATH" ] && [ -f "${{ github.workspace }}/$MUSIC_PATH" ]; then
+            echo "path=${{ github.workspace }}/$MUSIC_PATH" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── Render ───────────────────────────────────────────────────
       - name: Render to MP4
         run: |
           mkdir -p "${{ github.workspace }}/renders"
@@ -64,32 +150,63 @@ jobs:
             --fps 30 \
             --output "${{ github.workspace }}/renders/${{ inputs.output_slug }}_silent.mp4"
 
+      # ── Mix background music ─────────────────────────────────────
       - name: Mix in background music
         run: |
           SILENT="${{ github.workspace }}/renders/${{ inputs.output_slug }}_silent.mp4"
           FINAL="${{ github.workspace }}/renders/${{ inputs.output_slug }}.mp4"
-          MUSIC_PATH="${{ inputs.music_path }}"
-          if [ -n "$MUSIC_PATH" ] && [ -f "${{ github.workspace }}/$MUSIC_PATH" ]; then
-            ffmpeg -i "$SILENT" \
-                   -i "${{ github.workspace }}/$MUSIC_PATH" \
-                   -c:v copy -c:a aac -b:a 192k \
-                   -map 0:v:0 -map 1:a:0 \
-                   -af "afade=t=out:st=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$SILENT" | awk '{print int($1)-2}'):d=2,volume=0.75" \
-                   -shortest -y "$FINAL"
+          MUSIC="${{ steps.music.outputs.path }}"
+          if [ -n "$MUSIC" ] && [ -f "$MUSIC" ]; then
+            DURATION=$(ffprobe -v error -show_entries format=duration \
+              -of default=noprint_wrappers=1:nokey=1 "$SILENT" | awk '{print int($1)-2}')
+            ffmpeg -i "$SILENT" -i "$MUSIC" \
+              -c:v copy -c:a aac -b:a 192k \
+              -map 0:v:0 -map 1:a:0 \
+              -af "afade=t=out:st=${DURATION}:d=2,volume=0.75" \
+              -shortest -y "$FINAL"
             rm "$SILENT"
           else
             mv "$SILENT" "$FINAL"
           fi
 
+      # ── Commit render + clean up source files ────────────────────
       - name: Commit render and clean up
         run: |
           cd "${{ github.workspace }}"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "GitHub Actions"
           git add "renders/${{ inputs.output_slug }}.mp4"
-          git rm --ignore-unmatch "${{ inputs.composition_path }}"
+          if [ -n "${{ inputs.composition_path }}" ]; then
+            git rm --ignore-unmatch "${{ inputs.composition_path }}"
+          fi
           if [ -n "${{ inputs.music_path }}" ]; then
             git rm --ignore-unmatch "${{ inputs.music_path }}"
           fi
-          git commit -m "Rendered video: ${{ inputs.output_slug }}"
+          git commit -m "Rendered video: ${{ inputs.output_slug }}" || echo "Nothing to commit"
           git push
+
+      # ── Notify Supabase: completed OR failed ─────────────────────
+      # Runs regardless of prior step results (always()) so failures
+      # are always reported back to the browser via Realtime.
+      - name: Report status to Supabase
+        if: always() && inputs.job_id != ''
+        env:
+          WEBHOOK_URL:    ${{ secrets.SUPABASE_VIDEO_JOBS_URL }}
+          WEBHOOK_SECRET: ${{ secrets.RENDER_WEBHOOK_SECRET }}
+          JOB_STATUS:     ${{ job.status }}
+          START_EPOCH:    ${{ steps.timer.outputs.epoch }}
+        run: |
+          ELAPSED=$(( $(date +%s) - START_EPOCH ))
+          if [ "$JOB_STATUS" = "success" ]; then
+            RENDER_URL="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/renders/${{ inputs.output_slug }}.mp4"
+            PAYLOAD=$(printf '{"status":"completed","render_url":"%s","elapsed_sec":%d,"run_id":"%s"}' \
+              "$RENDER_URL" "$ELAPSED" "${{ github.run_id }}")
+          else
+            PAYLOAD=$(printf '{"status":"failed","error_msg":"Render workflow %s — check the Actions log for details.","elapsed_sec":%d,"run_id":"%s"}' \
+              "$JOB_STATUS" "$ELAPSED" "${{ github.run_id }}")
+          fi
+          curl -sf -X PATCH "${WEBHOOK_URL}/${{ inputs.job_id }}" \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Secret: ${WEBHOOK_SECRET}" \
+            -d "$PAYLOAD" \
+          || echo "::warning::Supabase final callback failed (video may still be accessible)"
