@@ -181,9 +181,18 @@ var OMUtils = (function () {
     });
   }
 
-  // ── Safe image (falls back to styled placeholder if url is falsy) ─────────
-  function addPhoto(slide, url, x, y, w, h, sizing) {
-    if (!url) {
+  // ── Safe image ─────────────────────────────────────────────────────────────
+  // Falls back to a labelled placeholder rect when url is falsy or invalid.
+  // opts.rounding = true → circular crop (useful for broker headshots)
+  function addPhoto(slide, url, x, y, w, h, sizing, opts) {
+    opts = opts || {};
+
+    // Validate: must be a data URI or a non-empty string path
+    var valid = url && typeof url === 'string' &&
+                (url.startsWith('data:image/') || url.startsWith('http') ||
+                 url.startsWith('/') || url.startsWith('./'));
+
+    if (!valid) {
       slide.addShape('rect', {
         x: x, y: y, w: w, h: h,
         fill: { color: 'D8DDE5' },
@@ -191,14 +200,19 @@ var OMUtils = (function () {
       });
       slide.addText('PHOTO', {
         x: x, y: y, w: w, h: h,
-        fontFace: 'Calibri', fontSize: 11,
+        fontFace: 'Calibri', fontSize: 10,
         color: 'AAAAAA', align: 'center', valign: 'middle', italic: true,
       });
       return;
     }
-    var imgOpts = { x: x, y: y, w: w, h: h, sizing: { type: sizing || 'cover', w: w, h: h } };
+
+    var imgOpts = {
+      x: x, y: y, w: w, h: h,
+      sizing:   { type: sizing || 'cover', w: w, h: h },
+      rounding: opts.rounding || false,
+    };
     if (url.startsWith('data:')) { imgOpts.data = url; }
-    else { imgOpts.path = url; }
+    else                         { imgOpts.path = url; }
     slide.addImage(imgOpts);
   }
 
