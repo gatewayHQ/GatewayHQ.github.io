@@ -914,11 +914,11 @@
     var userId = sync._session.user.id;
     var token  = sync._session.access_token;
 
-    var syncCfg = window.SYNC_CONFIG || window.CONFIG || {};
-    var fnBase  = syncCfg.supabaseUrl
-      ? syncCfg.supabaseUrl.replace(/\/$/, '') + '/functions/v1/video-jobs'
-      : null;
-    if (!fnBase) throw new Error('Supabase URL not configured — check sync-config.js');
+    var ai  = window.AI_CONFIG || {};
+    var cfg = window.CONFIG    || {};
+    var proxyBase   = (ai.proxyUrl    || cfg.proxyUrl    || '').replace(/\/$/, '');
+    var proxySecret = (ai.proxySecret || cfg.proxySecret || '');
+    if (!proxyBase) throw new Error('Proxy URL not configured — set proxyUrl in config.js or AI_CONFIG');
 
     // 1. Upload composition HTML to Supabase Storage
     vidSetStatus('uploading', 'Preparing ' + vidCurrentAnim + ' animation... Uploading…');
@@ -940,16 +940,17 @@
       if (musicUp.error) throw new Error('Music upload failed: ' + musicUp.error.message);
     }
 
-    // 3. Create job via edge function (triggers GitHub Actions server-side)
+    // 3. Create job via Vercel proxy (triggers GitHub Actions server-side — no GH PAT in browser)
     vidSetStatus('rendering', 'Queuing render job…');
-    var jobRes = await fetch(fnBase, {
+    var jobRes = await fetch(proxyBase + '/api/video-jobs', {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      headers: { 'x-gateway-secret': proxySecret, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         slug: comp.slug,
         platform: vidCurrentPlatform,
         composition_path: compStoragePath,
-        music_path: musicStoragePath || undefined
+        music_path: musicStoragePath || undefined,
+        user_id: userId
       })
     });
     if (!jobRes.ok) {
@@ -1030,8 +1031,8 @@
           return;
         }
         try {
-          var sr = await fetch(fnBase + '/' + jobId, {
-            headers: { 'Authorization': 'Bearer ' + token }
+          var sr = await fetch(proxyBase + '/api/video-jobs?jobId=' + jobId, {
+            headers: { 'x-gateway-secret': proxySecret }
           });
           if (!sr.ok) return;
           var sdata = await sr.json();

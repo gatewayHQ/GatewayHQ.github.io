@@ -1,19 +1,19 @@
 name: Render Listing Video
 
 # ================================================================
-# Triggered by the browser (via video-jobs Supabase Edge Function)
+# Triggered by the browser (via video-jobs Vercel endpoint)
 # or manually from the Actions tab.
 #
-# Supabase flow (preferred):
+# Vercel flow (preferred):
 #   job_id, output_slug, composition_url, music_url
 #
 # Legacy browser flow (GH PAT in browser):
 #   output_slug, composition_path, music_path
-#   (job_id is empty — no Supabase callbacks)
+#   (job_id is empty — no callbacks)
 #
-# Required repository secrets for Supabase callbacks:
-#   SUPABASE_VIDEO_JOBS_URL   = https://<ref>.supabase.co/functions/v1/video-jobs
-#   RENDER_WEBHOOK_SECRET     = <random 32-char hex>
+# Required repository secrets for Vercel callbacks:
+#   VIDEO_JOBS_WEBHOOK_URL  = https://<your>.vercel.app/api/video-jobs
+#   RENDER_WEBHOOK_SECRET   = <random 32-char hex>
 # ================================================================
 
 on:
@@ -72,18 +72,18 @@ jobs:
         id: timer
         run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
 
-      # ── Notify Supabase: render has started ──────────────────────
+      # ── Notify Vercel: render has started ────────────────────────
       - name: Notify rendering started
         if: inputs.job_id != ''
         env:
-          WEBHOOK_URL:    ${{ secrets.SUPABASE_VIDEO_JOBS_URL }}
+          WEBHOOK_URL:    ${{ secrets.VIDEO_JOBS_WEBHOOK_URL }}
           WEBHOOK_SECRET: ${{ secrets.RENDER_WEBHOOK_SECRET }}
         run: |
-          curl -sf -X PATCH "${WEBHOOK_URL}/${{ inputs.job_id }}" \
+          curl -sf -X PATCH "${WEBHOOK_URL}?jobId=${{ inputs.job_id }}" \
             -H "Content-Type: application/json" \
             -H "X-Webhook-Secret: ${WEBHOOK_SECRET}" \
             -d "{\"status\":\"rendering\",\"run_id\":\"${{ github.run_id }}\"}" \
-          || echo "::warning::Supabase status callback failed (non-fatal)"
+          || echo "::warning::Status callback failed (non-fatal)"
 
       # ── Node + FFmpeg ────────────────────────────────────────────
       - name: Setup Node.js
@@ -185,13 +185,12 @@ jobs:
           git commit -m "Rendered video: ${{ inputs.output_slug }}" || echo "Nothing to commit"
           git push
 
-      # ── Notify Supabase: completed OR failed ─────────────────────
-      # Runs regardless of prior step results (always()) so failures
-      # are always reported back to the browser via Realtime.
-      - name: Report status to Supabase
+      # ── Notify Vercel: completed OR failed ───────────────────────
+      # always() ensures failures are reported back to the browser.
+      - name: Report final status
         if: always() && inputs.job_id != ''
         env:
-          WEBHOOK_URL:    ${{ secrets.SUPABASE_VIDEO_JOBS_URL }}
+          WEBHOOK_URL:    ${{ secrets.VIDEO_JOBS_WEBHOOK_URL }}
           WEBHOOK_SECRET: ${{ secrets.RENDER_WEBHOOK_SECRET }}
           JOB_STATUS:     ${{ job.status }}
           START_EPOCH:    ${{ steps.timer.outputs.epoch }}
@@ -205,7 +204,7 @@ jobs:
             PAYLOAD=$(printf '{"status":"failed","error_msg":"Render workflow %s — check the Actions log for details.","elapsed_sec":%d,"run_id":"%s"}' \
               "$JOB_STATUS" "$ELAPSED" "${{ github.run_id }}")
           fi
-          curl -sf -X PATCH "${WEBHOOK_URL}/${{ inputs.job_id }}" \
+          curl -sf -X PATCH "${WEBHOOK_URL}?jobId=${{ inputs.job_id }}" \
             -H "Content-Type: application/json" \
             -H "X-Webhook-Secret: ${WEBHOOK_SECRET}" \
             -d "$PAYLOAD" \
