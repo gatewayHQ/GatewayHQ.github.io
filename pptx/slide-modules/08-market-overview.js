@@ -187,14 +187,47 @@ function addMarketOverviewSlide(pptx, data, config, _L, _U) {
     });
   }
 
-  // ── 4. Market narrative ───────────────────────────────────────────────────
+  // ── 4. Market stat KPI strip (between driver cards and narrative) ──────────
+  // Uses available market fields; renders only when at least 2 are populated.
+  var mktStatDefs = [
+    { val: market.vacancyRate,   lbl: 'Vacancy Rate'    },
+    { val: market.rentGrowth,    lbl: 'YOY Rent Growth' },
+    { val: market.renterOcc ? (String(market.renterOcc).indexOf('%') === -1 ? market.renterOcc + '%' : market.renterOcc) : null, lbl: 'Renter-Occupied' },
+    { val: market.unemployment ? (String(market.unemployment).replace(/[^0-9.%]/g, '') || null) : null, lbl: 'Unemployment'   },
+  ].filter(function(s) { return s.val && s.val !== '—'; });
+
+  var cardsBottom = CARDS_Y + CARD_H;
+  var stripRendered = false;
+
+  if (mktStatDefs.length >= 2) {
+    var STRIP_H  = L.snap(0.70);
+    var STRIP_Y  = L.snap(cardsBottom + L.GSEC);
+    if (STRIP_Y + STRIP_H < L.CONTENT_BOT - 0.50) {
+      var stripCols = L.equalCols(mktStatDefs.length);
+      var stripOpts = { bg: config.statBg, numColor: config.primaryColor, numSize: 16, border: config.divider };
+      mktStatDefs.forEach(function(s, idx) {
+        U.addStatBox(slide,
+          stripCols[idx].x, STRIP_Y,
+          stripCols[idx].w, STRIP_H,
+          String(s.val), s.lbl,
+          config, L, stripOpts);
+      });
+      cardsBottom = STRIP_Y + STRIP_H;
+      stripRendered = true;
+    }
+  }
+
+  // ── 5. Market narrative ───────────────────────────────────────────────────
   if (market.description) {
-    var narY = CARDS_Y + CARD_H + L.GSEC;
+    var narY = cardsBottom + L.GSEC;
     var narH = L.snap(L.CONTENT_BOT - narY);
     if (narH > 0.20) {
-      slide.addText(market.description, {
+      // 11pt keeps longer narratives from overflowing
+      var mktNarText = market.description;
+      if (mktNarText.length > 420) { mktNarText = mktNarText.slice(0, 417) + '…'; }
+      slide.addText(mktNarText, {
         x: L.M, y: L.snap(narY), w: L.CW, h: narH,
-        fontFace: 'Calibri', fontSize: 13, bold: false,
+        fontFace: 'Calibri', fontSize: 11, bold: false,
         color: config.bodyText,
         valign: 'top',
         lineSpacingMultiple: 1.40,

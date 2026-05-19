@@ -146,9 +146,12 @@ function addLocationOverviewSlide(pptx, data, config, _L, _U) {
   var NARRATIVE_H = L.snap(L.CONTENT_BOT - NARRATIVE_Y);
 
   if (NARRATIVE_H > 0.20 && location.description) {
-    slide.addText(location.description, {
+    // Cap at ~380 chars so 11pt text never overflows the calculated box height.
+    var narText = location.description;
+    if (narText.length > 380) { narText = narText.slice(0, 377) + '…'; }
+    slide.addText(narText, {
       x: RC_X, y: NARRATIVE_Y, w: RC_W, h: NARRATIVE_H,
-      fontFace: 'Calibri', fontSize: 13, bold: false,
+      fontFace: 'Calibri', fontSize: 11, bold: false,
       color: config.bodyText,
       valign: 'top',
       lineSpacingMultiple: 1.45,

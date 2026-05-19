@@ -923,7 +923,13 @@
         headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','Accept':'application/vnd.github+json'},
         body:JSON.stringify({message:'Add composition: '+comp.slug,content:b64,branch:branch})
       });
-      if (!uploadRes.ok) { var ue=await uploadRes.json(); throw new Error('Upload failed: '+(ue.message||uploadRes.status)); }
+      if (!uploadRes.ok) {
+        var ue=await uploadRes.json();
+        var uMsg=ue.message||uploadRes.status;
+        if (uploadRes.status===401) uMsg='Bad credentials — your GitHub token is invalid or expired. Open Settings below, paste a new PAT with "repo" (Contents write) scope, and try again.';
+        else if (uploadRes.status===403) uMsg='Permission denied — your GitHub token needs "repo" (Contents write) scope. Create a new classic PAT at github.com/settings/tokens.';
+        throw new Error('Upload failed: '+uMsg);
+      }
       var musicPath='';
       if (vidMusicFile) {
         vidSetStatus('uploading','Uploading music file to GitHub...');

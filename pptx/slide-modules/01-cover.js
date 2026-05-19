@@ -69,10 +69,14 @@ function addCoverSlide(pptx, data, config, _L, _U) {
   U.addGoldRule(slide, L.snap(0.60), L.snap(5.55), L.snap(4.00), config);
 
   // ── 7. Property name ──────────────────────────────────────────────────────
-  slide.addText(prop.name || 'PROPERTY NAME', {
-    x: L.snap(0.60), y: L.snap(5.65), w: L.snap(11.50), h: L.snap(1.05),
+  // Width ends 0.25" before KPI_ORIGIN_X (9.00") so long names never clip.
+  // Font scales down for names over 22 chars to keep the full name visible.
+  var propName = prop.name || 'PROPERTY NAME';
+  var titleFontSize = propName.length > 28 ? 26 : propName.length > 22 ? 30 : 36;
+  slide.addText(propName, {
+    x: L.snap(0.60), y: L.snap(5.65), w: L.snap(8.10), h: L.snap(1.05),
     fontFace: L.TYPE.hero.fontFace,
-    fontSize: L.TYPE.hero.fontSize,
+    fontSize: titleFontSize,
     bold: L.TYPE.hero.bold,
     color: config.white,
     valign: 'middle',

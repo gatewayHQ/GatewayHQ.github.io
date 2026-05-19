@@ -52,8 +52,8 @@ function addSectionDividerSlide(pptx, data, config, _L, _U) {
   if (data.subtitle) {
     slide.addText(data.subtitle, {
       x: L.M, y: L.snap(4.55), w: L.CW, h: L.snap(0.45),
-      fontFace: 'Calibri', fontSize: 18, bold: false,
-      color: 'A0B8D0',
+      fontFace: 'Calibri', fontSize: 16, bold: false,
+      color: 'E8D49A',  // light gold — legible on navy at small sizes
       align: 'center', valign: 'middle',
     });
   }

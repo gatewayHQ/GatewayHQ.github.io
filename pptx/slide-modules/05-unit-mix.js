@@ -23,10 +23,23 @@ function addUnitMixSlide(pptx, data, config, _L, _U) {
   // Verify they sum to CW (floating point safe check)
   // [2.25+1.10+1.20+1.75+1.75+2.14+2.14 = 12.33 ✓]
 
-  var HDR_H    = L.snap(0.44);
-  var ROW_H    = unitMix.length > 6 ? L.snap(0.38) : L.snap(0.44);
   var TABLE_X  = L.M;
   var TABLE_Y  = L.CONTENT_Y;
+
+  // Stat boxes anchor to the bottom of the content zone; table rows
+  // expand to fill the space above — eliminates dead whitespace.
+  var BOX_H   = L.snap(0.90);
+  var STATS_Y = L.snap(L.CONTENT_BOT - BOX_H);
+  var TABLE_END = L.snap(STATS_Y - L.GSEC);
+
+  // Distribute table height evenly across header + data rows + totals row
+  var numTableRows = (unitMix.length || 1) + 2;  // header + data + totals
+  var dynRowH = L.snap((TABLE_END - TABLE_Y) / numTableRows);
+  // Clamp: never shorter than 0.32" or taller than 0.72"
+  dynRowH = Math.max(L.snap(0.32), Math.min(L.snap(0.72), dynRowH));
+
+  var HDR_H = dynRowH;
+  var ROW_H = dynRowH;
 
   // Column header labels (uppercase in render)
   var COL_LABELS = [
@@ -180,7 +193,7 @@ function addUnitMixSlide(pptx, data, config, _L, _U) {
   // header + data rows + totals row
   var rowHeights = [HDR_H];
   for (var rh = 0; rh < unitMix.length; rh++) { rowHeights.push(ROW_H); }
-  rowHeights.push(L.snap(0.44));  // totals row always full height
+  rowHeights.push(ROW_H);  // totals row matches data row height
 
   // ── 6. Render table ──────────────────────────────────────────────────────
   slide.addTable(tableRows, {
@@ -194,16 +207,6 @@ function addUnitMixSlide(pptx, data, config, _L, _U) {
   });
 
   // ── 7. Three stat boxes below the table ──────────────────────────────────
-  // Compute actual table height
-  var tableH = HDR_H + unitMix.length * ROW_H + L.snap(0.44);
-  var STATS_Y = L.snap(TABLE_Y + tableH + L.GSEC);
-
-  // Guard: if stat boxes would overflow content zone, clamp to CONTENT_BOT - BOX_H
-  var BOX_H  = L.snap(1.00);
-  if (STATS_Y + BOX_H > L.CONTENT_BOT) {
-    STATS_Y = L.snap(L.CONTENT_BOT - BOX_H);
-  }
-
   var statOpts = {
     bg:       config.statBg,
     numColor: config.primaryColor,

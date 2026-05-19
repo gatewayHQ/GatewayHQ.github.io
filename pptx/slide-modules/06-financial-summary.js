@@ -186,10 +186,15 @@ function addFinancialSummarySlide(pptx, data, config, _L, _U) {
   var totalExpCur    = rawExp  || expenseItems.reduce(function (s, r) { return s + (Number(r.current) || 0); }, 0);
   var totalExpPF     = pfExp   || expenseItems.reduce(function (s, r) { return s + (Number(r.proforma) || 0); }, 0);
 
-  var numDataRows    = Math.max(incomeItems.length, expenseItems.length);
+  // Strip rows where both current and pro forma are zero — removes "— | —" phantom rows.
+  function rowHasValue(r) { return (Number(r.current) || 0) !== 0 || (Number(r.proforma) || 0) !== 0; }
+  var incFiltered = incomeItems.filter(rowHasValue);
+  var expFiltered = expenseItems.filter(rowHasValue);
+
+  var numDataRows    = Math.max(incFiltered.length, expFiltered.length);
   // Pad the shorter array so tables have equal height
-  var incPadded = incomeItems.slice();
-  var expPadded = expenseItems.slice();
+  var incPadded = incFiltered.slice();
+  var expPadded = expFiltered.slice();
   while (incPadded.length < numDataRows) { incPadded.push({ label: '', current: 0, proforma: 0 }); }
   while (expPadded.length < numDataRows) { expPadded.push({ label: '', current: 0, proforma: 0 }); }
 
