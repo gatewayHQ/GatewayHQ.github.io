@@ -155,28 +155,9 @@ function addBackCoverSlide(pptx, data, config, _L, _U) {
       var broker = brokers[bi];
       var card_x = L.snap(cardsStartX + bi * (CARD_W + CARD_GAP));
 
-      // Broker photo
-      if (broker.photoUrl) {
-        var photoOpts = {
-          x: card_x, y: PHOTO_Y, w: CARD_W, h: PHOTO_H,
-          sizing: { type: 'cover', w: CARD_W, h: PHOTO_H },
-        };
-        if (broker.photoUrl.startsWith('data:')) { photoOpts.data = broker.photoUrl; }
-        else { photoOpts.path = broker.photoUrl; }
-        slide.addImage(photoOpts);
-      } else {
-        // Navy placeholder rect
-        slide.addShape('rect', {
-          x: card_x, y: PHOTO_Y, w: CARD_W, h: PHOTO_H,
-          fill: { color: '162D47' },
-          line: { color: '243F63', pt: 0.5 },
-        });
-        slide.addText('PHOTO', {
-          x: card_x, y: PHOTO_Y, w: CARD_W, h: PHOTO_H,
-          fontFace: 'Calibri', fontSize: 11,
-          color: '2C5080', align: 'center', valign: 'middle',
-        });
-      }
+      // Broker photo — routed through addPhoto for validation + consistent sizing
+      U.addPhoto(slide, broker.photoUrl || null,
+        card_x, PHOTO_Y, CARD_W, PHOTO_H, 'cover');
 
       // Thin gold bar below photo
       slide.addShape('rect', {

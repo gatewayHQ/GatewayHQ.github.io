@@ -202,18 +202,118 @@ function renderPhotos() {
   });
 }
 function addPhotoSlot() { photos.push(null); renderPhotos(); }
+// ── High-quality photo conditioner ───────────────────────────────────────────
+// Decodes any browser-supported image format, normalises to 2800 px on the
+// longest side, and outputs JPEG @ 97 % quality (PNG preserved for .png files).
+// 2800 px → ≈210 DPI on the 13.33″ wide slide — well above print-quality threshold.
+// HEIC/HEIF is rejected early with actionable instructions rather than silently
+// producing a blank or corrupted image in PowerPoint.
+function conditionPhoto(file) {
+  return new Promise(function (resolve, reject) {
+    // ── HEIC guard ──────────────────────────────────────────────────────────
+    var isHeic = /^image\/hei[cf]$/i.test(file.type) ||
+                 /\.(heic|heif)$/i.test(file.name);
+    if (isHeic) {
+      reject(new Error(
+        'HEIC photos cannot be embedded in PowerPoint.\n\n' +
+        'Convert before uploading:\n' +
+        '  • iPhone → Settings → Camera → Formats → "Most Compatible"\n' +
+        '  • Mac: right-click file → Quick Actions → Convert Image → JPEG\n' +
+        '  • Online: use any HEIC-to-JPEG converter'
+      ));
+      return;
+    }
+
+    // ── Decode via object URL (keeps memory off the JS heap until drawImage) ─
+    var objectUrl = URL.createObjectURL(file);
+    var img = new Image();
+
+    img.onload = function () {
+      var sw = img.naturalWidth;
+      var sh = img.naturalHeight;
+      if (!sw || !sh) {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Image has zero dimensions — file may be corrupt.'));
+        return;
+      }
+
+      // Scale down to 2800 px on longest side; never scale up
+      var MAX_DIM = 2800;
+      var scale = Math.min(1, MAX_DIM / Math.max(sw, sh));
+      var tw = Math.max(1, Math.round(sw * scale));
+      var th = Math.max(1, Math.round(sh * scale));
+
+      var canvas = document.createElement('canvas');
+      canvas.width  = tw;
+      canvas.height = th;
+      var ctx = canvas.getContext('2d');
+      // High-quality Lanczos-style downscale (browser uses this when
+      // imageSmoothingQuality is 'high' and the image is shrunk)
+      ctx.imageSmoothingEnabled  = true;
+      ctx.imageSmoothingQuality  = 'high';
+      ctx.drawImage(img, 0, 0, tw, th);
+
+      URL.revokeObjectURL(objectUrl);
+
+      // Detect real transparency: sample the alpha channel of a 1×1 center pixel.
+      // If the image has no transparent pixels, encode as JPEG even for .png input —
+      // this avoids 3× file size bloat from lossless encoding for opaque photos.
+      var hasAlpha = false;
+      if (file.type === 'image/png' || /\.png$/i.test(file.name)) {
+        try {
+          var px = ctx.getImageData(Math.floor(tw / 2), Math.floor(th / 2), 1, 1).data;
+          hasAlpha = px[3] < 255;
+        } catch (_) { hasAlpha = true; } // SecurityError → assume transparency
+      }
+
+      var dataUrl;
+      try {
+        dataUrl = hasAlpha
+          ? canvas.toDataURL('image/png')
+          : canvas.toDataURL('image/jpeg', 0.97);
+      } catch (secErr) {
+        // toDataURL blocked by CORS taint — fall back to raw file read
+        var fr = new FileReader();
+        fr.onload = function (e) { resolve(e.target.result); };
+        fr.onerror = function ()  { reject(new Error('Could not read image file.')); };
+        fr.readAsDataURL(file);
+        return;
+      }
+
+      resolve(dataUrl);
+    };
+
+    img.onerror = function () {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error(
+        'Browser could not decode "' + file.name + '".\n' +
+        'Supported formats: JPEG, PNG, WebP, GIF.\n' +
+        'For HEIC/HEIF convert to JPEG first.'
+      ));
+    };
+
+    img.src = objectUrl;
+  });
+}
+
 function handlePhoto(index, input) {
   var file = input.files[0];
   if (!file) return;
-  if (window.GW && GW.compressImage) {
-    GW.compressImage(file, 1400, 0.85).then(function(dataUrl) {
-      if (dataUrl) { photos[index] = dataUrl; renderPhotos(); }
+
+  // Show a loading state on the slot while conditioning runs
+  var grid = document.getElementById('photoGrid');
+  var slots = grid ? grid.querySelectorAll('.photo-slot') : [];
+  if (slots[index]) slots[index].style.opacity = '0.5';
+
+  conditionPhoto(file)
+    .then(function (dataUrl) {
+      photos[index] = dataUrl;
+      renderPhotos();
+    })
+    .catch(function (err) {
+      renderPhotos(); // restore slot
+      alert(err.message || 'Could not process image. Please try a different file.');
     });
-  } else {
-    var reader = new FileReader();
-    reader.onload = function(e) { photos[index] = e.target.result; renderPhotos(); };
-    reader.readAsDataURL(file);
-  }
 }
 renderPhotos();
 

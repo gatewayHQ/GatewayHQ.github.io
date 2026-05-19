@@ -634,9 +634,13 @@
   <!-- TAB 5: Photos -->
   <div class="panel" id="tab5">
     <div class="section-title">Property Photos</div>
-    <p style="color:var(--brand-gray);font-size:13px;margin-bottom:8px">Click each slot to upload a photo. Photos embed into the PPTX gallery slide.</p>
+    <p style="color:var(--brand-gray);font-size:13px;margin-bottom:8px">Click each slot to upload a photo. First photo is the hero cover image.</p>
     <div class="photo-grid" id="photoGrid"></div>
     <button class="btn-sm" style="margin-top:12px" onclick="addPhotoSlot()">+ Add Photo Slot</button>
+    <p style="color:var(--brand-gray);font-size:11px;margin-top:8px;line-height:1.6">
+      JPEG, PNG, or WebP — photos are auto-optimised to 2800 px / 97 % quality for print-sharp slides.
+      <strong>HEIC (iPhone default):</strong> convert first via Mac → right-click → Quick Actions → Convert Image, or change iPhone Settings → Camera → Formats → Most Compatible.
+    </p>
   </div>
 
   <!-- TAB 6: Contact -->
