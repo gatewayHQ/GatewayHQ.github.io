@@ -10,11 +10,14 @@
   var vidType        = 'residential';
 
   var VID_TEMPLATES = [
-    { id:'listing',        name:'Listing Promo',  icon:'🏠', desc:'30–60s · all photos', formId:'vtf-listing'       },
-    { id:'just-listed',    name:'Just Listed',    icon:'🔑', desc:'20–45s · all photos', formId:'vtf-just-listed'   },
-    { id:'just-sold',      name:'Just Sold',      icon:'🏆', desc:'15–25s · all photos', formId:'vtf-just-sold'     },
-    { id:'open-house',     name:'Open House',     icon:'📅', desc:'20–35s · all photos', formId:'vtf-open-house'    },
-    { id:'price-improved', name:'Price Improved', icon:'📉', desc:'15–25s · all photos', formId:'vtf-price-reduced' }
+    { id:'listing',        name:'Listing Promo',        icon:'🏠', desc:'30–60s · all photos',    formId:'vtf-listing'        },
+    { id:'just-listed',    name:'Just Listed',          icon:'🔑', desc:'20–45s · all photos',    formId:'vtf-just-listed'    },
+    { id:'just-sold',      name:'Just Sold',            icon:'🏆', desc:'15–25s · all photos',    formId:'vtf-just-sold'      },
+    { id:'open-house',     name:'Open House',           icon:'📅', desc:'20–35s · all photos',    formId:'vtf-open-house'     },
+    { id:'price-improved', name:'Price Improved',       icon:'📉', desc:'15–25s · all photos',    formId:'vtf-price-reduced'  },
+    { id:'neighborhood',   name:'Neighborhood Tour',    icon:'🌳', desc:'25–40s · area showcase', formId:'vtf-neighborhood'   },
+    { id:'agent-intro',    name:'Agent Introduction',   icon:'👤', desc:'20–30s · personal brand',formId:'vtf-agent-intro'    },
+    { id:'market-update',  name:'Market Update',        icon:'📊', desc:'25–35s · local data',    formId:'vtf-market-update'  }
   ];
 
   var FMT = {
@@ -25,6 +28,16 @@
 
   /* ── NEW STATE ────────────────────────────────────────────────── */
   var vidCurrentAnim    = 'kenburns';
+  var vidLibraryTrack   = null; // { id, path } — set when user picks from built-in library
+
+  var VID_MUSIC_LIBRARY = {
+    none:      { path: null,                          label: 'No Music'        },
+    luxury:    { path: 'music/01-luxury-calm.mp3',    label: 'Luxury Calm'     },
+    upbeat:    { path: 'music/02-upbeat-energy.mp3',  label: 'Upbeat Energy'   },
+    cinematic: { path: 'music/03-cinematic-drama.mp3',label: 'Cinematic Drama' },
+    acoustic:  { path: 'music/04-warm-acoustic.mp3',  label: 'Warm Acoustic'   },
+    modern:    { path: 'music/05-modern-beat.mp3',    label: 'Modern Beat'     }
+  };
   var vidCurrentPlatform= 'landscape';
   var vidCurrentQuality = 'balanced';
   var vidCurrentFont    = 'bold';
@@ -104,6 +117,84 @@
     document.querySelectorAll('.font-pick-btn').forEach(function(b){ b.classList.remove('sel'); });
     el.classList.add('sel');
   };
+
+  /* ── MUSIC LIBRARY ───────────────────────────────────────────── */
+  window.vidMusicTab = function(tab, btn) {
+    document.getElementById('vid-music-library-panel').style.display = tab === 'library' ? '' : 'none';
+    document.getElementById('vid-music-upload-panel').style.display  = tab === 'upload'  ? '' : 'none';
+    document.getElementById('vid-music-tab-lib').style.background = tab === 'library' ? 'rgba(162,182,192,0.12)' : 'none';
+    document.getElementById('vid-music-tab-lib').style.color      = tab === 'library' ? '#C8D8E0' : 'var(--brand-gray)';
+    document.getElementById('vid-music-tab-up').style.background  = tab === 'upload'  ? 'rgba(162,182,192,0.12)' : 'none';
+    document.getElementById('vid-music-tab-up').style.color       = tab === 'upload'  ? '#C8D8E0' : 'var(--brand-gray)';
+  };
+
+  window.vidSelectLibraryTrack = function(id, el) {
+    document.querySelectorAll('.vid-music-card').forEach(function(c){ c.classList.remove('sel'); });
+    el.classList.add('sel');
+    var track = VID_MUSIC_LIBRARY[id];
+    if (!track) return;
+    vidLibraryTrack = id === 'none' ? null : { id: id, path: track.path, label: track.label };
+    var vol = document.getElementById('vid-vol-row');
+    if (vol) vol.style.display = id !== 'none' ? '' : 'none';
+  };
+
+  /* ── AI AUTO-FILL ────────────────────────────────────────────── */
+  window.vidAIFill = function() {
+    var addr    = g('vid-address') || g('vnh-name') || g('vai-name') || g('vmu-area');
+    var city    = g('vid-city')    || g('vnh-area')  || g('vmu-area');
+    var tplName = (VID_TEMPLATES.find(function(t){return t.id===vidCurrentTpl;})||{}).name || vidCurrentTpl;
+    var btn     = document.getElementById('vid-ai-fill-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '✦ Filling…'; }
+    var prompt  = 'Generate engaging video copy for a real estate ' + tplName + ' video.'
+      + (addr ? ' Property/subject: ' + addr : '')
+      + (city ? ', ' + city + '.' : '.')
+      + ' Return ONLY a JSON object with these keys:'
+      + ' hookText (punchy opening line, max 8 words),'
+      + ' feat1, feat2, feat3, feat4 (key property features, format: "Label — detail", e.g. "Renovated Kitchen — Quartz countertops"),'
+      + ' callouts (3-4 feature callout lines for text overlay, newline separated, ALL CAPS),'
+      + ' cta (call to action phrase, max 5 words).'
+      + ' Keep it high-energy and real estate professional.';
+    GatewayAPI.claude('You are a real estate marketing copywriter.', prompt, { max_tokens: 400 })
+      .then(function(text) {
+        var json;
+        try {
+          var m = text.match(/\{[\s\S]*\}/);
+          json = m ? JSON.parse(m[0]) : null;
+        } catch(e) { json = null; }
+        if (!json) { showGlobalStatus('AI fill: could not parse response. Try again.'); return; }
+        if (json.hookText) { var hk = document.getElementById('ovl-hook-text'); if (hk) hk.value = json.hookText; }
+        if (json.feat1) { var f1 = document.getElementById('vid-feat1'); if (f1) f1.value = json.feat1; }
+        if (json.feat2) { var f2 = document.getElementById('vid-feat2'); if (f2) f2.value = json.feat2; }
+        if (json.feat3) { var f3 = document.getElementById('vid-feat3'); if (f3) f3.value = json.feat3; }
+        if (json.feat4) { var f4 = document.getElementById('vid-feat4'); if (f4) f4.value = json.feat4; }
+        if (json.callouts) { var co = document.getElementById('ovl-callout-text'); if (co) co.value = json.callouts; }
+        if (json.cta) {
+          var ctaSel = document.getElementById('ovl-cta-preset');
+          var ctaCustom = document.getElementById('ovl-cta-custom');
+          var ctaRow = document.getElementById('ovl-cta-custom-row');
+          if (ctaSel) ctaSel.value = 'custom';
+          if (ctaCustom) ctaCustom.value = json.cta;
+          if (ctaRow) ctaRow.style.display = '';
+        }
+        vidRenderScenePreview();
+        showGlobalStatus('✦ AI filled your video copy!');
+      })
+      .catch(function(err) { showGlobalStatus('AI fill failed: ' + (err.message || err)); })
+      .finally(function() {
+        if (btn) { btn.disabled = false; btn.textContent = '✦ AI Fill'; }
+      });
+  };
+
+  /* ── RENDER TIME ESTIMATOR ───────────────────────────────────── */
+  function vidUpdateEstimate() {
+    var el = document.getElementById('vid-est-time');
+    if (!el) return;
+    var photoCount = vidPhotos.length;
+    var baseSec = { listing:360, 'just-listed':300, 'just-sold':240, 'open-house':300, 'price-improved':240, neighborhood:360, 'agent-intro':240, 'market-update':300 }[vidCurrentTpl] || 300;
+    var estSec = Math.round(baseSec + photoCount * 20);
+    var estMin = Math.round(estSec / 60);
+    el.textContent = 'Est. ~' + (estMin < 2 ? '1–2' : estMin + '–' + (estMin + 2)) + ' min';
+  }
 
   /* ── TEMPLATE / FORMAT SELECTION ───────────────────────────────── */
   window.vidSelectTpl = function(id, btn) {
@@ -195,6 +286,7 @@
         var cnt=document.getElementById("vid-scene-count");
         if (hint) hint.style.display="none";
         if (cnt) cnt.textContent=vidPhotos.length+" photo"+(vidPhotos.length!==1?"s":"");
+        vidUpdateEstimate();
       });
     });
   };
@@ -350,6 +442,36 @@
       for (var i=0; i<vidPhotos.length; i++)
         html += pc('Scene '+(i+2)+' · '+(i===0?'Hero':'Room'), vidPhotos[i], null, null);
       html += pc('Agent Close', null, agents, newP, '#0D1117');
+
+    } else if (vidCurrentTpl === 'neighborhood') {
+      var nhName = g('vnh-name') || 'Neighborhood Tour';
+      var nhArea = g('vnh-area') || city || '—';
+      html += pc('Intro Card', null, nhName, nhArea, '#0D1117');
+      for (var i=0; i<vidPhotos.length; i++) {
+        var hl = [g('vnh-h1'),g('vnh-h2'),g('vnh-h3'),g('vnh-h4')][i] || null;
+        html += pc('Scene '+(i+2)+' · Area', vidPhotos[i], hl, null);
+      }
+      html += pc('Highlights Card', null, g('vnh-price')||'Avg Price', g('vnh-walk')||'Walk Score', '#0D1117');
+      html += pc('Agent Close', null, agents, 'Gateway Real Estate Advisors', '#0D1117');
+
+    } else if (vidCurrentTpl === 'agent-intro') {
+      var aiName = g('vai-name') || agents;
+      var aiTitle = g('vai-title') || 'Real Estate Advisor';
+      html += pc('Name Card', null, aiName, aiTitle, '#0D1117');
+      for (var i=0; i<vidPhotos.length; i++)
+        html += pc('Scene '+(i+2)+' · Photo', vidPhotos[i], i===0?g('vai-tag')||null:null, null);
+      html += pc('Credentials', null, g('vai-years')||'Experience', g('vai-creds')||'Specialties', '#0D1117');
+      html += pc('Contact Card', null, aiName, g('vai-phone')||'Gateway Real Estate Advisors', '#0D1117');
+
+    } else if (vidCurrentTpl === 'market-update') {
+      var muArea = g('vmu-area') || '—';
+      var muPeriod = g('vmu-period') || '—';
+      html += pc('Intro Card', null, 'MARKET UPDATE', muArea + ' · ' + muPeriod, '#0D1117');
+      html += pc('Price Stats', null, g('vmu-price')||'Median Price', g('vmu-pchg')||'YoY Change', '#0D1117');
+      html += pc('Activity Stats', null, g('vmu-dom')||'Avg Days on Market', g('vmu-sold')||'Homes Sold', '#0D1117');
+      var tempo = g('vmu-tempo') || 'seller';
+      html += pc('Market Tempo', null, tempo==='seller'?"Seller's Market":tempo==='buyer'?"Buyer's Market":'Balanced Market', g('vmu-msg')||'', '#0D1117');
+      html += pc('Agent Close', null, agents, 'Gateway Real Estate Advisors', '#0D1117');
     }
 
     c.innerHTML = html || '<p style="font-size:11px;color:var(--brand-gray);padding:12px">Upload photos to see scene preview</p>';
@@ -377,7 +499,7 @@
   /* ── HELPERS ───────────────────────────────────────────────────── */
   function g(id)  { var el=document.getElementById(id); return el ? el.value.trim() : ''; }
   function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-  window.vidUpdatePreview = vidRenderScenePreview;
+  window.vidUpdatePreview = function() { vidRenderScenePreview(); vidUpdateEstimate(); };
 
   function vidGetStats() {
     if (vidType==='residential') return [
@@ -810,11 +932,256 @@
     return mkH(compId,totalD,W,H,css)+html+mkF(compId,tl);
   }
 
+  /* ── NEIGHBORHOOD TOUR ──────────────────────────────────────────── */
+  function buildNeighborhood(data, photos, logos, fmt) {
+    var dim=FMT[fmt]||FMT['16:9']; var W=dim.w,H=dim.h,isV=H>W,isS=W===H;
+    var compId='nh-'+data.slug;
+    var introD=4.0,photoD=3.8,hlD=3.5,agentD=4.0;
+    var totalD=+(introD+photos.length*photoD+hlD+agentD).toFixed(1);
+    var headSz=isV?'88px':isS?'80px':'120px';
+    var subSz=isV?'38px':isS?'32px':'48px';
+    var side=isV?'60px':isS?'50px':'100px';
+    var ltSz=isV?'28px':isS?'24px':'34px';
+    var css='.nhcard{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:#0D1117;text-align:center;padding:0 '+side+'}\n'
+      +'.nh-eye{font-size:11px;font-weight:500;letter-spacing:6px;text-transform:uppercase;color:rgba(245,245,243,0.35);opacity:0}\n'
+      +'.nh-head{font-size:'+headSz+';font-weight:700;color:#F5F5F3;letter-spacing:-1px;margin-top:16px;opacity:0;transform:translateY(24px)}\n'
+      +'.nh-bar{width:60px;height:2px;background:rgba(245,245,243,0.2);margin:24px auto;opacity:0}\n'
+      +'.nh-sub{font-size:'+subSz+';font-weight:200;color:rgba(245,245,243,0.6);opacity:0;transform:translateY(14px)}\n'
+      +'.lt{position:absolute;bottom:'+(isV?'90px':'70px')+';left:'+side+';right:'+side+';pointer-events:none}\n'
+      +'.lt-bar{height:3px;background:#A2B6C0;width:0;margin-bottom:10px}\n'
+      +'.lt-text{font-size:'+ltSz+';font-weight:300;color:#F5F5F3;opacity:0;transform:translateY(8px)}\n'
+      +'.hl-grid{display:grid;grid-template-columns:1fr 1fr;gap:'+(isV?'24px':'32px')+';width:100%;max-width:'+(isV?'600px':'900px')+'}\n'
+      +'.hl-box{background:rgba(255,255,255,0.04);border:1px solid rgba(162,182,192,0.18);border-radius:16px;padding:'+(isV?'24px':'32px')+';text-align:center;opacity:0;transform:translateY(18px)}\n'
+      +'.hl-val{font-size:'+(isV?'42px':'54px')+';font-weight:200;color:#F5F5F3;margin-bottom:8px}\n'
+      +'.hl-lbl{font-size:14px;font-weight:400;letter-spacing:3px;text-transform:uppercase;color:rgba(245,245,243,0.4)}\n'
+      +sharedCss(W,H,isV,isS);
+    var highlights=[data.nhH1,data.nhH2,data.nhH3,data.nhH4].filter(Boolean);
+    var hlData=[
+      {val:data.nhPrice||'—',lbl:'Avg Home Price'},
+      {val:data.nhWalk||'—',lbl:'Walk Score'},
+      {val:String(highlights.length||'—'),lbl:'Local Highlights'},
+      {val:((data.agents||'Gateway').split(' ')[0])||'GW',lbl:'Your Agent'}
+    ];
+    var html='<div class="scene" id="sc-intro"><div class="nhcard">'
+      +'<div class="nh-eye" id="nh-eye">Gateway Real Estate Advisors</div>'
+      +'<div class="nh-head" id="nh-head">'+esc(data.nhName||'Neighborhood Tour')+'</div>'
+      +'<div class="nh-bar" id="nh-bar"></div>'
+      +'<div class="nh-sub" id="nh-sub">'+esc(data.nhArea||data.addr)+'</div>'
+      +'</div></div>\n';
+    photos.forEach(function(p,i){
+      var hl=highlights[i]||'';
+      html+='<div class="scene" id="sc'+i+'">'
+        +'<div class="pw"><img class="pb" id="pb'+i+'" src="'+p.dataUrl+'" alt=""></div>'
+        +'<div class="pg"></div>'
+        +(hl?'<div class="lt" id="lt'+i+'"><div class="lt-bar" id="ltbar'+i+'"></div><div class="lt-text" id="ltxt'+i+'">'+esc(hl)+'</div></div>':'')
+        +'</div>\n';
+    });
+    html+='<div class="scene" id="sc-hl"><div class="nhcard"><div class="hl-grid" id="hl-grid">'
+      +hlData.map(function(d,i){ return '<div class="hl-box" id="hlb'+i+'"><div class="hl-val">'+esc(d.val)+'</div><div class="hl-lbl">'+esc(d.lbl)+'</div></div>'; }).join('')
+      +'</div></div></div>\n';
+    html+=agentScene(logos.logoS,data.agents,data.agentPhoto);
+    var tl='tl',t=0;
+    tl+='\n  .set("#sc-intro",{opacity:1},0)'+xfi(0)
+      +'\n  .to("#nh-eye",{opacity:1,duration:0.7},0.3)'
+      +'\n  .to("#nh-head",{opacity:1,y:0,duration:1.1,ease:"power3.out"},0.7)'
+      +'\n  .to("#nh-bar",{opacity:1,duration:0.5},1.5)'
+      +'\n  .to("#nh-sub",{opacity:1,y:0,duration:0.9,ease:"power2.out"},2.0)'
+      +xfd(introD-0.35)+'\n  .set("#sc-intro",{opacity:0},'+introD.toFixed(2)+')';
+    t=introD;
+    photos.forEach(function(p,i){
+      var hl=highlights[i]||'';
+      tl+='\n  .set("#sc'+i+'",{opacity:1},'+t.toFixed(2)+')'+xfi(t)+kb(i,t,photoD,i);
+      if(hl){
+        tl+='\n  .to("#ltbar'+i+'",{width:"80px",duration:0.5,ease:"power2.out"},'+(t+1.2).toFixed(2)+')'
+          +'\n  .to("#ltxt'+i+'",{opacity:1,y:0,duration:0.7,ease:"power2.out"},'+(t+1.6).toFixed(2)+')';
+      }
+      tl+=xfd(t+photoD-0.35)+'\n  .set("#sc'+i+'",{opacity:0},'+(t+photoD).toFixed(2)+')';
+      t+=photoD;
+    });
+    tl+='\n  .set("#sc-hl",{opacity:1},'+t.toFixed(2)+')'+xfi(t);
+    hlData.forEach(function(_,i){
+      tl+='\n  .to("#hlb'+i+'",{opacity:1,y:0,duration:0.8,ease:"power3.out"},'+(t+0.3+i*0.2).toFixed(2)+')';
+    });
+    tl+=xfd(t+hlD-0.35)+'\n  .set("#sc-hl",{opacity:0},'+(t+hlD).toFixed(2)+')'; t+=hlD;
+    tl+=agentTL(t, !!data.agentPhoto);
+    return mkH(compId,totalD,W,H,css)+html+mkF(compId,tl);
+  }
+
+  /* ── AGENT INTRODUCTION ─────────────────────────────────────────── */
+  function buildAgentIntro(data, photos, logos, fmt) {
+    var dim=FMT[fmt]||FMT['16:9']; var W=dim.w,H=dim.h,isV=H>W,isS=W===H;
+    var compId='ai-'+data.slug;
+    var nameD=4.5,photoD=3.5,credD=3.5,contactD=4.0;
+    var totalD=+(nameD+photos.length*photoD+credD+contactD).toFixed(1);
+    var nameSz=isV?'88px':isS?'80px':'120px';
+    var titleSz=isV?'32px':isS?'28px':'42px';
+    var side=isV?'60px':isS?'50px':'100px';
+    var credSz=isV?'28px':isS?'24px':'34px';
+    var css='.aicard{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:#0D1117;text-align:center;padding:0 '+side+'}\n'
+      +'.ai-tag{font-size:11px;font-weight:500;letter-spacing:6px;text-transform:uppercase;color:rgba(245,245,243,0.35);opacity:0}\n'
+      +'.ai-name{font-size:'+nameSz+';font-weight:700;color:#F5F5F3;letter-spacing:-1px;margin-top:16px;opacity:0;transform:translateY(24px)}\n'
+      +'.ai-bar{width:60px;height:2px;background:rgba(245,245,243,0.2);margin:24px auto;opacity:0}\n'
+      +'.ai-title{font-size:'+titleSz+';font-weight:200;color:rgba(245,245,243,0.6);opacity:0}\n'
+      +'.ai-yrs{font-size:'+(isV?'22px':'26px')+';font-weight:300;color:rgba(245,245,243,0.35);margin-top:16px;opacity:0}\n'
+      +'.cred-card{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:#0D1117;text-align:center;padding:0 '+side+'}\n'
+      +'.cred-head{font-size:'+(isV?'18px':'22px')+';font-weight:500;letter-spacing:4px;text-transform:uppercase;color:rgba(245,245,243,0.4);opacity:0}\n'
+      +'.cred-line{font-size:'+credSz+';font-weight:200;color:#F5F5F3;margin-top:20px;opacity:0;transform:translateY(10px)}\n'
+      +'.contact-card{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:#0D1117;text-align:center;padding:0 '+side+'}\n'
+      +'.ct-logo{width:'+(isV?'140px':'160px')+';height:'+(isV?'140px':'160px')+';opacity:0;margin-bottom:24px;object-fit:contain}\n'
+      +'.ct-name{font-size:'+(isV?'52px':'68px')+';font-weight:300;color:#F5F5F3;opacity:0;transform:translateY(16px)}\n'
+      +'.ct-title{font-size:'+(isV?'24px':'29px')+';font-weight:300;color:rgba(245,245,243,0.55);margin-top:8px;opacity:0}\n'
+      +'.ct-phone{font-size:'+(isV?'34px':'44px')+';font-weight:200;color:#F5F5F3;margin-top:24px;opacity:0}\n'
+      +'.ct-brok{font-size:14px;font-weight:400;letter-spacing:4px;text-transform:uppercase;color:rgba(245,245,243,0.35);margin-top:14px;opacity:0}\n'
+      +sharedCss(W,H,isV,isS);
+    var credLines=(data.aiCreds||'').split('\n').filter(Boolean).slice(0,4);
+    var html='<div class="scene" id="sc-name"><div class="aicard">'
+      +'<div class="ai-tag" id="ai-tag">Gateway Real Estate Advisors</div>'
+      +'<div class="ai-name" id="ai-name">'+esc(data.aiName||data.agents)+'</div>'
+      +'<div class="ai-bar" id="ai-bar"></div>'
+      +'<div class="ai-title" id="ai-title">'+esc(data.aiTitle||'Real Estate Advisor')+'</div>'
+      +(data.aiYears?'<div class="ai-yrs" id="ai-yrs">'+esc(data.aiYears)+'</div>':'')
+      +'</div></div>\n';
+    photos.forEach(function(p,i){
+      html+='<div class="scene" id="sc'+i+'">'
+        +'<div class="pw"><img class="pb" id="pb'+i+'" src="'+p.dataUrl+'" alt=""></div>'
+        +'<div class="pg"></div>'
+        +'</div>\n';
+    });
+    html+='<div class="scene" id="sc-cred"><div class="cred-card">'
+      +'<div class="cred-head" id="cred-head">Specialties &amp; Credentials</div>'
+      +credLines.map(function(l,i){return '<div class="cred-line" id="crl'+i+'">'+esc(l)+'</div>';}).join('')
+      +'</div></div>\n';
+    html+='<div class="scene" id="sc-contact"><div class="contact-card">'
+      +'<img class="ct-logo" id="ct-logo" src="'+logos.logoS+'" alt="Gateway">'
+      +'<div class="ct-name" id="ct-name">'+esc(data.aiName||data.agents)+'</div>'
+      +'<div class="ct-title" id="ct-title">'+esc(data.aiTitle||'Gateway Real Estate Advisors')+'</div>'
+      +(data.aiPhone?'<div class="ct-phone" id="ct-phone">'+esc(data.aiPhone)+'</div>':'')
+      +'<div class="ct-brok" id="ct-brok">Gateway Real Estate Advisors · Opening Doors to Your Future</div>'
+      +'</div></div>\n';
+    var tl='tl',t=0;
+    tl+='\n  .set("#sc-name",{opacity:1},0)'+xfi(0)
+      +'\n  .to("#ai-tag",{opacity:1,duration:0.7},0.3)'
+      +'\n  .to("#ai-name",{opacity:1,y:0,duration:1.2,ease:"power3.out"},0.7)'
+      +'\n  .to("#ai-bar",{opacity:1,duration:0.5},1.6)'
+      +'\n  .to("#ai-title",{opacity:1,duration:0.8},2.0)'
+      +(data.aiYears?'\n  .to("#ai-yrs",{opacity:1,duration:0.6},2.7)':'')
+      +xfd(nameD-0.35)+'\n  .set("#sc-name",{opacity:0},'+nameD.toFixed(2)+')';
+    t=nameD;
+    photos.forEach(function(p,i){
+      tl+='\n  .set("#sc'+i+'",{opacity:1},'+t.toFixed(2)+')'+xfi(t)+kb(i,t,photoD,i+1);
+      tl+=xfd(t+photoD-0.35)+'\n  .set("#sc'+i+'",{opacity:0},'+(t+photoD).toFixed(2)+')';
+      t+=photoD;
+    });
+    tl+='\n  .set("#sc-cred",{opacity:1},'+t.toFixed(2)+')'+xfi(t)
+      +'\n  .to("#cred-head",{opacity:1,duration:0.6},'+(t+0.4).toFixed(2)+')';
+    credLines.forEach(function(_,i){
+      tl+='\n  .to("#crl'+i+'",{opacity:1,y:0,duration:0.8,ease:"power3.out"},'+(t+0.8+i*0.25).toFixed(2)+')';
+    });
+    tl+=xfd(t+credD-0.35)+'\n  .set("#sc-cred",{opacity:0},'+(t+credD).toFixed(2)+')'; t+=credD;
+    tl+='\n  .set("#sc-contact",{opacity:1},'+t.toFixed(2)+')'+xfi(t)
+      +'\n  .to("#ct-logo",{opacity:1,duration:0.9},'+(t+0.4).toFixed(2)+')'
+      +'\n  .to("#ct-name",{opacity:1,y:0,duration:1.0,ease:"power3.out"},'+(t+1.1).toFixed(2)+')'
+      +'\n  .to("#ct-title",{opacity:1,duration:0.7},'+(t+2.0).toFixed(2)+')'
+      +(data.aiPhone?'\n  .to("#ct-phone",{opacity:1,duration:0.8},'+(t+2.6).toFixed(2)+')':'')
+      +'\n  .to("#ct-brok",{opacity:1,duration:0.5},'+(t+3.2).toFixed(2)+');';
+    return mkH(compId,totalD,W,H,css)+html+mkF(compId,tl);
+  }
+
+  /* ── MARKET UPDATE ──────────────────────────────────────────────── */
+  function buildMarketUpdate(data, photos, logos, fmt) {
+    var dim=FMT[fmt]||FMT['16:9']; var W=dim.w,H=dim.h,isV=H>W,isS=W===H;
+    var compId='mu-'+data.slug;
+    var introD=4.0,statD=4.0,tempoD=3.5,agentD=4.0;
+    var hasPhotos=photos.length>0;
+    var totalD=+(introD+(hasPhotos?photos.length*3.5:0)+statD+statD+tempoD+agentD).toFixed(1);
+    var headSz=isV?'80px':isS?'72px':'108px';
+    var metricSz=isV?'72px':isS?'62px':'96px';
+    var side=isV?'60px':isS?'50px':'100px';
+    var tempo=data.muTempo||'seller';
+    var tempoLabel=tempo==='seller'?"SELLER'S MARKET":tempo==='buyer'?"BUYER'S MARKET":'BALANCED MARKET';
+    var tempoColor=tempo==='seller'?'#C9A84C':tempo==='buyer'?'#4CAEAF':'#A2B6C0';
+    var css='.mucard{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:#0D1117;text-align:center;padding:0 '+side+'}\n'
+      +'.mu-tag{font-size:11px;font-weight:500;letter-spacing:6px;text-transform:uppercase;color:rgba(245,245,243,0.35);opacity:0}\n'
+      +'.mu-head{font-size:'+headSz+';font-weight:800;color:#F5F5F3;letter-spacing:4px;text-transform:uppercase;margin-top:16px;opacity:0;transform:translateY(24px)}\n'
+      +'.mu-bar{width:60px;height:2px;background:rgba(245,245,243,0.2);margin:24px auto;opacity:0}\n'
+      +'.mu-sub{font-size:'+(isV?'30px':'38px')+';font-weight:200;color:rgba(245,245,243,0.55);opacity:0}\n'
+      +'.stat-card{display:grid;grid-template-columns:1fr 1fr;gap:'+(isV?'28px':'40px')+';align-items:center;justify-content:center;height:100%;background:#0D1117;padding:0 '+side+'}\n'
+      +'.stat-box{text-align:center;opacity:0;transform:translateY(20px)}\n'
+      +'.stat-val{font-size:'+metricSz+';font-weight:200;color:#F5F5F3;letter-spacing:-1px}\n'
+      +'.stat-chg{font-size:'+(isV?'22px':'28px')+';color:#A2B6C0;font-weight:300;margin-top:6px}\n'
+      +'.stat-lbl{font-size:14px;font-weight:400;letter-spacing:4px;text-transform:uppercase;color:rgba(245,245,243,0.4);margin-top:10px}\n'
+      +'.tempo-card{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:#0D1117;text-align:center;padding:0 '+side+'}\n'
+      +'.tempo-sub{font-size:11px;font-weight:500;letter-spacing:6px;text-transform:uppercase;color:rgba(245,245,243,0.3);opacity:0}\n'
+      +'.tempo-label{font-size:'+(isV?'66px':isS?'56px':'84px')+';font-weight:800;letter-spacing:4px;text-transform:uppercase;color:'+esc(tempoColor)+';margin-top:20px;opacity:0;transform:scale(0.88)}\n'
+      +'.tempo-msg{font-size:'+(isV?'26px':'32px')+';font-weight:200;color:rgba(245,245,243,0.55);margin-top:24px;opacity:0;transform:translateY(12px)}\n'
+      +sharedCss(W,H,isV,isS);
+    var html='<div class="scene" id="sc-intro"><div class="mucard">'
+      +'<div class="mu-tag" id="mu-tag">Gateway Real Estate Advisors</div>'
+      +'<div class="mu-head" id="mu-head">Market Update</div>'
+      +'<div class="mu-bar" id="mu-bar"></div>'
+      +'<div class="mu-sub" id="mu-sub">'+esc((data.muArea||data.addr)+' · '+(data.muPeriod||''))+'</div>'
+      +'</div></div>\n';
+    if(hasPhotos){
+      photos.forEach(function(p,i){
+        html+='<div class="scene" id="scph'+i+'">'
+          +'<div class="pw"><img class="pb" id="pb'+i+'" src="'+p.dataUrl+'" alt=""></div>'
+          +'<div class="pg"></div>'
+          +'</div>\n';
+      });
+    }
+    html+='<div class="scene stat-card" id="sc-stat1">'
+      +'<div class="stat-box" id="sb0"><div class="stat-val">'+esc(data.muPrice||'—')+'</div>'+(data.muPchg?'<div class="stat-chg">'+esc(data.muPchg)+'</div>':'')+'<div class="stat-lbl">Median Price</div></div>'
+      +'<div class="stat-box" id="sb1"><div class="stat-val">'+esc(data.muDom||'—')+'</div><div class="stat-lbl">Avg Days on Mkt</div></div>'
+      +'</div>\n';
+    html+='<div class="scene stat-card" id="sc-stat2">'
+      +'<div class="stat-box" id="sb2"><div class="stat-val">'+esc(data.muSold||'—')+'</div><div class="stat-lbl">Homes Sold</div></div>'
+      +'<div class="stat-box" id="sb3"><div class="stat-val">'+esc(data.muLts||'—')+'</div><div class="stat-lbl">List-to-Sale</div></div>'
+      +'</div>\n';
+    html+='<div class="scene tempo-card" id="sc-tempo">'
+      +'<div class="tempo-sub" id="tempo-sub">Current Conditions</div>'
+      +'<div class="tempo-label" id="tempo-label">'+esc(tempoLabel)+'</div>'
+      +(data.muMsg?'<div class="tempo-msg" id="tempo-msg">'+esc(data.muMsg)+'</div>':'')
+      +'</div>\n';
+    html+=agentScene(logos.logoS,data.agents,data.agentPhoto);
+    var tl='tl',t=0;
+    tl+='\n  .set("#sc-intro",{opacity:1},0)'+xfi(0)
+      +'\n  .to("#mu-tag",{opacity:1,duration:0.7},0.3)'
+      +'\n  .to("#mu-head",{opacity:1,y:0,duration:1.1,ease:"power3.out"},0.7)'
+      +'\n  .to("#mu-bar",{opacity:1,duration:0.5},1.5)'
+      +'\n  .to("#mu-sub",{opacity:1,duration:0.9},2.0)'
+      +xfd(introD-0.35)+'\n  .set("#sc-intro",{opacity:0},'+introD.toFixed(2)+')';
+    t=introD;
+    if(hasPhotos){
+      photos.forEach(function(p,i){
+        tl+='\n  .set("#scph'+i+'",{opacity:1},'+t.toFixed(2)+')'+xfi(t)+kb(i,t,3.5,i);
+        tl+=xfd(t+3.5-0.35)+'\n  .set("#scph'+i+'",{opacity:0},'+(t+3.5).toFixed(2)+')';
+        t+=3.5;
+      });
+    }
+    tl+='\n  .set("#sc-stat1",{opacity:1},'+t.toFixed(2)+')'+xfi(t)
+      +'\n  .to("#sb0",{opacity:1,y:0,duration:1.0,ease:"power3.out"},'+(t+0.5).toFixed(2)+')'
+      +'\n  .to("#sb1",{opacity:1,y:0,duration:1.0,ease:"power3.out"},'+(t+0.8).toFixed(2)+')'
+      +xfd(t+statD-0.35)+'\n  .set("#sc-stat1",{opacity:0},'+(t+statD).toFixed(2)+')'; t+=statD;
+    tl+='\n  .set("#sc-stat2",{opacity:1},'+t.toFixed(2)+')'+xfi(t)
+      +'\n  .to("#sb2",{opacity:1,y:0,duration:1.0,ease:"power3.out"},'+(t+0.5).toFixed(2)+')'
+      +'\n  .to("#sb3",{opacity:1,y:0,duration:1.0,ease:"power3.out"},'+(t+0.8).toFixed(2)+')'
+      +xfd(t+statD-0.35)+'\n  .set("#sc-stat2",{opacity:0},'+(t+statD).toFixed(2)+')'; t+=statD;
+    tl+='\n  .set("#sc-tempo",{opacity:1},'+t.toFixed(2)+')'+xfi(t)
+      +'\n  .to("#tempo-sub",{opacity:1,duration:0.7},'+(t+0.5).toFixed(2)+')'
+      +'\n  .to("#tempo-label",{opacity:1,scale:1,duration:1.1,ease:"back.out(1.3)"},'+(t+1.0).toFixed(2)+')'
+      +(data.muMsg?'\n  .to("#tempo-msg",{opacity:1,y:0,duration:0.8,ease:"power2.out"},'+(t+2.2).toFixed(2)+')':'')
+      +xfd(t+tempoD-0.35)+'\n  .set("#sc-tempo",{opacity:0},'+(t+tempoD).toFixed(2)+')'; t+=tempoD;
+    tl+=agentTL(t, !!data.agentPhoto);
+    return mkH(compId,totalD,W,H,css)+html+mkF(compId,tl);
+  }
+
   /* ── COMPOSITION DISPATCH ──────────────────────────────────────── */
   function vidBuildComposition() {
-    var addr=g('vid-address');
-    if (!addr) { alert('Please enter a street address.'); return null; }
-    if (vidPhotos.length===0) { alert('Please upload at least one property photo.'); return null; }
+    var noAddrTpls = ['agent-intro','market-update'];
+    var noPhotoTpls = ['agent-intro','market-update'];
+    var addr = noAddrTpls.indexOf(vidCurrentTpl) === -1 ? g('vid-address') : (g('vnh-name')||g('vai-name')||g('vmu-area')||'Video');
+    if (!addr && noAddrTpls.indexOf(vidCurrentTpl) === -1) { alert('Please enter a street address.'); return null; }
+    if (vidPhotos.length===0 && noPhotoTpls.indexOf(vidCurrentTpl) === -1) { alert('Please upload at least one property photo.'); return null; }
     var city=g('vid-city');
     var ctaMap = { dm:'DM for Details', link:'Link in Bio', call:'Call Today', tour:'Schedule a Tour', custom:g('ovl-cta-custom') };
     var ctaSel = (document.getElementById('ovl-cta-preset')||{}).value || 'dm';
@@ -829,6 +1196,12 @@
       ohDate:g('voh-date'),ohStart:g('voh-start'),ohEnd:g('voh-end'),ohPhone:g('voh-phone'),ohPrice:g('voh-price'),
       prOld:g('vpr-old'),prNew:g('vpr-new'),prSave:g('vpr-save'),
       jsSold:g('vjs-sold'),jsList:g('vjs-list'),jsDom:g('vjs-dom'),
+      nhName:g('vnh-name'),nhArea:g('vnh-area'),nhTagline:g('vnh-tagline'),nhPrice:g('vnh-price'),nhWalk:g('vnh-walk'),
+      nhH1:g('vnh-h1'),nhH2:g('vnh-h2'),nhH3:g('vnh-h3'),nhH4:g('vnh-h4'),
+      aiName:g('vai-name'),aiTitle:g('vai-title'),aiYears:g('vai-years'),aiTag:g('vai-tag'),aiPhone:g('vai-phone'),aiCreds:g('vai-creds'),
+      muArea:g('vmu-area'),muPeriod:g('vmu-period'),muPrice:g('vmu-price'),muPchg:g('vmu-pchg'),
+      muDom:g('vmu-dom'),muSold:g('vmu-sold'),muLts:g('vmu-lts'),muActive:g('vmu-active'),
+      muTempo:(document.getElementById('vmu-tempo')||{}).value||'seller',muMsg:g('vmu-msg'),
       slug: addr.replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'-'+Date.now(),
       animStyle:   vidCurrentAnim,
       platform:    vidCurrentPlatform,
@@ -844,7 +1217,7 @@
       overlayFont: vidCurrentFont
     };
     var logos=vidMakeLogos();
-    var builders={'listing':buildListing,'just-listed':buildJustListed,'just-sold':buildJustSold,'open-house':buildOpenHouse,'price-improved':buildPriceImproved};
+    var builders={'listing':buildListing,'just-listed':buildJustListed,'just-sold':buildJustSold,'open-house':buildOpenHouse,'price-improved':buildPriceImproved,'neighborhood':buildNeighborhood,'agent-intro':buildAgentIntro,'market-update':buildMarketUpdate};
     var build=builders[vidCurrentTpl]||buildListing;
     return { html: build(data,vidPhotos,logos,vidCurrentFmt), slug: data.slug };
   }
@@ -943,6 +1316,8 @@
       });
       if (!musicUpRes.ok) { var me = await musicUpRes.json(); throw new Error('Music upload failed: ' + (me.message || musicUpRes.status)); }
       musicPath = musicUpPath;
+    } else if (vidLibraryTrack && vidLibraryTrack.path) {
+      musicPath = vidLibraryTrack.path;
     }
 
     // 2. Create job record in Supabase (browser writes directly using its session JWT)
@@ -1073,6 +1448,8 @@
       });
       if (!musicUpRes.ok) { var me = await musicUpRes.json(); throw new Error('Music upload failed: ' + (me.message || musicUpRes.status)); }
       musicPath = musicUpPath;
+    } else if (vidLibraryTrack && vidLibraryTrack.path) {
+      musicPath = vidLibraryTrack.path;
     }
     var triggerTime = new Date().toISOString();
     var dispatchRes = await fetch('https://api.github.com/repos/' + VID_REPO + '/actions/workflows/render-listing-video.yml/dispatches', {
@@ -1207,6 +1584,7 @@
     if (tok) document.getElementById('vid-gh-token').value=tok;
     var bEl=document.getElementById('vid-gh-branch');
     if (bEl) bEl.value=br||'main';
+    vidUpdateEstimate();
     var audioDrop=document.getElementById('vid-audio-drop');
     if (audioDrop) {
       audioDrop.addEventListener('dragover',function(e){e.preventDefault();audioDrop.style.borderColor='#C8A84B';});
