@@ -29,6 +29,36 @@ const DEFAULT_MODEL  = 'claude-sonnet-4-6';
 const DEFAULT_TOKENS = 2000;
 const FETCH_TIMEOUT  = 45_000;
 
+// Hard caps — prevent runaway cost and abuse
+const MAX_TOKENS_CAP  = 4000;
+const MAX_BODY_BYTES  = 32_768; // 32 KB
+
+// Allowlist — only these model IDs pass through to Anthropic
+const ALLOWED_MODELS = new Set([
+  'claude-sonnet-4-6',
+  'claude-haiku-4-5-20251001',
+  'claude-opus-4-7',
+]);
+
+// ── In-memory rate limiter ────────────────────────────────────────
+// Per-user-ID bucket: 30 req/min. Resets on cold start (acceptable
+// for a small team tool; use Deno KV for persistent limits if needed).
+const RATE_LIMIT_RPM = 30;
+const RATE_WINDOW_MS = 60_000;
+const _rateStore = new Map<string, { count: number; windowStart: number }>();
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const rec = _rateStore.get(userId);
+  if (!rec || (now - rec.windowStart) > RATE_WINDOW_MS) {
+    _rateStore.set(userId, { count: 1, windowStart: now });
+    return true;
+  }
+  if (rec.count >= RATE_LIMIT_RPM) return false;
+  rec.count++;
+  return true;
+}
+
 // ── CORS ─────────────────────────────────────────────────────────
 
 const CORS: Record<string, string> = {
@@ -36,6 +66,7 @@ const CORS: Record<string, string> = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Cache-Control':                'no-store',
+  'X-Content-Type-Options':       'nosniff',
 };
 
 function json(data: unknown, status = 200): Response {
@@ -65,9 +96,23 @@ async function getUser(req: Request) {
 
 // ── Route: /api/claude ───────────────────────────────────────────
 
-async function handleClaude(req: Request): Promise<Response> {
+async function handleClaude(req: Request, userId: string): Promise<Response> {
   if (!CLAUDE_API_KEY) {
-    return json({ error: 'Claude API key not configured. Set CLAUDE_API_KEY in Supabase secrets.' }, 500);
+    return json({ error: 'Claude API key not configured. Set CLAUDE_API_KEY in Supabase secrets.' }, 503);
+  }
+
+  // Payload size guard
+  const contentLength = parseInt(req.headers.get('content-length') ?? '0', 10);
+  if (contentLength > MAX_BODY_BYTES) {
+    return json({ error: 'Request payload too large' }, 413);
+  }
+
+  // Per-user rate limit
+  if (!checkRateLimit(userId)) {
+    return new Response(JSON.stringify({ error: 'Rate limit exceeded — try again in 60s' }), {
+      status: 429,
+      headers: { ...CORS, 'Content-Type': 'application/json', 'Retry-After': '60' },
+    });
   }
 
   let body: { system?: string; user?: string; max_tokens?: number; model?: string };
@@ -75,7 +120,18 @@ async function handleClaude(req: Request): Promise<Response> {
   catch { return json({ error: 'Invalid JSON body' }, 400); }
 
   const { system, user, max_tokens, model } = body;
-  if (!user) return json({ error: 'Missing user prompt' }, 400);
+  if (!user || typeof user !== 'string' || !user.trim()) {
+    return json({ error: 'Missing or empty user prompt' }, 400);
+  }
+
+  // Token cap — caller can request less, never more than our ceiling
+  const clampedTokens = Math.min(
+    Number.isInteger(max_tokens) ? max_tokens! : DEFAULT_TOKENS,
+    MAX_TOKENS_CAP
+  );
+
+  // Model allowlist — fall back to default if unknown model requested
+  const resolvedModel = ALLOWED_MODELS.has(model ?? '') ? model! : DEFAULT_MODEL;
 
   let response: Response;
   try {
@@ -87,10 +143,10 @@ async function handleClaude(req: Request): Promise<Response> {
         'content-type':      'application/json',
       },
       body: JSON.stringify({
-        model:      model      || DEFAULT_MODEL,
-        max_tokens: max_tokens || DEFAULT_TOKENS,
-        system:     system     || '',
-        messages:   [{ role: 'user', content: user }],
+        model:      resolvedModel,
+        max_tokens: clampedTokens,
+        system:     system || '',
+        messages:   [{ role: 'user', content: user.trim() }],
       }),
       signal: AbortSignal.timeout(FETCH_TIMEOUT),
     });
@@ -101,6 +157,10 @@ async function handleClaude(req: Request): Promise<Response> {
   // deno-lint-ignore no-explicit-any
   const data: any = await response.json();
   if (!response.ok) {
+    // Translate upstream errors to client-safe messages
+    if (response.status === 401) return json({ error: 'AI service configuration error' }, 503);
+    if (response.status === 429) return json({ error: 'AI rate limit — please wait a moment' }, 429);
+    if (response.status === 529) return json({ error: 'AI service overloaded — try again shortly' }, 503);
     return json({ error: data?.error?.message || `Claude API error ${response.status}` }, response.status);
   }
   return json(data);
@@ -178,9 +238,19 @@ async function handleBuffer(req: Request): Promise<Response> {
 }
 
 // ── Route: /api/health ───────────────────────────────────────────
+// Public — no auth required. Used by health-monitor workflow and
+// the app's AI status badge on startup.
 
 function handleHealth(): Response {
-  return json({ ok: true, ts: new Date().toISOString(), claude: !!CLAUDE_API_KEY, buffer: !!BUFFER_TOKEN });
+  return json({
+    ok:        true,
+    version:   '2.1.0',
+    ts:        new Date().toISOString(),
+    services: {
+      claude: !!CLAUDE_API_KEY,
+      buffer: !!BUFFER_TOKEN,
+    },
+  });
 }
 
 // ── Router ───────────────────────────────────────────────────────
@@ -202,7 +272,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Sign in via ☁ Sync to use shared AI, or click ✦ AI to add a personal key.' }, 401);
   }
 
-  if (path.endsWith('/api/claude')          && req.method === 'POST') return handleClaude(req);
+  if (path.endsWith('/api/claude')          && req.method === 'POST') return handleClaude(req, user.id);
   if (path.endsWith('/api/buffer-profiles'))                           return handleBufferProfiles();
   if (path.endsWith('/api/buffer')          && req.method === 'POST') return handleBuffer(req);
 

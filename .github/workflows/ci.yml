@@ -30,16 +30,6 @@ jobs:
               FAILED=1
             fi
           done
-          # Check proxy API handlers
-          for f in gateway-proxy/api/*.js; do
-            [ -f "$f" ] || continue
-            if node --check "$f" 2>&1; then
-              echo "  ✓ $f"
-            else
-              echo "  ✗ FAIL: $f"
-              FAILED=1
-            fi
-          done
           [ "$FAILED" = "0" ] || { echo ""; echo "❌ Syntax errors found."; exit 1; }
           echo ""; echo "✅ All JS files pass syntax check."
 
@@ -133,41 +123,19 @@ jobs:
             fi
           fi
 
-  # ── 4. Proxy API Smoke Test ────────────────────────────────────────
-  proxy-smoke:
-    name: Proxy API Handlers
+  # ── 4. Supabase Edge Function Type Check ─────────────────────────
+  edge-function-check:
+    name: Edge Function TypeScript
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
         with:
-          node-version: '20'
+          deno-version: v2.x
 
-      - name: Validate handler exports
+      - name: Type-check Edge Function
         run: |
-          node -e "
-            var files = ['claude','health','buffer','buffer-profiles','video-jobs'];
-            var failed = 0;
-            files.forEach(function(f) {
-              var path = './gateway-proxy/api/' + f + '.js';
-              try {
-                var mod = require(path);
-                if (typeof mod !== 'function') {
-                  console.error('FAIL: ' + path + ' does not export a function');
-                  failed++;
-                } else {
-                  console.log('  ok: ' + path);
-                }
-              } catch(e) {
-                // Missing file is not a failure — only check existing ones
-                if (e.code !== 'MODULE_NOT_FOUND') {
-                  console.error('FAIL: ' + path + ' threw: ' + e.message);
-                  failed++;
-                }
-              }
-            });
-            if (failed > 0) process.exit(1);
-            console.log('All proxy handlers valid.');
-          "
+          deno check supabase/functions/gateway-api/index.ts
+          echo "✅ Edge Function type check passed."

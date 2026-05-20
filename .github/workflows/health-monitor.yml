@@ -1,9 +1,9 @@
 name: Health Monitor
 
 # Runs every 6 hours + on-demand.
-# Checks Vercel proxy, Supabase reachability, and GitHub Pages response.
+# Checks the Supabase Edge Function, Supabase REST API, and GitHub Pages.
 # Creates a GitHub issue if any service is degraded.
-# Write results to SUPABASE system_health table if credentials are available.
+# Writes results to Supabase system_health table if credentials are available.
 
 on:
   schedule:
@@ -30,32 +30,29 @@ jobs:
             echo "❌ GitHub Pages: $STATUS"
           fi
 
-      - name: Check Vercel Proxy Health Endpoint
-        id: vercel
+      - name: Check Supabase Edge Function Health
+        id: edge
         env:
-          VERCEL_URL: ${{ secrets.VERCEL_HEALTH_URL }}
-          GW_SECRET:  ${{ secrets.GATEWAY_SECRET }}
+          SB_URL: ${{ secrets.SUPABASE_URL }}
         run: |
-          if [ -z "$VERCEL_URL" ]; then
-            echo "::notice::VERCEL_HEALTH_URL not set — skipping Vercel check"
+          if [ -z "$SB_URL" ]; then
+            echo "::notice::SUPABASE_URL not set — skipping Edge Function check"
             echo "status=skip" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          RESPONSE=$(curl -s --max-time 15 --retry 2 \
-            -H "x-gateway-secret: $GW_SECRET" \
-            "$VERCEL_URL/api/health" 2>&1) || true
-          HTTP_CODE=$(curl -o /dev/null -s -w "%{http_code}" --max-time 15 \
-            -H "x-gateway-secret: $GW_SECRET" \
-            "$VERCEL_URL/api/health" 2>/dev/null) || HTTP_CODE="000"
+          HEALTH_URL="${SB_URL}/functions/v1/gateway-api/api/health"
+          HTTP_CODE=$(curl -o /dev/null -s -w "%{http_code}" --max-time 15 --retry 2 \
+            "$HEALTH_URL" 2>/dev/null) || HTTP_CODE="000"
+          RESPONSE=$(curl -s --max-time 15 "$HEALTH_URL" 2>&1 || true)
           echo "status=$HTTP_CODE" >> "$GITHUB_OUTPUT"
           if [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Vercel proxy: $HTTP_CODE"
+            echo "✅ Edge Function: $HTTP_CODE"
             echo "   Response: $RESPONSE"
           else
-            echo "❌ Vercel proxy: $HTTP_CODE"
+            echo "❌ Edge Function: $HTTP_CODE"
           fi
 
-      - name: Check Supabase Connectivity
+      - name: Check Supabase REST API
         id: supabase
         env:
           SB_URL: ${{ secrets.SUPABASE_URL }}
@@ -72,9 +69,9 @@ jobs:
             "$SB_URL/rest/v1/") || STATUS="000"
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           if [[ "$STATUS" == "2"* ]] || [ "$STATUS" = "404" ]; then
-            echo "✅ Supabase: $STATUS (reachable)"
+            echo "✅ Supabase REST: $STATUS (reachable)"
           else
-            echo "❌ Supabase: $STATUS"
+            echo "❌ Supabase REST: $STATUS"
           fi
 
       - name: Write health snapshot to Supabase
@@ -83,20 +80,18 @@ jobs:
           SB_URL: ${{ secrets.SUPABASE_URL }}
           SB_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           PAGES_STATUS: ${{ steps.pages.outputs.status }}
-          VERCEL_STATUS: ${{ steps.vercel.outputs.status }}
-          SB_STATUS: ${{ steps.supabase.outputs.status }}
+          EDGE_STATUS:  ${{ steps.edge.outputs.status }}
+          SB_STATUS:    ${{ steps.supabase.outputs.status }}
         run: |
-          # Write to system_health table (create it in Supabase if needed)
-          # Schema: id, checked_at, pages_ok, vercel_ok, supabase_ok, details
           PAYLOAD=$(cat <<JSON
           {
-            "checked_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "pages_ok": $([ "$PAGES_STATUS" = "200" ] && echo true || echo false),
-            "vercel_ok": $([ "$VERCEL_STATUS" = "200" ] || [ "$VERCEL_STATUS" = "skip" ] && echo true || echo false),
+            "checked_at":  "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "pages_ok":    $([ "$PAGES_STATUS" = "200" ] && echo true || echo false),
+            "edge_ok":     $([ "$EDGE_STATUS" = "200" ] || [ "$EDGE_STATUS" = "skip" ] && echo true || echo false),
             "supabase_ok": true,
             "pages_status": "$PAGES_STATUS",
-            "vercel_status": "$VERCEL_STATUS",
-            "run_id": "${{ github.run_id }}"
+            "edge_status":  "$EDGE_STATUS",
+            "run_id":      "${{ github.run_id }}"
           }
           JSON
           )
@@ -106,23 +101,23 @@ jobs:
             -H "Content-Type: application/json" \
             -H "Prefer: return=minimal" \
             -d "$PAYLOAD" \
-          || echo "::warning::Could not write to system_health table (table may not exist yet — see docs)"
+          || echo "::warning::Could not write to system_health table (may not exist yet)"
 
       - name: Alert on degradation
         if: |
           steps.pages.outputs.status != '200' ||
-          (steps.vercel.outputs.status != '200' && steps.vercel.outputs.status != 'skip')
+          (steps.edge.outputs.status != '200' && steps.edge.outputs.status != 'skip')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PAGES="${{ steps.pages.outputs.status }}"
-          VERCEL="${{ steps.vercel.outputs.status }}"
+          EDGE="${{ steps.edge.outputs.status }}"
           BODY="## 🚨 Service Degradation Detected
 
           | Service | Status |
           |---|---|
           | GitHub Pages | $PAGES |
-          | Vercel Proxy | $VERCEL |
+          | Supabase Edge Function | $EDGE |
 
           **Run:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 

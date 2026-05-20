@@ -4,18 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-GatewayHQ is a real estate agent toolkit SPA for Gateway Real Estate Advisors. It's a vanilla JavaScript, no-build-step static site hosted on GitHub Pages, with a Vercel serverless API proxy backend and Supabase for auth/secrets management.
+GatewayHQ is a real estate agent toolkit SPA for Gateway Real Estate Advisors. It's a vanilla JavaScript, no-build-step static site hosted on GitHub Pages, with a Supabase Edge Function as the API proxy backend and Supabase for auth/secrets management.
 
 ## Deployment
 
 **Main site (GitHub Pages):** Push to any branch and it deploys automatically.
 
-**API proxy (Vercel):**
+**API proxy (Supabase Edge Function):**
 ```bash
-cd gateway-proxy
-npx vercel deploy --prod
+supabase functions deploy gateway-api
 ```
-Required Vercel env vars: `CLAUDE_API_KEY`, `BUFFER_ACCESS_TOKEN`, `GATEWAY_SECRET`, `ALLOWED_ORIGIN`
+Required Supabase secrets (dashboard → Edge Functions → Secrets):
+`CLAUDE_API_KEY`, `BUFFER_ACCESS_TOKEN`, `ALLOWED_ORIGIN`
+
+`SUPABASE_URL` and `SUPABASE_ANON_KEY` are injected automatically by Supabase.
+JWT Verification must be **OFF** for the `gateway-api` function (auth is handled in code).
 
 **Video rendering (GitHub Actions):**
 Trigger the `Render Listing Video` workflow manually with:
@@ -39,7 +42,7 @@ This is plain HTML/CSS/JS. There is no `npm run build`, no bundler, no transpila
 - Other `app/*.js` files — individual tools (social, video, valuation, leasing, invoice, etc.)
 
 ### API Layer
-All external API calls go through `app/api.js`. It proxies Claude and Buffer requests through the Vercel backend (`gateway-proxy/api/`) to avoid exposing keys in the browser. The proxy validates requests with `GATEWAY_SECRET`.
+All external API calls go through `app/api.js`. When an agent logs in via Supabase (☁ Sync), the shared Claude key is fetched from the `team_secrets` table and used client-side. The Supabase Edge Function (`supabase/functions/gateway-api/`) is the server-side proxy for Claude and Buffer — it validates callers via Supabase JWT session tokens, enforces rate limits (30 req/min/user), caps tokens (4000 max), and restricts the model allowlist.
 
 ### Secrets & Config
 - **Local dev:** Copy `config.example.js` to `config.js` (git-ignored). Set `proxyUrl`, `proxySecret`, `claudeApiKey`, `bufferAccessToken`.
@@ -57,7 +60,7 @@ npx hyperframes render        # render to video locally
 ```
 
 ### Supabase Edge Functions
-`supabase/functions/gateway-api/index.ts` is an alternative backend deployed to Supabase Edge Functions. Schema/migrations are in `gateway-proxy/supabase/migration.sql`.
+`supabase/functions/gateway-api/index.ts` is the **primary API backend** — a Deno/TypeScript function deployed to Supabase Edge Functions. It handles `/api/claude`, `/api/buffer`, `/api/buffer-profiles`, and `/api/health`. Schema/migrations are in `gateway-proxy/supabase/migration.sql`.
 
 ### Session-Start Hook
 On remote Claude Code sessions, `.claude/hooks/session-start.sh` runs automatically and installs the HyperFrames skill suite globally via `npx skills add heygen-com/hyperframes --yes --global`. Installed skills live in `.agents/skills/`.
@@ -85,9 +88,10 @@ Browser (Agents)
     ├── Static SPA ──────────► GitHub Pages (Fastly CDN)
     │                          Auto-deploys on push to any branch
     │
-    ├── API calls ───────────► Vercel Serverless (gateway-proxy/)
-    │   Claude, Buffer              Rate-limited, secret-validated
-    │   Max 20 req/min/IP           ALLOWED_ORIGIN enforced
+    ├── API calls ───────────► Supabase Edge Function (gateway-api/)
+    │   Claude, Buffer              JWT-verified, rate-limited (30/min/user)
+    │   /api/claude                 Token cap 4000, model allowlist
+    │   /api/buffer[-profiles]      ALLOWED_ORIGIN enforced
     │
     ├── Auth / Secrets ──────► Supabase
     │   Login, team_secrets          RLS-protected tables
@@ -100,7 +104,7 @@ Browser (Agents)
 ```
 
 > **Why not Docker/Kubernetes?**
-> This is a JAMstack/serverless architecture — GitHub Pages replaces Nginx/CDN pods, Vercel replaces ECS/Lambda, GitHub Actions replaces a job queue + worker fleet. Adding K8s would introduce operational complexity with no benefit at the current scale. If render throughput exceeds GitHub Actions' free tier limits, the equivalent migration path is: render worker → containerized Puppeteer on Cloud Run or ECS Fargate, triggered by a Supabase queue.
+> This is a JAMstack/serverless architecture — GitHub Pages replaces Nginx/CDN pods, Supabase Edge Functions replace ECS/Lambda, GitHub Actions replaces a job queue + worker fleet. Adding K8s would introduce operational complexity with no benefit at the current scale. If render throughput exceeds GitHub Actions' free tier limits, the equivalent migration path is: render worker → containerized Puppeteer on Cloud Run or ECS Fargate, triggered by a Supabase queue.
 
 ---
 
@@ -109,10 +113,10 @@ Browser (Agents)
 Two GitHub Actions workflows run automatically:
 
 **`.github/workflows/ci.yml`** — runs on every push and PR:
-1. JS syntax check (`node --check`) on all `app/*.js` and `gateway-proxy/api/*.js`
+1. JS syntax check (`node --check`) on all `app/*.js`
 2. Secret scanning — rejects commits with hardcoded API keys, PATs, or service role keys
 3. HTML structure check — verifies all required DOM IDs are present
-4. Proxy handler validation — confirms all API handlers export a function
+4. Edge Function type check — `deno check` on `supabase/functions/gateway-api/index.ts`
 
 **`.github/workflows/render-listing-video.yml`** — triggered by the Video Generator:
 - Concurrency group prevents duplicate renders of the same slug
@@ -121,7 +125,7 @@ Two GitHub Actions workflows run automatically:
 - Reports `completed`/`failed` status to Supabase `video_jobs` table
 
 **`.github/workflows/health-monitor.yml`** — runs every 6 hours:
-- Pings GitHub Pages, Vercel health endpoint, and Supabase
+- Pings GitHub Pages, the Supabase Edge Function `/api/health` endpoint, and Supabase REST
 - Writes snapshot to `system_health` table (create in Supabase if monitoring)
 - Opens a GitHub issue tagged `health-alert` on degradation (de-duplicated)
 
@@ -135,17 +139,16 @@ Two GitHub Actions workflows run automatically:
 |---|---|---|
 | `SUPABASE_URL` | render workflow, health monitor | Supabase project REST URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | render workflow, health monitor | Service role key for server-side writes |
-| `VERCEL_HEALTH_URL` | health monitor | Base URL of the Vercel deployment |
 
-**Vercel environment variables** (Vercel dashboard → Settings → Environment):
+**Supabase Edge Function secrets** (dashboard → Edge Functions → gateway-api → Secrets):
 
-| Variable | Description |
+| Secret | Description |
 |---|---|
-| `CLAUDE_API_KEY` | Anthropic API key |
-| `BUFFER_ACCESS_TOKEN` | Buffer API token |
-| `GATEWAY_SECRET` | Shared secret for proxy auth (32+ char random hex) |
+| `CLAUDE_API_KEY` | Anthropic API key (`sk-ant-...`) |
+| `BUFFER_ACCESS_TOKEN` | Buffer API token (optional, for social scheduling) |
 | `ALLOWED_ORIGIN` | `https://gatewayhq.github.io` |
-| `NODE_ENV` | `production` |
+
+`SUPABASE_URL` and `SUPABASE_ANON_KEY` are injected automatically — do not set them manually.
 
 **Supabase tables** (run in SQL editor — idempotent):
 ```sql
@@ -171,10 +174,10 @@ CREATE TABLE IF NOT EXISTS system_health (
   id          uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   checked_at  timestamptz NOT NULL,
   pages_ok    boolean,
-  vercel_ok   boolean,
+  edge_ok     boolean,
   supabase_ok boolean,
   pages_status text,
-  vercel_status text,
+  edge_status  text,
   run_id      text,
   created_at  timestamptz DEFAULT now()
 );
@@ -186,8 +189,8 @@ CREATE TABLE IF NOT EXISTS system_health (
 
 | Layer | Signal | Where |
 |---|---|---|
-| **Availability** | HTTP 200 on Pages + Vercel | Health monitor workflow (every 6h) |
-| **Proxy errors** | Non-2xx responses, rate limits | Vercel function logs (dashboard) |
+| **Availability** | HTTP 200 on Pages + Edge Function | Health monitor workflow (every 6h) |
+| **Proxy errors** | Non-2xx responses, rate limits | Supabase Edge Function logs (dashboard) |
 | **Client errors** | `window.onerror` + unhandledrejection | Supabase `error_logs` table |
 | **Video renders** | Job status, elapsed time, error messages | Supabase `video_jobs` table |
 | **Render failures** | Workflow conclusion = failure | GitHub Actions email + GitHub issue |
@@ -218,15 +221,14 @@ GROUP BY 1 ORDER BY 1 DESC;
 ### Production Deployment Checklist
 
 **Before any release:**
-- [ ] CI passes on PR (JS syntax, secret scan, HTML structure, proxy handlers)
+- [ ] CI passes on PR (JS syntax, secret scan, HTML structure, Edge Function type check)
 - [ ] No `config.js`, `.env`, or credential files committed
-- [ ] `ALLOWED_ORIGIN` in Vercel matches the live GitHub Pages URL exactly
-- [ ] `GATEWAY_SECRET` set in both Vercel env and GitHub secrets (must match)
-- [ ] Vercel preview URL tested before deploying to production
+- [ ] `ALLOWED_ORIGIN` in Supabase Edge Function secrets matches the live GitHub Pages URL exactly
+- [ ] `CLAUDE_API_KEY` set in Supabase Edge Function secrets
 
-**After a Vercel proxy deploy:**
-- [ ] Hit `GET /api/health` with `x-gateway-secret` header — confirm `ok: true`
-- [ ] Confirm `services.claude.configured: true` and `services.claude.reachable: true`
+**After a Supabase Edge Function deploy:**
+- [ ] Hit `GET {SUPABASE_URL}/functions/v1/gateway-api/api/health` — confirm `ok: true`
+- [ ] Confirm `services.claude: true` in the response
 - [ ] Send a test Claude request from the app — confirm AI status badge turns green
 
 **After a render workflow change:**
@@ -236,10 +238,10 @@ GROUP BY 1 ORDER BY 1 DESC;
 - [ ] Confirm `compositions/pending/` test file is cleaned up after render
 
 **Monthly:**
-- [ ] Rotate `GATEWAY_SECRET` in Vercel + GitHub secrets (update together atomically)
 - [ ] Review Supabase `error_logs` for recurring client-side errors
 - [ ] Review video render success rates — investigate any rate < 95%
-- [ ] Verify Vercel function duration P95 < 20s for Claude calls
+- [ ] Check Edge Function logs in Supabase dashboard for recurring errors or rate limit spikes
+- [ ] Verify Edge Function P95 response time < 20s for Claude calls
 - [ ] Check GitHub Actions cache hit rate for HyperFrames + Chrome caches
 
 **Music library maintenance:**
