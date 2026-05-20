@@ -71,6 +71,12 @@ on:
 permissions:
   contents: write
 
+# Prevent duplicate renders of the same slug running simultaneously.
+# If a second dispatch arrives while a render is in-flight, cancel the older one.
+concurrency:
+  group: render-${{ inputs.output_slug || github.run_id }}
+  cancel-in-progress: false
+
 env:
   # Bump this string to force a full cache refresh (e.g. after a HyperFrames update)
   HF_TOOLS_CACHE_KEY: hf-tools-v3
@@ -177,15 +183,37 @@ jobs:
             echo "path=" >> "$GITHUB_OUTPUT"
           fi
 
-      # ── Render to MP4 ─────────────────────────────────────────────
+      # ── Render to MP4 (with auto-retry on transient failure) ─────────
       - name: Render to MP4
         run: |
           mkdir -p "${{ github.workspace }}/renders"
+          OUTPUT="${{ github.workspace }}/renders/${{ inputs.output_slug }}_silent.mp4"
           cd /tmp/hf-render
-          /tmp/hf-tools/node_modules/.bin/hyperframes render \
-            --quality ${{ inputs.quality || 'high' }} \
-            --fps 30 \
-            --output "${{ github.workspace }}/renders/${{ inputs.output_slug }}_silent.mp4"
+
+          render_attempt() {
+            /tmp/hf-tools/node_modules/.bin/hyperframes render \
+              --quality ${{ inputs.quality || 'high' }} \
+              --fps 30 \
+              --output "$OUTPUT"
+          }
+
+          # Attempt 1
+          if render_attempt; then
+            echo "✅ Render succeeded on first attempt"
+            exit 0
+          fi
+
+          echo "::warning::Render attempt 1 failed — retrying in 10s..."
+          sleep 10
+
+          # Attempt 2 (retry)
+          if render_attempt; then
+            echo "✅ Render succeeded on retry"
+            exit 0
+          fi
+
+          echo "::error::Render failed after 2 attempts. Check Puppeteer/HyperFrames logs above."
+          exit 1
 
       # ── Mix background music ──────────────────────────────────────
       - name: Mix in background music
@@ -221,6 +249,29 @@ jobs:
           fi
           git commit -m "Rendered video: ${{ inputs.output_slug }}" || echo "Nothing to commit"
           git push
+
+      # ── Clean up pending files on failure ────────────────────────
+      # If the render fails, we still want to remove the uploaded composition
+      # so the repo doesn't accumulate orphaned files from failed renders.
+      - name: Clean up pending files on failure
+        if: failure()
+        run: |
+          cd "${{ github.workspace }}"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "GitHub Actions"
+          CHANGED=0
+          if [ -n "${{ inputs.composition_path }}" ] && [ -f "${{ inputs.composition_path }}" ]; then
+            git rm --ignore-unmatch "${{ inputs.composition_path }}"
+            CHANGED=1
+          fi
+          if [ -n "${{ inputs.music_path }}" ] && [ -f "${{ inputs.music_path }}" ]; then
+            git rm --ignore-unmatch "${{ inputs.music_path }}"
+            CHANGED=1
+          fi
+          if [ "$CHANGED" = "1" ]; then
+            git commit -m "chore: clean up pending files for failed render ${{ inputs.output_slug }}" && git push \
+            || echo "::warning::Cleanup commit failed — pending files may remain in compositions/pending/"
+          fi
 
       # ── Report final status to Supabase ──────────────────────────
       - name: Report final status

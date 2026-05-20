@@ -12,7 +12,9 @@
 <script src="ai-config.js"></script>
 <script src="assets/logos.js"></script>
 
-<!-- Fonts -->
+<!-- Fonts — preconnect eliminates DNS + TLS round-trips; display=swap prevents FOIT -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=EB+Garamond:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <!-- ── Styles ────────────────────────────────────────────────────── -->
@@ -29,8 +31,8 @@
 <link rel="stylesheet" href="styles/video.css">
 <link rel="stylesheet" href="styles/sync.css">
 
-<!-- Supabase JS v2 (cross-device sync) — pinned to avoid stale CDN cache -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+<!-- Supabase JS v2 — defer so it never blocks HTML parsing / first paint -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js" defer></script>
 </head>
 <body>
 
@@ -94,6 +96,11 @@
     <img src="assets/logo-hero.png" alt="Gateway Real Estate Advisors" style="height:70px">
     <h1>Agent Toolkit</h1>
     <p>Select a tool to get started</p>
+  </div>
+  <!-- Recently Used — populated by router.js on each visit -->
+  <div id="landing-recent" style="display:none;max-width:880px;margin:0 auto 28px;padding:0 24px">
+    <div style="font-size:10px;color:var(--brand-gray);letter-spacing:2px;font-weight:700;text-transform:uppercase;margin-bottom:10px">Recently Used</div>
+    <div id="landing-recent-list" style="display:flex;gap:10px;flex-wrap:wrap"></div>
   </div>
   <div class="tools-grid">
     <div class="tool-card" onclick="navigateTo('social')">
@@ -1272,6 +1279,14 @@
 </div>
 
 <!-- ========== LISTING VIDEO GENERATOR ========== -->
+<style>
+.vid-music-card{background:var(--input-bg);border:1px solid var(--input-border);border-radius:10px;padding:10px 12px;cursor:pointer;transition:all 0.15s;text-align:center}
+.vid-music-card:hover,.vid-music-card.sel{border-color:rgba(162,182,192,0.55);background:rgba(162,182,192,0.12)}
+.vid-music-card.sel{border-color:#A2B6C0}
+.vmc-icon{font-size:20px;margin-bottom:4px}
+.vmc-name{font-size:11px;font-weight:700;color:#C8D8E0;margin-bottom:2px}
+.vmc-mood{font-size:10px;color:var(--brand-gray)}
+</style>
 <div id="page-video" class="page">
 
   <!-- Template Picker -->
@@ -1300,6 +1315,21 @@
       <div class="vid-tpl-icon">🏆</div>
       <div class="vid-tpl-name">Just Sold</div>
       <div class="vid-tpl-desc">15s · 3 scenes</div>
+    </button>
+    <button class="vid-tpl-card" id="vtc-neighborhood"  onclick="vidSelectTpl('neighborhood',this)">
+      <div class="vid-tpl-icon">🌳</div>
+      <div class="vid-tpl-name">Neighborhood Tour</div>
+      <div class="vid-tpl-desc">25–40s · area showcase</div>
+    </button>
+    <button class="vid-tpl-card" id="vtc-agent-intro"   onclick="vidSelectTpl('agent-intro',this)">
+      <div class="vid-tpl-icon">👤</div>
+      <div class="vid-tpl-name">Agent Introduction</div>
+      <div class="vid-tpl-desc">20–30s · personal brand</div>
+    </button>
+    <button class="vid-tpl-card" id="vtc-market-update" onclick="vidSelectTpl('market-update',this)">
+      <div class="vid-tpl-icon">📊</div>
+      <div class="vid-tpl-name">Market Update</div>
+      <div class="vid-tpl-desc">25–35s · local data</div>
     </button>
   </div>
 
@@ -1365,7 +1395,10 @@
 
       <!-- Common fields (all templates) -->
       <div class="form-section" style="margin:0">
-        <h4 style="font-size:13px;margin-bottom:10px">Property Details</h4>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <h4 style="font-size:13px;margin:0">Property Details</h4>
+          <button onclick="vidAIFill()" id="vid-ai-fill-btn" style="font-size:10px;font-weight:700;letter-spacing:1px;padding:5px 10px;border-radius:20px;border:1px solid rgba(162,182,192,0.3);background:rgba(162,182,192,0.06);color:var(--brand-gray);cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(162,182,192,0.14)';this.style.borderColor='rgba(162,182,192,0.55)'" onmouseleave="this.style.background='rgba(162,182,192,0.06)';this.style.borderColor='rgba(162,182,192,0.3)'">✦ AI Fill</button>
+        </div>
         <div class="form-row"><label>Street Address</label><input type="text" id="vid-address" placeholder="e.g. 3100 Nebraska Street" oninput="vidUpdatePreview()"></div>
         <div class="form-row"><label>City, State</label><input type="text" id="vid-city" placeholder="e.g. Sioux City, IA" oninput="vidUpdatePreview()"></div>
         <div class="form-row"><label>Agent Name(s)</label><input type="text" id="vid-agents" placeholder="e.g. Daniel Stillson" oninput="vidUpdatePreview()"></div>
@@ -1478,6 +1511,66 @@
         </div>
       </div>
 
+      <!-- === NEIGHBORHOOD TOUR fields === -->
+      <div id="vtf-neighborhood" style="display:none">
+        <div class="form-section" style="margin:0">
+          <div class="form-row"><label>Neighborhood Name</label><input type="text" id="vnh-name" placeholder="e.g. Historic Downtown, Riverside Heights" oninput="vidUpdatePreview()"></div>
+          <div class="form-row"><label>City / Market Area</label><input type="text" id="vnh-area" placeholder="e.g. Sioux City, IA" oninput="vidUpdatePreview()"></div>
+          <div class="form-row"><label>Tagline</label><input type="text" id="vnh-tagline" placeholder="e.g. Where Community Comes First" oninput="vidUpdatePreview()"></div>
+          <h4 style="font-size:12px;margin:10px 0 8px;color:var(--brand-gray)">Key Highlights <span style="font-weight:400">(up to 4)</span></h4>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <input type="text" id="vnh-h1" placeholder="e.g. Top-rated schools" oninput="vidUpdatePreview()" style="font-size:12px">
+            <input type="text" id="vnh-h2" placeholder="e.g. Walkable to dining &amp; shops" oninput="vidUpdatePreview()" style="font-size:12px">
+            <input type="text" id="vnh-h3" placeholder="e.g. 5 min from downtown" oninput="vidUpdatePreview()" style="font-size:12px">
+            <input type="text" id="vnh-h4" placeholder="e.g. Low property taxes" oninput="vidUpdatePreview()" style="font-size:12px">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+            <div class="form-row"><label>Avg Home Price</label><input type="text" id="vnh-price" placeholder="e.g. $285,000" oninput="vidUpdatePreview()"></div>
+            <div class="form-row"><label>Walk Score</label><input type="text" id="vnh-walk" placeholder="e.g. 87 / 100" oninput="vidUpdatePreview()"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- === AGENT INTRODUCTION fields === -->
+      <div id="vtf-agent-intro" style="display:none">
+        <div class="form-section" style="margin:0">
+          <p style="font-size:11px;color:var(--brand-gray);margin-bottom:10px">Upload agent headshots/lifestyle photos above. No property photos needed.</p>
+          <div class="form-row"><label>Agent Full Name</label><input type="text" id="vai-name" placeholder="e.g. Daniel Stillson" oninput="vidUpdatePreview()"></div>
+          <div class="form-row"><label>Title / Role</label><input type="text" id="vai-title" placeholder="e.g. Senior Real Estate Advisor" oninput="vidUpdatePreview()"></div>
+          <div class="form-row"><label>Years Experience</label><input type="text" id="vai-years" placeholder="e.g. 12+ years" oninput="vidUpdatePreview()"></div>
+          <div class="form-row"><label>Tagline</label><input type="text" id="vai-tag" placeholder="e.g. Closing deals, opening doors." oninput="vidUpdatePreview()"></div>
+          <div class="form-row"><label>Phone</label><input type="text" id="vai-phone" placeholder="e.g. (712) 555-0100" oninput="vidUpdatePreview()"></div>
+          <h4 style="font-size:12px;margin:10px 0 8px;color:var(--brand-gray)">Specialties / Credentials <span style="font-weight:400">(one per line)</span></h4>
+          <textarea id="vai-creds" rows="3" placeholder="Luxury Residential&#10;Investment Properties&#10;GRI Certified · Top 1% Producer" style="width:100%;font-size:12px;resize:vertical;background:var(--input-bg);border:1px solid var(--input-border);border-radius:6px;padding:8px;color:var(--text-primary);font-family:inherit" oninput="vidUpdatePreview()"></textarea>
+        </div>
+      </div>
+
+      <!-- === MARKET UPDATE fields === -->
+      <div id="vtf-market-update" style="display:none">
+        <div class="form-section" style="margin:0">
+          <p style="font-size:11px;color:var(--brand-gray);margin-bottom:10px">Optionally upload area/city photos as scene backgrounds. Market data animates over them.</p>
+          <div class="form-row"><label>Market / Area</label><input type="text" id="vmu-area" placeholder="e.g. Sioux City Metro" oninput="vidUpdatePreview()"></div>
+          <div class="form-row"><label>Period</label><input type="text" id="vmu-period" placeholder="e.g. Q1 2025 · January–March" oninput="vidUpdatePreview()"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="form-row"><label>Median Sale Price</label><input type="text" id="vmu-price" placeholder="e.g. $247,000" oninput="vidUpdatePreview()"></div>
+            <div class="form-row"><label>Price Change</label><input type="text" id="vmu-pchg" placeholder="e.g. +4.2% YoY" oninput="vidUpdatePreview()"></div>
+            <div class="form-row"><label>Avg Days on Market</label><input type="text" id="vmu-dom" placeholder="e.g. 22 days" oninput="vidUpdatePreview()"></div>
+            <div class="form-row"><label>Homes Sold</label><input type="text" id="vmu-sold" placeholder="e.g. 148 homes" oninput="vidUpdatePreview()"></div>
+            <div class="form-row"><label>List-to-Sale Ratio</label><input type="text" id="vmu-lts" placeholder="e.g. 98.5%" oninput="vidUpdatePreview()"></div>
+            <div class="form-row"><label>Active Listings</label><input type="text" id="vmu-active" placeholder="e.g. 312" oninput="vidUpdatePreview()"></div>
+          </div>
+          <div class="form-row" style="margin-top:4px">
+            <label>Market Tempo</label>
+            <select id="vmu-tempo" oninput="vidUpdatePreview()" style="width:100%;background:var(--input-bg);border:1px solid var(--input-border);border-radius:6px;padding:8px;color:var(--text-primary);font-size:12px">
+              <option value="seller">Seller's Market</option>
+              <option value="balanced">Balanced Market</option>
+              <option value="buyer">Buyer's Market</option>
+            </select>
+          </div>
+          <div class="form-row"><label>Closing Message</label><input type="text" id="vmu-msg" placeholder="e.g. Now is a great time to list your home." oninput="vidUpdatePreview()"></div>
+        </div>
+      </div>
+
       <!-- === TEXT OVERLAYS === -->
       <div class="form-section" style="margin:0">
         <h4 style="font-size:13px;margin-bottom:10px">Text Overlays</h4>
@@ -1584,11 +1677,43 @@
       <!-- === BACKGROUND AUDIO === -->
       <div class="form-section" style="margin:0">
         <h4 style="font-size:13px;margin-bottom:10px">Background Audio <span style="font-size:10px;color:var(--brand-gray);font-weight:400">(optional)</span></h4>
-        <div class="vid-audio-drop" id="vid-audio-drop" onclick="document.getElementById('vid-music-input').click()">
-          <div style="font-size:24px;margin-bottom:6px" id="vid-audio-icon">🎵</div>
-          <div style="font-size:12px;color:var(--brand-gray)" id="vid-audio-label">Drop an MP3 / M4A here, or click to browse</div>
+        <div style="display:flex;gap:0;border-radius:8px;overflow:hidden;border:1px solid var(--input-border);margin-bottom:12px">
+          <button id="vid-music-tab-lib" onclick="vidMusicTab('library',this)" style="flex:1;padding:7px;font-size:11px;font-weight:600;background:rgba(162,182,192,0.12);border:none;color:#C8D8E0;cursor:pointer;letter-spacing:0.5px;border-right:1px solid var(--input-border)">🎵 Music Library</button>
+          <button id="vid-music-tab-up"  onclick="vidMusicTab('upload',this)"  style="flex:1;padding:7px;font-size:11px;font-weight:600;background:none;border:none;color:var(--brand-gray);cursor:pointer;letter-spacing:0.5px">⬆ Upload File</button>
         </div>
-        <input type="file" id="vid-music-input" accept="audio/mpeg,audio/mp3,audio/m4a,audio/*" style="display:none" onchange="vidHandleMusicFile(this.files[0])">
+        <!-- Library Panel -->
+        <div id="vid-music-library-panel">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="vid-music-card" id="vmc-none" onclick="vidSelectLibraryTrack('none',this)">
+              <div class="vmc-icon">🔇</div><div class="vmc-name">No Music</div><div class="vmc-mood">Silent</div>
+            </div>
+            <div class="vid-music-card" id="vmc-luxury" onclick="vidSelectLibraryTrack('luxury',this)">
+              <div class="vmc-icon">🎹</div><div class="vmc-name">Luxury Calm</div><div class="vmc-mood">Piano · Ambient</div>
+            </div>
+            <div class="vid-music-card" id="vmc-upbeat" onclick="vidSelectLibraryTrack('upbeat',this)">
+              <div class="vmc-icon">⚡</div><div class="vmc-name">Upbeat Energy</div><div class="vmc-mood">Corporate · Inspiring</div>
+            </div>
+            <div class="vid-music-card" id="vmc-cinematic" onclick="vidSelectLibraryTrack('cinematic',this)">
+              <div class="vmc-icon">🎻</div><div class="vmc-name">Cinematic Drama</div><div class="vmc-mood">Strings · Epic</div>
+            </div>
+            <div class="vid-music-card" id="vmc-acoustic" onclick="vidSelectLibraryTrack('acoustic',this)">
+              <div class="vmc-icon">🎸</div><div class="vmc-name">Warm Acoustic</div><div class="vmc-mood">Guitar · Friendly</div>
+            </div>
+            <div class="vid-music-card" id="vmc-modern" onclick="vidSelectLibraryTrack('modern',this)">
+              <div class="vmc-icon">🎧</div><div class="vmc-name">Modern Beat</div><div class="vmc-mood">Electronic · Fresh</div>
+            </div>
+          </div>
+          <p style="font-size:10px;color:var(--brand-gray);margin-top:8px;opacity:0.7">Royalty-free. Contact your admin to activate library tracks.</p>
+        </div>
+        <!-- Upload Panel -->
+        <div id="vid-music-upload-panel" style="display:none">
+          <div class="vid-audio-drop" id="vid-audio-drop" onclick="document.getElementById('vid-music-input').click()">
+            <div style="font-size:24px;margin-bottom:6px" id="vid-audio-icon">🎵</div>
+            <div style="font-size:12px;color:var(--brand-gray)" id="vid-audio-label">Drop an MP3 / M4A here, or click to browse</div>
+          </div>
+          <input type="file" id="vid-music-input" accept="audio/mpeg,audio/mp3,audio/m4a,audio/*" style="display:none" onchange="vidHandleMusicFile(this.files[0])">
+        </div>
+        <!-- Volume (shared) -->
         <div class="music-vol-row" id="vid-vol-row" style="display:none;margin-top:10px">
           <label>Volume</label>
           <input type="range" id="music-vol" min="0" max="100" value="40" oninput="document.getElementById('music-vol-val').textContent=this.value+'%'">
@@ -1597,7 +1722,10 @@
         </div>
       </div>
 
-      <button class="vid-generate-btn" id="vid-gen-btn" onclick="vidRender()">&#127917; Render Video</button>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <button class="vid-generate-btn" id="vid-gen-btn" onclick="vidRender()" style="flex:1;margin-bottom:0">&#127917; Render Video</button>
+        <span id="vid-est-time" style="font-size:10px;color:var(--brand-gray);white-space:nowrap;flex-shrink:0"></span>
+      </div>
 
       <!-- Status bar + progress -->
       <div class="vid-status-bar" id="vid-status-bar">
@@ -1724,44 +1852,45 @@
 <div class="status-bar" id="global-status"></div>
 
 
-<!-- ── Vendor libraries ──────────────────────────────────────────── -->
-<script src="lib/pptxgen.min.js"></script>
-<script src="lib/sheetjs.min.js"></script>
-<script src="lib/jszip.min.js"></script>
+<!-- ── Vendor libraries — defer so they download in parallel but never block paint ── -->
+<!-- pptxgen/sheetjs/jszip: only needed on export; defer = free download, lazy parse -->
+<script src="lib/pptxgen.min.js" defer></script>
+<script src="lib/sheetjs.min.js" defer></script>
+<script src="lib/jszip.min.js" defer></script>
 
 <!-- ── OM Generator — modular 13.33×7.5 institutional system ────── -->
-<script src="pptx/brand-config.js"></script>
-<script src="pptx/layout-constants.js"></script>
-<script src="pptx/utils.js"></script>
-<script src="pptx/slide-modules/01-cover.js"></script>
-<script src="pptx/slide-modules/02-offering-summary.js"></script>
-<script src="pptx/slide-modules/03-investment-highlights.js"></script>
-<script src="pptx/slide-modules/04-property-description.js"></script>
-<script src="pptx/slide-modules/05-unit-mix.js"></script>
-<script src="pptx/slide-modules/06-financial-summary.js"></script>
-<script src="pptx/slide-modules/07-location-overview.js"></script>
-<script src="pptx/slide-modules/08-market-overview.js"></script>
-<script src="pptx/slide-modules/09-section-divider.js"></script>
-<script src="pptx/slide-modules/10-back-cover.js"></script>
-<script src="pptx/generate-om.js"></script>
+<script src="pptx/brand-config.js" defer></script>
+<script src="pptx/layout-constants.js" defer></script>
+<script src="pptx/utils.js" defer></script>
+<script src="pptx/slide-modules/01-cover.js" defer></script>
+<script src="pptx/slide-modules/02-offering-summary.js" defer></script>
+<script src="pptx/slide-modules/03-investment-highlights.js" defer></script>
+<script src="pptx/slide-modules/04-property-description.js" defer></script>
+<script src="pptx/slide-modules/05-unit-mix.js" defer></script>
+<script src="pptx/slide-modules/06-financial-summary.js" defer></script>
+<script src="pptx/slide-modules/07-location-overview.js" defer></script>
+<script src="pptx/slide-modules/08-market-overview.js" defer></script>
+<script src="pptx/slide-modules/09-section-divider.js" defer></script>
+<script src="pptx/slide-modules/10-back-cover.js" defer></script>
+<script src="pptx/generate-om.js" defer></script>
 
-<!-- Home Valuation dependencies (PDF export + HEIC image conversion) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+<!-- HEIC conversion — defer; only needed when agent uploads an iPhone photo -->
+<!-- jspdf loaded lazily by hvDownloadPDF / hvDownloadPPTX at click time -->
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js" defer></script>
 
 <!-- ── App modules (load order matches dependency graph) ─────────── -->
-<script src="app/utils.js"></script>
-<script src="app/sync.js"></script>
-<script src="app/api.js"></script>
-<script src="app/core.js"></script>
-<script src="app/router.js"></script>
-<script src="app/social.js"></script>
-<script src="app/leasing.js"></script>
-<script src="app/valuation.js"></script>
-<script src="app/multifamily.js"></script>
-<script src="app/invoice.js"></script>
-<script src="app/home-valuation.js"></script>
-<script src="app/video.js"></script>
+<script src="app/utils.js" defer></script>
+<script src="app/sync.js" defer></script>
+<script src="app/api.js" defer></script>
+<script src="app/core.js" defer></script>
+<script src="app/router.js" defer></script>
+<script src="app/social.js" defer></script>
+<script src="app/leasing.js" defer></script>
+<script src="app/valuation.js" defer></script>
+<script src="app/multifamily.js" defer></script>
+<script src="app/invoice.js" defer></script>
+<script src="app/home-valuation.js" defer></script>
+<script src="app/video.js" defer></script>
 
 </body>
 </html>

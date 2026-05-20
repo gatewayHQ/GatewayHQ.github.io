@@ -485,8 +485,13 @@ function hvBuildPDF() {
 
 async function hvDownloadPPTX() {
   if (typeof PptxGenJS === 'undefined') {
-    alert('PPTX library not loaded. Refresh the page and try again.');
-    return;
+    GW.showLoading('Loading PPTX library…');
+    try { await GW.loadScript('lib/pptxgen.min.js'); } catch(e) {
+      GW.hideLoading();
+      showGlobalStatus('⚠️ Could not load PPTX library. Check your connection.');
+      return;
+    }
+    GW.hideLoading();
   }
   try {
     var pptx = new PptxGenJS();

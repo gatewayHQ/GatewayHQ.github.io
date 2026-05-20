@@ -4,18 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-GatewayHQ is a real estate agent toolkit SPA for Gateway Real Estate Advisors. It's a vanilla JavaScript, no-build-step static site hosted on GitHub Pages, with a Vercel serverless API proxy backend and Supabase for auth/secrets management.
+GatewayHQ is a real estate agent toolkit SPA for Gateway Real Estate Advisors. It's a vanilla JavaScript, no-build-step static site hosted on GitHub Pages, with a Supabase Edge Function as the API proxy backend and Supabase for auth/secrets management.
 
 ## Deployment
 
 **Main site (GitHub Pages):** Push to any branch and it deploys automatically.
 
-**API proxy (Vercel):**
+**API proxy (Supabase Edge Function):**
 ```bash
-cd gateway-proxy
-npx vercel deploy --prod
+supabase functions deploy gateway-api
 ```
-Required Vercel env vars: `CLAUDE_API_KEY`, `BUFFER_ACCESS_TOKEN`, `GATEWAY_SECRET`, `ALLOWED_ORIGIN`
+Required Supabase secrets (dashboard → Edge Functions → Secrets):
+`CLAUDE_API_KEY`, `BUFFER_ACCESS_TOKEN`, `ALLOWED_ORIGIN`
+
+`SUPABASE_URL` and `SUPABASE_ANON_KEY` are injected automatically by Supabase.
+JWT Verification must be **OFF** for the `gateway-api` function (auth is handled in code).
 
 **Video rendering (GitHub Actions):**
 Trigger the `Render Listing Video` workflow manually with:
@@ -39,7 +42,7 @@ This is plain HTML/CSS/JS. There is no `npm run build`, no bundler, no transpila
 - Other `app/*.js` files — individual tools (social, video, valuation, leasing, invoice, etc.)
 
 ### API Layer
-All external API calls go through `app/api.js`. It proxies Claude and Buffer requests through the Vercel backend (`gateway-proxy/api/`) to avoid exposing keys in the browser. The proxy validates requests with `GATEWAY_SECRET`.
+All external API calls go through `app/api.js`. When an agent logs in via Supabase (☁ Sync), the shared Claude key is fetched from the `team_secrets` table and used client-side. The Supabase Edge Function (`supabase/functions/gateway-api/`) is the server-side proxy for Claude and Buffer — it validates callers via Supabase JWT session tokens, enforces rate limits (30 req/min/user), caps tokens (4000 max), and restricts the model allowlist.
 
 ### Secrets & Config
 - **Local dev:** Copy `config.example.js` to `config.js` (git-ignored). Set `proxyUrl`, `proxySecret`, `claudeApiKey`, `bufferAccessToken`.
@@ -57,7 +60,7 @@ npx hyperframes render        # render to video locally
 ```
 
 ### Supabase Edge Functions
-`supabase/functions/gateway-api/index.ts` is an alternative backend deployed to Supabase Edge Functions. Schema/migrations are in `gateway-proxy/supabase/migration.sql`.
+`supabase/functions/gateway-api/index.ts` is the **primary API backend** — a Deno/TypeScript function deployed to Supabase Edge Functions. It handles `/api/claude`, `/api/buffer`, `/api/buffer-profiles`, and `/api/health`. Schema/migrations are in `gateway-proxy/supabase/migration.sql`.
 
 ### Session-Start Hook
 On remote Claude Code sessions, `.claude/hooks/session-start.sh` runs automatically and installs the HyperFrames skill suite globally via `npx skills add heygen-com/hyperframes --yes --global`. Installed skills live in `.agents/skills/`.
@@ -72,3 +75,180 @@ Brand identity is in `brand/brand.json` and `brand/` assets. The primary palette
 - **Buffer integration:** `app/social.js` and `gateway-proxy/api/buffer.js` handle multi-profile social posting. Agent profiles are in `data/agents.json`.
 - **Valuation tools:** `app/valuation.js`, `app/home-valuation.js`, and `app/multifamily.js` each handle different property types — keep them separate.
 - **No framework:** Avoid introducing React, Vue, or any bundled framework. Keep modules as plain ES modules or IIFE scripts compatible with direct `<script>` tags.
+
+---
+
+## Production Infrastructure
+
+### Architecture Overview
+
+```
+Browser (Agents)
+    │
+    ├── Static SPA ──────────► GitHub Pages (Fastly CDN)
+    │                          Auto-deploys on push to any branch
+    │
+    ├── API calls ───────────► Supabase Edge Function (gateway-api/)
+    │   Claude, Buffer              JWT-verified, rate-limited (30/min/user)
+    │   /api/claude                 Token cap 4000, model allowlist
+    │   /api/buffer[-profiles]      ALLOWED_ORIGIN enforced
+    │
+    ├── Auth / Secrets ──────► Supabase
+    │   Login, team_secrets          RLS-protected tables
+    │   video_jobs, error_logs       Realtime subscriptions
+    │
+    └── Video Render ────────► GitHub Actions
+        Upload → Dispatch            Puppeteer + HyperFrames + FFmpeg
+        Realtime status via          45 min timeout, auto-retry on fail
+        Supabase postgres_changes    Renders committed to renders/
+```
+
+> **Why not Docker/Kubernetes?**
+> This is a JAMstack/serverless architecture — GitHub Pages replaces Nginx/CDN pods, Supabase Edge Functions replace ECS/Lambda, GitHub Actions replaces a job queue + worker fleet. Adding K8s would introduce operational complexity with no benefit at the current scale. If render throughput exceeds GitHub Actions' free tier limits, the equivalent migration path is: render worker → containerized Puppeteer on Cloud Run or ECS Fargate, triggered by a Supabase queue.
+
+---
+
+### CI/CD Pipeline
+
+Two GitHub Actions workflows run automatically:
+
+**`.github/workflows/ci.yml`** — runs on every push and PR:
+1. JS syntax check (`node --check`) on all `app/*.js`
+2. Secret scanning — rejects commits with hardcoded API keys, PATs, or service role keys
+3. HTML structure check — verifies all required DOM IDs are present
+4. Edge Function type check — `deno check` on `supabase/functions/gateway-api/index.ts`
+
+**`.github/workflows/render-listing-video.yml`** — triggered by the Video Generator:
+- Concurrency group prevents duplicate renders of the same slug
+- Auto-retry (2 attempts) on transient Puppeteer/Chrome failures
+- Cleanup step on failure removes orphaned pending composition files
+- Reports `completed`/`failed` status to Supabase `video_jobs` table
+
+**`.github/workflows/health-monitor.yml`** — runs every 6 hours:
+- Pings GitHub Pages, the Supabase Edge Function `/api/health` endpoint, and Supabase REST
+- Writes snapshot to `system_health` table (create in Supabase if monitoring)
+- Opens a GitHub issue tagged `health-alert` on degradation (de-duplicated)
+
+---
+
+### Required Secrets
+
+**GitHub repo secrets** (Settings → Secrets → Actions):
+
+| Secret | Used by | Description |
+|---|---|---|
+| `SUPABASE_URL` | render workflow, health monitor | Supabase project REST URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | render workflow, health monitor | Service role key for server-side writes |
+
+**Supabase Edge Function secrets** (dashboard → Edge Functions → gateway-api → Secrets):
+
+| Secret | Description |
+|---|---|
+| `CLAUDE_API_KEY` | Anthropic API key (`sk-ant-...`) |
+| `BUFFER_ACCESS_TOKEN` | Buffer API token (optional, for social scheduling) |
+| `ALLOWED_ORIGIN` | `https://gatewayhq.github.io` |
+
+`SUPABASE_URL` and `SUPABASE_ANON_KEY` are injected automatically — do not set them manually.
+
+**Supabase tables** (run in SQL editor — idempotent):
+```sql
+-- Error tracking (populated by app/core.js window.onerror)
+CREATE TABLE IF NOT EXISTS error_logs (
+  id         uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id    uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  message    text,
+  source     text,
+  line_no    integer,
+  col_no     integer,
+  stack      text,
+  url        text,
+  user_agent text,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE error_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users see own errors" ON error_logs FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users insert own errors" ON error_logs FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Health monitoring (populated by health-monitor workflow)
+CREATE TABLE IF NOT EXISTS system_health (
+  id          uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  checked_at  timestamptz NOT NULL,
+  pages_ok    boolean,
+  edge_ok     boolean,
+  supabase_ok boolean,
+  pages_status text,
+  edge_status  text,
+  run_id      text,
+  created_at  timestamptz DEFAULT now()
+);
+```
+
+---
+
+### Monitoring Strategy
+
+| Layer | Signal | Where |
+|---|---|---|
+| **Availability** | HTTP 200 on Pages + Edge Function | Health monitor workflow (every 6h) |
+| **Proxy errors** | Non-2xx responses, rate limits | Supabase Edge Function logs (dashboard) |
+| **Client errors** | `window.onerror` + unhandledrejection | Supabase `error_logs` table |
+| **Video renders** | Job status, elapsed time, error messages | Supabase `video_jobs` table |
+| **Render failures** | Workflow conclusion = failure | GitHub Actions email + GitHub issue |
+| **Cost anomalies** | Unexpected Claude API spend | Anthropic console usage alerts |
+
+**Viewing errors in production:**
+```sql
+-- Recent client errors (last 24h)
+SELECT message, source, line_no, url, created_at
+FROM error_logs
+WHERE created_at > now() - interval '24 hours'
+ORDER BY created_at DESC
+LIMIT 50;
+
+-- Video render success rate (last 7 days)
+SELECT
+  DATE(created_at) AS day,
+  COUNT(*) FILTER (WHERE status = 'completed') AS succeeded,
+  COUNT(*) FILTER (WHERE status = 'failed')    AS failed,
+  AVG(elapsed_sec) FILTER (WHERE status = 'completed') AS avg_sec
+FROM video_jobs
+WHERE created_at > now() - interval '7 days'
+GROUP BY 1 ORDER BY 1 DESC;
+```
+
+---
+
+### Production Deployment Checklist
+
+**Before any release:**
+- [ ] CI passes on PR (JS syntax, secret scan, HTML structure, Edge Function type check)
+- [ ] No `config.js`, `.env`, or credential files committed
+- [ ] `ALLOWED_ORIGIN` in Supabase Edge Function secrets matches the live GitHub Pages URL exactly
+- [ ] `CLAUDE_API_KEY` set in Supabase Edge Function secrets
+
+**After a Supabase Edge Function deploy:**
+- [ ] Hit `GET {SUPABASE_URL}/functions/v1/gateway-api/api/health` — confirm `ok: true`
+- [ ] Confirm `services.claude: true` in the response
+- [ ] Send a test Claude request from the app — confirm AI status badge turns green
+
+**After a render workflow change:**
+- [ ] Trigger a manual render from the Actions tab with a test composition
+- [ ] Confirm Supabase `video_jobs` row transitions queued → rendering → completed
+- [ ] Confirm the MP4 appears in `renders/` within expected time window
+- [ ] Confirm `compositions/pending/` test file is cleaned up after render
+
+**Monthly:**
+- [ ] Review Supabase `error_logs` for recurring client-side errors
+- [ ] Review video render success rates — investigate any rate < 95%
+- [ ] Check Edge Function logs in Supabase dashboard for recurring errors or rate limit spikes
+- [ ] Verify Edge Function P95 response time < 20s for Claude calls
+- [ ] Check GitHub Actions cache hit rate for HyperFrames + Chrome caches
+
+**Music library maintenance:**
+- [ ] Add royalty-free MP3 files to `music/` matching paths in `VID_MUSIC_LIBRARY` in `app/video.js`:
+  - `music/01-luxury-calm.mp3`
+  - `music/02-upbeat-energy.mp3`
+  - `music/03-cinematic-drama.mp3`
+  - `music/04-warm-acoustic.mp3`
+  - `music/05-modern-beat.mp3`
+- [ ] Keep tracks under 5 MB each (compressed, ~128kbps stereo is sufficient)

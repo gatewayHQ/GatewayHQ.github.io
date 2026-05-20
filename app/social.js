@@ -153,36 +153,40 @@ function removeSocialAgent(i) {
 function renderSocialAgents() {
   var c = document.getElementById('sm-agents-container');
   c.innerHTML = '';
-  smAgents.forEach((a, i) => {
+  // Parse saved agents once per render — not once per agent card
+  var savedAgentsOpts = (JSON.parse(localStorage.getItem('gw_saved_agents') || '[]'))
+    .map(function(p) {
+      return '<option value="' + encodeURIComponent(JSON.stringify(p)) + '">' + p.name + '</option>';
+    }).join('');
+
+  smAgents.forEach(function(a, i) {
     var card = document.createElement('div');
     card.className = 'agent-form-card';
-    card.innerHTML = `
-      <button class="remove-agent" onclick="removeSocialAgent(${i})" title="Remove">&times;</button>
-      <div style="display:flex; gap:12px; align-items:flex-start;">
-        <div class="agent-photo-upload" onclick="document.getElementById('sm-agent-photo-${i}').click()">
-          ${a.photo ? '<img src="'+a.photo+'">' : '<div class="upload-hint"><span class="icon">👤</span><span class="label">Click to upload<br>agent photo</span></div>'}
-          <input type="file" id="sm-agent-photo-${i}" accept="image/*,.heic,.HEIC" style="display:none" onchange="handleSocialAgentPhoto(${i}, this)">
-        </div>
-        <div class="agent-fields" style="flex:1;min-width:0">
-          <input type="text" placeholder="Name" value="${a.name}" oninput="smAgents[${i}].name=this.value; updateSocialPreview()">
-          <input type="text" placeholder="Title" value="${a.title}" oninput="smAgents[${i}].title=this.value; updateSocialPreview()">
-          <input type="text" placeholder="Phone" value="${a.phone}" oninput="smAgents[${i}].phone=this.value; updateSocialPreview()">
-          <input type="text" placeholder="Email" value="${a.email}" oninput="smAgents[${i}].email=this.value; updateSocialPreview()">
-          <input type="text" placeholder="Licensed in (e.g. Iowa, Nebraska, SD)" value="${a.license}" oninput="smAgents[${i}].license=this.value; updateSocialPreview()" style="grid-column:1/-1">
-        </div>
-      </div>
-      <div style="display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap">
-        <button class="btn-sm" title="Save current agent details (re-save with same name to update)" style="font-size:12px;padding:4px 10px;background:#1E3040;border:1px solid #C8A84B;color:#C8A84B;white-space:nowrap" onclick="saveAgentPreset(${i})">💾 Save</button>
-        <select id="sm-agent-load-sel-${i}" style="flex:1;min-width:100px;font-size:12px;padding:4px 8px;background:#1E3040;color:#E4E3D4;border:1px solid #2a4050;border-radius:4px" onchange="loadAgentPreset(${i}, this)">
-          <option value="">Load saved agent…</option>
-          ${(JSON.parse(localStorage.getItem('gw_saved_agents')||'[]')).map(p=>`<option value="${encodeURIComponent(JSON.stringify(p))}">${p.name}</option>`).join('')}
-        </select>
-        <button class="btn-sm" title="Delete selected saved agent" style="font-size:12px;padding:4px 9px;background:#1E3040;border:1px solid #7a3030;color:#e07070;white-space:nowrap" onclick="deleteSavedAgent('sm-agent-load-sel-${i}')">🗑️ Delete</button>
-        <button class="btn-sm" title="Publish this agent to the shared team roster" style="font-size:12px;padding:4px 10px;background:#1E3040;border:1px solid #C8A84B;color:#C8A84B;white-space:nowrap" onclick="gwSmPublishToRoster(${i})">🌐 Publish</button>
-        <button class="btn-sm" title="Load an agent from the shared team roster" style="font-size:12px;padding:4px 10px;background:#1E3040;border:1px solid #5a9aaa;color:#aaccd8;white-space:nowrap" onclick="gwSmLoadFromRoster(${i})">👥 Roster</button>
-      </div>
-      <div style="font-size:10px;color:#5a7a8a;margin-top:3px;padding-left:2px">Tip: load an agent, edit fields above, then re-save to update.</div>
-    `;
+    card.innerHTML =
+      '<button class="remove-agent" onclick="removeSocialAgent(' + i + ')" title="Remove">&times;</button>' +
+      '<div style="display:flex; gap:12px; align-items:flex-start;">' +
+        '<div class="agent-photo-upload" onclick="document.getElementById(\'sm-agent-photo-' + i + '\').click()">' +
+          (a.photo ? '<img src="' + a.photo + '">' : '<div class="upload-hint"><span class="icon">👤</span><span class="label">Click to upload<br>agent photo</span></div>') +
+          '<input type="file" id="sm-agent-photo-' + i + '" accept="image/*,.heic,.HEIC" style="display:none" onchange="handleSocialAgentPhoto(' + i + ', this)">' +
+        '</div>' +
+        '<div class="agent-fields" style="flex:1;min-width:0">' +
+          '<input type="text" placeholder="Name" value="' + a.name + '" oninput="smAgents[' + i + '].name=this.value; updateSocialPreview()">' +
+          '<input type="text" placeholder="Title" value="' + a.title + '" oninput="smAgents[' + i + '].title=this.value; updateSocialPreview()">' +
+          '<input type="text" placeholder="Phone" value="' + a.phone + '" oninput="smAgents[' + i + '].phone=this.value; updateSocialPreview()">' +
+          '<input type="text" placeholder="Email" value="' + a.email + '" oninput="smAgents[' + i + '].email=this.value; updateSocialPreview()">' +
+          '<input type="text" placeholder="Licensed in (e.g. Iowa, Nebraska, SD)" value="' + a.license + '" oninput="smAgents[' + i + '].license=this.value; updateSocialPreview()" style="grid-column:1/-1">' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap">' +
+        '<button class="btn-sm" title="Save current agent details (re-save with same name to update)" style="font-size:12px;padding:4px 10px;background:#1E3040;border:1px solid #C8A84B;color:#C8A84B;white-space:nowrap" onclick="saveAgentPreset(' + i + ')">💾 Save</button>' +
+        '<select id="sm-agent-load-sel-' + i + '" style="flex:1;min-width:100px;font-size:12px;padding:4px 8px;background:#1E3040;color:#E4E3D4;border:1px solid #2a4050;border-radius:4px" onchange="loadAgentPreset(' + i + ', this)">' +
+          '<option value="">Load saved agent…</option>' + savedAgentsOpts +
+        '</select>' +
+        '<button class="btn-sm" title="Delete selected saved agent" style="font-size:12px;padding:4px 9px;background:#1E3040;border:1px solid #7a3030;color:#e07070;white-space:nowrap" onclick="deleteSavedAgent(\'sm-agent-load-sel-' + i + '\')">🗑️ Delete</button>' +
+        '<button class="btn-sm" title="Publish this agent to the shared team roster" style="font-size:12px;padding:4px 10px;background:#1E3040;border:1px solid #C8A84B;color:#C8A84B;white-space:nowrap" onclick="gwSmPublishToRoster(' + i + ')">🌐 Publish</button>' +
+        '<button class="btn-sm" title="Load an agent from the shared team roster" style="font-size:12px;padding:4px 10px;background:#1E3040;border:1px solid #5a9aaa;color:#aaccd8;white-space:nowrap" onclick="gwSmLoadFromRoster(' + i + ')">👥 Roster</button>' +
+      '</div>' +
+      '<div style="font-size:10px;color:#5a7a8a;margin-top:3px;padding-left:2px">Tip: load an agent, edit fields above, then re-save to update.</div>';
     c.appendChild(card);
   });
 }
@@ -2785,3 +2789,16 @@ function showBufferManualFallback() {
       '</div>' +
     '</div>';
 }
+
+// ── Canvas preview debounce ───────────────────────────────────────────────
+// updateSocialPreview fires on every oninput across 30+ form fields and
+// redraws a 1080×1350 canvas. Debounce at 160ms so rapid typing only
+// triggers one redraw per pause instead of one per keystroke.
+(function () {
+  var _immediate = updateSocialPreview;
+  var _debounced = GW.debounce(function () { _immediate(); }, 160);
+  // Keep a direct reference for code paths that need the result right away
+  // (e.g. downloadSocialGraphic reads the canvas state — no redraw needed there)
+  window.updateSocialPreviewNow = _immediate;
+  window.updateSocialPreview = _debounced;
+})();
