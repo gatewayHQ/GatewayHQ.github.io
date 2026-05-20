@@ -159,3 +159,55 @@ window.clearAIKey = function() {
     window.GatewaySync.init();
   }
 })();
+
+// ==== PRODUCTION ERROR TRACKING ====
+// Captures unhandled JS errors and promise rejections and writes them to
+// Supabase error_logs (only when GatewaySync is logged in). Fire-and-forget —
+// never blocks or impacts app operation. Deduplicates within a 5-minute window.
+(function() {
+  var _errorHashes = {};
+
+  function _hashStr(s) {
+    var h = 0;
+    for (var i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
+    return String(h >>> 0);
+  }
+
+  function _report(msg, source, lineno, colno, stack) {
+    try {
+      var sync = window.GatewaySync;
+      if (!sync || !sync.isLoggedIn || !sync.isLoggedIn() || !sync._client) return;
+
+      var key = _hashStr((msg || '') + (source || ''));
+      var now = Date.now();
+      // Suppress duplicate reports within 5 minutes
+      if (_errorHashes[key] && (now - _errorHashes[key]) < 300000) return;
+      _errorHashes[key] = now;
+
+      var payload = {
+        message:    String(msg   || 'Unknown error').slice(0, 500),
+        source:     String(source || '').slice(0, 300),
+        line_no:    lineno  || null,
+        col_no:     colno   || null,
+        stack:      stack   ? String(stack).slice(0, 2000) : null,
+        url:        window.location.pathname,
+        user_agent: navigator.userAgent.slice(0, 200)
+      };
+
+      sync._client.from('error_logs').insert(payload).then(function() {}).catch(function() {});
+    } catch (e) {
+      // Never let error reporting itself throw
+    }
+  }
+
+  window.addEventListener('error', function(e) {
+    _report(e.message, e.filename, e.lineno, e.colno, e.error && e.error.stack);
+  });
+
+  window.addEventListener('unhandledrejection', function(e) {
+    var reason = e.reason;
+    var msg = reason instanceof Error ? reason.message : String(reason || 'Unhandled rejection');
+    var stack = reason instanceof Error ? reason.stack : null;
+    _report(msg, 'Promise', null, null, stack);
+  });
+})();

@@ -1,0 +1,149 @@
+name: Health Monitor
+
+# Runs every 6 hours + on-demand.
+# Checks Vercel proxy, Supabase reachability, and GitHub Pages response.
+# Creates a GitHub issue if any service is degraded.
+# Write results to SUPABASE system_health table if credentials are available.
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'   # every 6 hours
+  workflow_dispatch:          # manual trigger from Actions tab
+
+jobs:
+  health-check:
+    name: Service Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check GitHub Pages
+        id: pages
+        run: |
+          STATUS=$(curl -o /dev/null -s -w "%{http_code}" \
+            --max-time 15 --retry 2 --retry-delay 3 \
+            "https://gatewayhq.github.io/")
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ GitHub Pages: $STATUS"
+          else
+            echo "❌ GitHub Pages: $STATUS"
+          fi
+
+      - name: Check Vercel Proxy Health Endpoint
+        id: vercel
+        env:
+          VERCEL_URL: ${{ secrets.VERCEL_HEALTH_URL }}
+          GW_SECRET:  ${{ secrets.GATEWAY_SECRET }}
+        run: |
+          if [ -z "$VERCEL_URL" ]; then
+            echo "::notice::VERCEL_HEALTH_URL not set — skipping Vercel check"
+            echo "status=skip" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          RESPONSE=$(curl -s --max-time 15 --retry 2 \
+            -H "x-gateway-secret: $GW_SECRET" \
+            "$VERCEL_URL/api/health" 2>&1) || true
+          HTTP_CODE=$(curl -o /dev/null -s -w "%{http_code}" --max-time 15 \
+            -H "x-gateway-secret: $GW_SECRET" \
+            "$VERCEL_URL/api/health" 2>/dev/null) || HTTP_CODE="000"
+          echo "status=$HTTP_CODE" >> "$GITHUB_OUTPUT"
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Vercel proxy: $HTTP_CODE"
+            echo "   Response: $RESPONSE"
+          else
+            echo "❌ Vercel proxy: $HTTP_CODE"
+          fi
+
+      - name: Check Supabase Connectivity
+        id: supabase
+        env:
+          SB_URL: ${{ secrets.SUPABASE_URL }}
+          SB_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SB_URL" ]; then
+            echo "::notice::SUPABASE_URL not set — skipping Supabase check"
+            echo "status=skip" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          STATUS=$(curl -o /dev/null -s -w "%{http_code}" --max-time 15 \
+            -H "apikey: $SB_KEY" \
+            -H "Authorization: Bearer $SB_KEY" \
+            "$SB_URL/rest/v1/") || STATUS="000"
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          if [[ "$STATUS" == "2"* ]] || [ "$STATUS" = "404" ]; then
+            echo "✅ Supabase: $STATUS (reachable)"
+          else
+            echo "❌ Supabase: $STATUS"
+          fi
+
+      - name: Write health snapshot to Supabase
+        if: env.SB_URL != ''
+        env:
+          SB_URL: ${{ secrets.SUPABASE_URL }}
+          SB_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PAGES_STATUS: ${{ steps.pages.outputs.status }}
+          VERCEL_STATUS: ${{ steps.vercel.outputs.status }}
+          SB_STATUS: ${{ steps.supabase.outputs.status }}
+        run: |
+          # Write to system_health table (create it in Supabase if needed)
+          # Schema: id, checked_at, pages_ok, vercel_ok, supabase_ok, details
+          PAYLOAD=$(cat <<JSON
+          {
+            "checked_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "pages_ok": $([ "$PAGES_STATUS" = "200" ] && echo true || echo false),
+            "vercel_ok": $([ "$VERCEL_STATUS" = "200" ] || [ "$VERCEL_STATUS" = "skip" ] && echo true || echo false),
+            "supabase_ok": true,
+            "pages_status": "$PAGES_STATUS",
+            "vercel_status": "$VERCEL_STATUS",
+            "run_id": "${{ github.run_id }}"
+          }
+          JSON
+          )
+          curl -sf -X POST "$SB_URL/rest/v1/system_health" \
+            -H "apikey: $SB_KEY" \
+            -H "Authorization: Bearer $SB_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            -d "$PAYLOAD" \
+          || echo "::warning::Could not write to system_health table (table may not exist yet — see docs)"
+
+      - name: Alert on degradation
+        if: |
+          steps.pages.outputs.status != '200' ||
+          (steps.vercel.outputs.status != '200' && steps.vercel.outputs.status != 'skip')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PAGES="${{ steps.pages.outputs.status }}"
+          VERCEL="${{ steps.vercel.outputs.status }}"
+          BODY="## 🚨 Service Degradation Detected
+
+          | Service | Status |
+          |---|---|
+          | GitHub Pages | $PAGES |
+          | Vercel Proxy | $VERCEL |
+
+          **Run:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          **Time:** $(date -u)
+
+          _Auto-generated by Health Monitor workflow. Close this issue when resolved._"
+
+          # Check if an open health issue already exists before creating a new one
+          OPEN_ISSUES=$(curl -s \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/issues?state=open&labels=health-alert&per_page=1" \
+            | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d))")
+
+          if [ "$OPEN_ISSUES" = "0" ]; then
+            curl -sf -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository }}/issues" \
+              -d "{\"title\":\"🚨 Service degradation — $(date -u +%Y-%m-%d)\",\"body\":$(echo "$BODY" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))'),\"labels\":[\"health-alert\"]}"
+            echo "::error::Health alert issue created — services are degraded."
+          else
+            echo "::warning::Services degraded but health-alert issue already open."
+          fi

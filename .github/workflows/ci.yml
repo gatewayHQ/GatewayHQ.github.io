@@ -1,0 +1,173 @@
+name: CI — Code Quality & Security
+
+# Runs on every push and PR to catch issues before they reach production.
+# Fast (<60s): JS syntax check, secret scanning, HTML structure, build smoke test.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  # ── 1. JavaScript Syntax Validation ───────────────────────────────
+  js-lint:
+    name: JS Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check app scripts
+        run: |
+          set -e
+          FAILED=0
+          for f in app/*.js pptx/**/*.js pptx/*.js; do
+            [ -f "$f" ] || continue
+            if node --check "$f" 2>&1; then
+              echo "  ✓ $f"
+            else
+              echo "  ✗ FAIL: $f"
+              FAILED=1
+            fi
+          done
+          # Check proxy API handlers
+          for f in gateway-proxy/api/*.js; do
+            [ -f "$f" ] || continue
+            if node --check "$f" 2>&1; then
+              echo "  ✓ $f"
+            else
+              echo "  ✗ FAIL: $f"
+              FAILED=1
+            fi
+          done
+          [ "$FAILED" = "0" ] || { echo ""; echo "❌ Syntax errors found."; exit 1; }
+          echo ""; echo "✅ All JS files pass syntax check."
+
+  # ── 2. Secret Scanning ────────────────────────────────────────────
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for hardcoded secrets
+        run: |
+          set -e
+          FAILED=0
+
+          # Patterns that must never be committed
+          check_pattern() {
+            local LABEL="$1"; shift
+            local GREP_ARGS=("$@")
+            # Exclude config.example.js (it has placeholders), test files, and this workflow
+            MATCHES=$(grep -rn "${GREP_ARGS[@]}" \
+              --include="*.js" --include="*.ts" --include="*.json" --include="*.env" \
+              --exclude="config.example.js" \
+              --exclude-dir=".git" --exclude-dir="node_modules" \
+              . 2>/dev/null || true)
+            if [ -n "$MATCHES" ]; then
+              echo "❌ Potential $LABEL found:"
+              echo "$MATCHES"
+              FAILED=1
+            fi
+          }
+
+          check_pattern "Anthropic API key"  -E "sk-ant-api[0-9A-Za-z\-]{20,}"
+          check_pattern "GitHub PAT"         -E "ghp_[0-9A-Za-z]{36}"
+          check_pattern "Supabase service key" -E '"service_role"'
+          check_pattern ".env file committed" -l -E "^(CLAUDE_API_KEY|GATEWAY_SECRET)=" --include=".env"
+
+          # Warn (not fail) on obvious password strings not in example files
+          PASS_MATCHES=$(grep -rn "700Nebraska" \
+            --include="*.js" --include="*.html" \
+            --exclude-dir=".git" --exclude-dir="node_modules" . 2>/dev/null || true)
+          if [ -n "$PASS_MATCHES" ]; then
+            echo "::warning::Hardcoded password string found in source — consider moving to config.js"
+            echo "$PASS_MATCHES"
+          fi
+
+          [ "$FAILED" = "0" ] || { echo ""; echo "Commit rejected: remove secrets before pushing."; exit 1; }
+          echo "✅ No hardcoded secrets detected."
+
+  # ── 3. HTML Structure Check ───────────────────────────────────────
+  html-check:
+    name: HTML Structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify critical DOM IDs exist
+        run: |
+          MISSING=0
+          # These IDs are referenced by app JS and must be present in index.html
+          REQUIRED_IDS=(
+            "page-landing" "page-video" "page-social" "page-valuation"
+            "page-home-valuation" "page-leasing" "page-invoice" "page-multifamily"
+            "global-status" "gw-loading-overlay"
+            "vid-gen-btn" "vid-scenes-preview" "vid-status-bar"
+            "anim-preview-wrap" "vid-music-tab-lib" "vid-music-tab-up"
+            "vid-music-library-panel" "vid-music-upload-panel"
+            "vid-est-time" "vid-ai-fill-btn"
+          )
+          for id in "${REQUIRED_IDS[@]}"; do
+            if ! grep -q "id=\"$id\"" index.html; then
+              echo "  ✗ Missing required DOM id: $id"
+              MISSING=1
+            fi
+          done
+          [ "$MISSING" = "0" ] || { echo ""; echo "❌ Required DOM IDs are missing from index.html."; exit 1; }
+          echo "✅ All required DOM IDs present."
+
+      - name: Check script tag ordering
+        run: |
+          # utils.js must come before all other app modules (it defines window.GW)
+          UTILS_LINE=$(grep -n '"app/utils.js"' index.html | cut -d: -f1)
+          ROUTER_LINE=$(grep -n '"app/router.js"' index.html | cut -d: -f1)
+          VIDEO_LINE=$(grep -n '"app/video.js"' index.html | cut -d: -f1)
+          if [ -n "$UTILS_LINE" ] && [ -n "$ROUTER_LINE" ]; then
+            if [ "$UTILS_LINE" -lt "$ROUTER_LINE" ]; then
+              echo "✅ Script load order correct (utils.js before router.js)"
+            else
+              echo "❌ utils.js must load before router.js"
+              exit 1
+            fi
+          fi
+
+  # ── 4. Proxy API Smoke Test ────────────────────────────────────────
+  proxy-smoke:
+    name: Proxy API Handlers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate handler exports
+        run: |
+          node -e "
+            var files = ['claude','health','buffer','buffer-profiles','video-jobs'];
+            var failed = 0;
+            files.forEach(function(f) {
+              var path = './gateway-proxy/api/' + f + '.js';
+              try {
+                var mod = require(path);
+                if (typeof mod !== 'function') {
+                  console.error('FAIL: ' + path + ' does not export a function');
+                  failed++;
+                } else {
+                  console.log('  ok: ' + path);
+                }
+              } catch(e) {
+                // Missing file is not a failure — only check existing ones
+                if (e.code !== 'MODULE_NOT_FOUND') {
+                  console.error('FAIL: ' + path + ' threw: ' + e.message);
+                  failed++;
+                }
+              }
+            });
+            if (failed > 0) process.exit(1);
+            console.log('All proxy handlers valid.');
+          "
