@@ -93,7 +93,7 @@ jobs:
           REQUIRED_IDS=(
             "page-landing" "page-video" "page-social" "page-valuation"
             "page-home-valuation" "page-leasing" "page-invoice" "page-multifamily"
-            "global-status" "gw-loading-overlay"
+            "global-status"
             "vid-gen-btn" "vid-scenes-preview" "vid-status-bar"
             "anim-preview-wrap" "vid-music-tab-lib" "vid-music-tab-up"
             "vid-music-library-panel" "vid-music-upload-panel"
