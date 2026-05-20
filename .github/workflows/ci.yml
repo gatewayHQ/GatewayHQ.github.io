@@ -135,6 +135,22 @@ jobs:
         with:
           deno-version: v2.x
 
+      # Download remote imports first, with retries — esm.sh occasionally
+      # returns transient 5xx errors. This isolates flaky network from the
+      # type check below, which then runs offline against the local cache.
+      - name: Cache Edge Function dependencies
+        run: |
+          for i in 1 2 3 4; do
+            if deno cache supabase/functions/gateway-api/index.ts; then
+              echo "✅ Dependencies cached."
+              exit 0
+            fi
+            echo "::warning::deno cache attempt $i failed (transient network) — retrying in $((i * 5))s..."
+            sleep $((i * 5))
+          done
+          echo "::error::Could not download dependencies after 4 attempts."
+          exit 1
+
       - name: Type-check Edge Function
         run: |
           deno check supabase/functions/gateway-api/index.ts
