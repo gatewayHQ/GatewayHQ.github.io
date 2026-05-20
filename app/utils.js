@@ -267,7 +267,49 @@
   // Keep the global name that all modules already call.
   window.showGlobalStatus = function (msg, durationMs) { GW.showStatus(msg, durationMs); };
 
-  // ── 12. INJECT LOADING OVERLAY CSS ───────────────────────────
+  // ── 12. LAZY SCRIPT LOADER ───────────────────────────────────
+  // Returns a cached Promise that resolves once the script has loaded.
+  // Multiple callers for the same src share the same promise — no double-inject.
+  var _scriptCache = {};
+
+  GW.loadScript = function (src) {
+    if (_scriptCache[src]) return _scriptCache[src];
+    _scriptCache[src] = new Promise(function (resolve, reject) {
+      // If an existing <script> tag with this src is in the DOM and has already
+      // executed (no pending load), resolve immediately.
+      var existing = document.querySelector('script[src="' + src + '"]');
+      if (existing && !existing.getAttribute('data-loading')) {
+        resolve(); return;
+      }
+      var s = document.createElement('script');
+      s.src = src;
+      s.setAttribute('data-loading', '1');
+      s.onload  = function () { s.removeAttribute('data-loading'); resolve(); };
+      s.onerror = function () { reject(new Error('Failed to load ' + src)); };
+      document.head.appendChild(s);
+    });
+    return _scriptCache[src];
+  };
+
+  // ── 13. RECENTLY USED TRACKER ────────────────────────────────
+  var RECENT_KEY = 'gw_recent_pages';
+  var RECENT_MAX = 4;
+
+  GW.trackPageVisit = function (pageId, pageName) {
+    try {
+      var recent = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+      recent = recent.filter(function (r) { return r.id !== pageId; });
+      recent.unshift({ id: pageId, name: pageName, ts: Date.now() });
+      if (recent.length > RECENT_MAX) recent = recent.slice(0, RECENT_MAX);
+      localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
+    } catch (e) {}
+  };
+
+  GW.getRecentPages = function () {
+    try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch (e) { return []; }
+  };
+
+  // ── 14. INJECT LOADING OVERLAY CSS ───────────────────────────
   (function injectCSS() {
     var style = document.createElement('style');
     style.textContent = [

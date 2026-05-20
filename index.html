@@ -12,7 +12,9 @@
 <script src="ai-config.js"></script>
 <script src="assets/logos.js"></script>
 
-<!-- Fonts -->
+<!-- Fonts — preconnect eliminates DNS + TLS round-trips; display=swap prevents FOIT -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=EB+Garamond:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <!-- ── Styles ────────────────────────────────────────────────────── -->
@@ -29,8 +31,8 @@
 <link rel="stylesheet" href="styles/video.css">
 <link rel="stylesheet" href="styles/sync.css">
 
-<!-- Supabase JS v2 (cross-device sync) — pinned to avoid stale CDN cache -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+<!-- Supabase JS v2 — defer so it never blocks HTML parsing / first paint -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js" defer></script>
 </head>
 <body>
 
@@ -94,6 +96,11 @@
     <img src="assets/logo-hero.png" alt="Gateway Real Estate Advisors" style="height:70px">
     <h1>Agent Toolkit</h1>
     <p>Select a tool to get started</p>
+  </div>
+  <!-- Recently Used — populated by router.js on each visit -->
+  <div id="landing-recent" style="display:none;max-width:880px;margin:0 auto 28px;padding:0 24px">
+    <div style="font-size:10px;color:var(--brand-gray);letter-spacing:2px;font-weight:700;text-transform:uppercase;margin-bottom:10px">Recently Used</div>
+    <div id="landing-recent-list" style="display:flex;gap:10px;flex-wrap:wrap"></div>
   </div>
   <div class="tools-grid">
     <div class="tool-card" onclick="navigateTo('social')">
@@ -1724,44 +1731,45 @@
 <div class="status-bar" id="global-status"></div>
 
 
-<!-- ── Vendor libraries ──────────────────────────────────────────── -->
-<script src="lib/pptxgen.min.js"></script>
-<script src="lib/sheetjs.min.js"></script>
-<script src="lib/jszip.min.js"></script>
+<!-- ── Vendor libraries — defer so they download in parallel but never block paint ── -->
+<!-- pptxgen/sheetjs/jszip: only needed on export; defer = free download, lazy parse -->
+<script src="lib/pptxgen.min.js" defer></script>
+<script src="lib/sheetjs.min.js" defer></script>
+<script src="lib/jszip.min.js" defer></script>
 
 <!-- ── OM Generator — modular 13.33×7.5 institutional system ────── -->
-<script src="pptx/brand-config.js"></script>
-<script src="pptx/layout-constants.js"></script>
-<script src="pptx/utils.js"></script>
-<script src="pptx/slide-modules/01-cover.js"></script>
-<script src="pptx/slide-modules/02-offering-summary.js"></script>
-<script src="pptx/slide-modules/03-investment-highlights.js"></script>
-<script src="pptx/slide-modules/04-property-description.js"></script>
-<script src="pptx/slide-modules/05-unit-mix.js"></script>
-<script src="pptx/slide-modules/06-financial-summary.js"></script>
-<script src="pptx/slide-modules/07-location-overview.js"></script>
-<script src="pptx/slide-modules/08-market-overview.js"></script>
-<script src="pptx/slide-modules/09-section-divider.js"></script>
-<script src="pptx/slide-modules/10-back-cover.js"></script>
-<script src="pptx/generate-om.js"></script>
+<script src="pptx/brand-config.js" defer></script>
+<script src="pptx/layout-constants.js" defer></script>
+<script src="pptx/utils.js" defer></script>
+<script src="pptx/slide-modules/01-cover.js" defer></script>
+<script src="pptx/slide-modules/02-offering-summary.js" defer></script>
+<script src="pptx/slide-modules/03-investment-highlights.js" defer></script>
+<script src="pptx/slide-modules/04-property-description.js" defer></script>
+<script src="pptx/slide-modules/05-unit-mix.js" defer></script>
+<script src="pptx/slide-modules/06-financial-summary.js" defer></script>
+<script src="pptx/slide-modules/07-location-overview.js" defer></script>
+<script src="pptx/slide-modules/08-market-overview.js" defer></script>
+<script src="pptx/slide-modules/09-section-divider.js" defer></script>
+<script src="pptx/slide-modules/10-back-cover.js" defer></script>
+<script src="pptx/generate-om.js" defer></script>
 
-<!-- Home Valuation dependencies (PDF export + HEIC image conversion) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+<!-- HEIC conversion — defer; only needed when agent uploads an iPhone photo -->
+<!-- jspdf loaded lazily by hvDownloadPDF / hvDownloadPPTX at click time -->
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js" defer></script>
 
 <!-- ── App modules (load order matches dependency graph) ─────────── -->
-<script src="app/utils.js"></script>
-<script src="app/sync.js"></script>
-<script src="app/api.js"></script>
-<script src="app/core.js"></script>
-<script src="app/router.js"></script>
-<script src="app/social.js"></script>
-<script src="app/leasing.js"></script>
-<script src="app/valuation.js"></script>
-<script src="app/multifamily.js"></script>
-<script src="app/invoice.js"></script>
-<script src="app/home-valuation.js"></script>
-<script src="app/video.js"></script>
+<script src="app/utils.js" defer></script>
+<script src="app/sync.js" defer></script>
+<script src="app/api.js" defer></script>
+<script src="app/core.js" defer></script>
+<script src="app/router.js" defer></script>
+<script src="app/social.js" defer></script>
+<script src="app/leasing.js" defer></script>
+<script src="app/valuation.js" defer></script>
+<script src="app/multifamily.js" defer></script>
+<script src="app/invoice.js" defer></script>
+<script src="app/home-valuation.js" defer></script>
+<script src="app/video.js" defer></script>
 
 </body>
 </html>
