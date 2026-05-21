@@ -1,19 +1,21 @@
 name: Render Listing Video
 
 # ================================================================
-# Triggered by the browser (via video-jobs Vercel endpoint)
+# Triggered by the Supabase Edge Function (gateway-api /api/video-render)
 # or manually from the Actions tab.
 #
-# Vercel flow (preferred):
-#   job_id, output_slug, composition_url, music_url
+# Edge Function flow (preferred):
+#   job_id, output_slug, composition_path, music_path, quality
+#   The Edge Function uploads the composition to compositions/pending/
+#   then dispatches this workflow with job_id set.
 #
 # Legacy browser flow (GH PAT in browser):
 #   output_slug, composition_path, music_path
-#   (job_id is empty — no callbacks)
+#   (job_id is empty — no Supabase status callbacks)
 #
-# Required repository secrets for Vercel callbacks:
-#   VIDEO_JOBS_WEBHOOK_URL  = https://<your>.vercel.app/api/video-jobs
-#   RENDER_WEBHOOK_SECRET   = <random 32-char hex>
+# Required repository secrets for status callbacks:
+#   SUPABASE_URL              = https://<project>.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY = <service role key>
 #
 # Speed notes:
 #   Cold run (no cache): ~5-8 min setup + render
@@ -59,14 +61,16 @@ on:
         type: string
 
       # ── Render quality ────────────────────────────────────────────
+      # Must match HyperFrames CLI values exactly: draft | standard | high.
       quality:
-        description: 'Render quality: high (best) or balanced (~40% faster, still great for social)'
+        description: 'Render quality (draft=fast iteration, standard=social, high=final delivery)'
         required: false
-        default: 'high'
+        default: 'standard'
         type: choice
         options:
+          - draft
+          - standard
           - high
-          - balanced
 
 permissions:
   contents: write
@@ -190,30 +194,45 @@ jobs:
           OUTPUT="${{ github.workspace }}/renders/${{ inputs.output_slug }}_silent.mp4"
           cd /tmp/hf-render
 
+          # Normalize quality — HyperFrames accepts only draft|standard|high.
+          # Any other value (legacy "balanced"/"fast") falls back to standard.
+          QUALITY="${{ inputs.quality }}"
+          case "$QUALITY" in
+            draft|standard|high) ;;
+            *) echo "::warning::Unknown quality '$QUALITY' — using 'standard'"; QUALITY="standard" ;;
+          esac
+          echo "Rendering at quality=$QUALITY"
+
           render_attempt() {
             /tmp/hf-tools/node_modules/.bin/hyperframes render \
-              --quality ${{ inputs.quality || 'high' }} \
+              --quality "$QUALITY" \
               --fps 30 \
               --output "$OUTPUT"
           }
 
           # Attempt 1
-          if render_attempt; then
-            echo "✅ Render succeeded on first attempt"
-            exit 0
+          render_attempt || {
+            echo "::warning::Render attempt 1 failed — retrying in 10s..."
+            sleep 10
+            render_attempt || {
+              echo "::error::Render failed after 2 attempts. Check HyperFrames logs above."
+              exit 1
+            }
+          }
+
+          # Verify the output actually exists and is a real video (>100 KB).
+          # A zero-byte or tiny file means the render silently produced nothing.
+          if [ ! -f "$OUTPUT" ]; then
+            echo "::error::Render reported success but $OUTPUT does not exist."
+            exit 1
           fi
-
-          echo "::warning::Render attempt 1 failed — retrying in 10s..."
-          sleep 10
-
-          # Attempt 2 (retry)
-          if render_attempt; then
-            echo "✅ Render succeeded on retry"
-            exit 0
+          SIZE=$(stat -c%s "$OUTPUT")
+          echo "Rendered file size: $SIZE bytes"
+          if [ "$SIZE" -lt 102400 ]; then
+            echo "::error::Rendered file is only $SIZE bytes — render produced an empty/broken video."
+            exit 1
           fi
-
-          echo "::error::Render failed after 2 attempts. Check Puppeteer/HyperFrames logs above."
-          exit 1
+          echo "✅ Render succeeded — $OUTPUT ($SIZE bytes)"
 
       # ── Mix background music ──────────────────────────────────────
       - name: Mix in background music

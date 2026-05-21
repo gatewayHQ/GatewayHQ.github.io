@@ -94,6 +94,13 @@
     el.classList.add('sel');
   };
 
+  // Map UI quality labels to valid HyperFrames render values.
+  // HyperFrames `render --quality` accepts ONLY: draft | standard | high.
+  // Sending anything else (e.g. "balanced", "fast") fails the render.
+  function vidHFQuality() {
+    return ({ fast: 'draft', balanced: 'standard', high: 'high' })[vidCurrentQuality] || 'standard';
+  }
+
   /* ── TEXT OVERLAY TABS ───────────────────────────────────────── */
   window.vidOverlayTab = function(tab, btn) {
     document.querySelectorAll('.overlay-tab').forEach(function(b){ b.classList.remove('act'); });
@@ -1345,7 +1352,7 @@
     var client = sync._client;
     var userId = sync._session.user.id;
     var auth   = sync._session.access_token;
-    var quality= (vidCurrentPlatform === 'landscape') ? 'high' : 'balanced';
+    var quality= vidHFQuality();
     var ref    = branch || 'main';
 
     // Build composition using compressed photos
@@ -1508,7 +1515,7 @@
       throw new Error('__FALLBACK__');
     }
     var jobId   = insertRes.data.id;
-    var quality = (vidCurrentPlatform === 'landscape') ? 'high' : 'balanced';
+    var quality = vidHFQuality();
 
     // 3. Dispatch GitHub Actions — pass job_id so Actions can webhook back to Supabase
     var dispatchRes = await fetch('https://api.github.com/repos/' + VID_REPO + '/actions/workflows/render-listing-video.yml/dispatches', {
