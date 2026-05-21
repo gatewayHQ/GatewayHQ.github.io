@@ -261,7 +261,9 @@ async function handleVideoRender(req: Request, userId: string): Promise<Response
   if (!slug        || typeof slug        !== 'string') return json({ error: 'Missing slug' }, 400);
 
   const ref      = (typeof branch === 'string' && branch.trim()) ? branch.trim() : 'main';
-  const qual     = quality === 'high' ? 'high' : 'balanced';
+  // HyperFrames `render --quality` accepts only draft|standard|high — anything
+  // else fails the render. Validate here as a defense-in-depth check.
+  const qual     = (['draft', 'standard', 'high'].includes(quality)) ? quality : 'standard';
   const compPath = `compositions/pending/${slug}.html`;
 
   // 1. Upload composition HTML to GitHub
@@ -353,7 +355,7 @@ async function handleVideoRender(req: Request, userId: string): Promise<Response
 function handleHealth(): Response {
   return json({
     ok:        true,
-    version:   '2.1.1',
+    version:   '2.1.2',
     ts:        new Date().toISOString(),
     services: {
       claude: !!CLAUDE_API_KEY,
