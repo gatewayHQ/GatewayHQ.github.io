@@ -55,7 +55,7 @@
     document.querySelectorAll('.anim-card').forEach(function(c){ c.classList.remove('sel'); });
     el.classList.add('sel');
     var labels = { kenburns:'Ken Burns', parallax:'Parallax', slide:'Slide + Reveal',
-                   fade:'Fade Dissolve', zoomout:'Zoom Out', split:'Split Screen', spinzoom:'Spin + Zoom' };
+                   fade:'Fade Dissolve', zoomout:'Zoom Out', split:'Split Screen', spinzoom:'Spin + Zoom', panoramic:'Panoramic Wide Pan' };
     var lbl = document.getElementById('anim-preview-label');
     if (lbl) lbl.textContent = labels[anim] || anim;
     vidPreviewAnim();
@@ -478,10 +478,24 @@
   }
 
   function pc(label, photo, l1, l2, bg) {
+    var isDark = !photo && bg === '#0D1117';
     var s = bg ? 'background:'+bg+';' : 'background:#1a2a35;';
+    if (isDark) s = 'background:linear-gradient(135deg,#0D1117,#152229);';
     var img = photo ? '<img src="'+photo.dataUrl+'" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.65">' : '';
-    var t1  = l1 ? '<div style="font-size:9px;font-weight:700;color:#F5F5F3;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+esc(l1)+'</div>' : '';
-    var t2  = l2 ? '<div style="font-size:8px;color:rgba(245,245,243,0.5);margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+esc(l2)+'</div>' : '';
+    // For dark branded cards (stats/agent), render a styled mini layout instead of bottom text
+    if (isDark) {
+      var inner = '';
+      if (l1) inner += '<div style="font-size:9px;font-weight:600;color:#C8D8E0;letter-spacing:1px;text-align:center;text-transform:uppercase;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+esc(l1)+'</div>';
+      if (l1 && l2) inner += '<div style="width:24px;height:1px;background:rgba(162,182,192,0.35);margin:4px auto"></div>';
+      if (l2) inner += '<div style="font-size:8px;color:rgba(162,182,192,0.55);text-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+esc(l2)+'</div>';
+      return '<div class="vid-scene-card">'
+        + '<div class="vid-scene-label">'+esc(label)+'</div>'
+        + '<div class="vid-scene-preview" style="position:relative;overflow:hidden;'+s+';display:flex;align-items:center;justify-content:center;">'
+        + '<div style="padding:6px 8px;width:100%">'+inner+'</div>'
+        + '</div></div>';
+    }
+    var t1 = l1 ? '<div style="font-size:9px;font-weight:700;color:#F5F5F3;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+esc(l1)+'</div>' : '';
+    var t2 = l2 ? '<div style="font-size:8px;color:rgba(245,245,243,0.5);margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+esc(l2)+'</div>' : '';
     return '<div class="vid-scene-card">'
       + '<div class="vid-scene-label">'+esc(label)+'</div>'
       + '<div class="vid-scene-preview" style="position:relative;overflow:hidden;'+s+'">'
@@ -533,6 +547,7 @@
       +'.scene { position:absolute; inset:0; opacity:0; }\n'
       +'.pw { position:absolute; inset:0; overflow:hidden; }\n'
       +'.pb { position:absolute; inset:-2px; width:calc(100% + 4px); height:calc(100% + 4px); object-fit:cover; transform-origin:center center; }\n'
+      +'.pano { inset:auto!important; top:0!important; left:0!important; width:165%!important; height:100%!important; object-fit:cover!important; transform-origin:left center!important; }\n'
       +'.pg { position:absolute; inset:0; background:linear-gradient(to bottom,rgba(13,17,23,0) 25%,rgba(13,17,23,0.6) 65%,rgba(13,17,23,0.96) 100%); }\n'
       +'#ov { position:absolute; inset:0; background:#0D1117; opacity:1; z-index:999; pointer-events:none; }\n'
       +css+'\n<\/style>\n</head>\n<body>\n'
@@ -553,17 +568,30 @@
     else { from='{scale:1.1,y:"2.5%"}'; to='{scale:1.1,y:"-2.5%",duration:'+dur+',ease:"none"}'; }
     return '\n  .fromTo("#pb'+i+'",'+from+','+to+','+t.toFixed(2)+')';
   }
+  // Panoramic pan tween — wide horizontal sweep (image is 165% wide in CSS)
+  // dir: even = pan left→right, odd = pan right→left
+  function pan(i, t, dur, dir) {
+    var lr = (dir % 2 === 0);
+    return '\n  .fromTo("#pb'+i+'",'
+      +'{x:"'+(lr?'-16%':'16%')+'"},'
+      +'{x:"'+(lr?'16%':'-16%')+'",duration:'+dur+',ease:"none"},'
+      +t.toFixed(2)+')';
+  }
   function xfd(t) { return '\n  .to("#ov",{opacity:1,duration:0.35},'+t.toFixed(2)+')'; }
   function xfi(t) { return '\n  .to("#ov",{opacity:0,duration:0.35},'+t.toFixed(2)+')'; }
 
   // Stats card HTML
   function statsScene(stats) {
-    return '<div class="scene sc-stats" id="sc-stats"><div class="si">'
+    return '<div class="scene sc-stats" id="sc-stats">'
+      +'<div class="sc-accent-top"></div>'
+      +'<div class="si">'
       +stats.slice(0,3).map(function(s,i){
         return (i>0?'<div class="sd"></div>':'')
           +'<div class="sb"><div class="sv" id="sv'+i+'">'+esc(s.val)+'</div>'
           +'<div class="sl2" id="sl'+i+'">'+esc(s.lbl)+'</div></div>';
-      }).join('')+'</div></div>\n';
+      }).join('')+'</div>'
+      +'<div class="sc-accent-bot"></div>'
+      +'</div>\n';
   }
   // Stats timeline commands
   function statsTL(t, stats, statsD) {
@@ -611,19 +639,22 @@
     var namS=isV?'38px':'48px';
     var apW=isV?'150px':isS?'170px':'190px';
     var apH=isV?'190px':isS?'215px':'240px';
-    return '.sc-stats{background:#0D1117;display:flex;align-items:center;justify-content:center}\n'
-      +'.si{display:flex;align-items:center}\n'
+    return '.sc-stats{background:linear-gradient(135deg,#0D1117 0%,#131E27 55%,#0D1117 100%);display:flex;align-items:center;justify-content:center}\n'
+      +'.sc-stats::before{content:"";position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);height:1px;background:linear-gradient(90deg,transparent,rgba(162,182,192,0.15),transparent)}\n'
+      +'.si{display:flex;align-items:center;position:relative;z-index:1}\n'
       +'.sb{text-align:center;padding:0 '+spH+'}\n'
-      +'.sd{width:1px;height:'+(isV?'80px':'60px')+';background:rgba(255,255,255,0.12)}\n'
+      +'.sd{width:1px;height:'+(isV?'80px':'60px')+';background:rgba(162,182,192,0.2)}\n'
       +'.sv{font-size:'+stV+';font-weight:200;color:#F5F5F3;opacity:0;transform:translateY(18px)}\n'
-      +'.sl2{font-size:17px;font-weight:400;letter-spacing:4px;text-transform:uppercase;color:rgba(245,245,243,0.45);margin-top:12px;opacity:0}\n'
-      +'.sc-agent{background:#0D1117;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 80px}\n'
+      +'.sl2{font-size:17px;font-weight:400;letter-spacing:4px;text-transform:uppercase;color:rgba(162,182,192,0.55);margin-top:12px;opacity:0}\n'
+      +'.sc-agent{background:linear-gradient(160deg,#0D1117 0%,#152229 50%,#0D1117 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 80px}\n'
       +'.alog{width:'+logW+';height:'+logW+';opacity:0;margin-bottom:24px;object-fit:contain}\n'
       +'.acta{font-size:'+ctaS+';font-weight:200;color:#F5F5F3;opacity:0;transform:translateY(18px)}\n'
       +'.aname{font-size:'+namS+';font-weight:300;color:#F5F5F3;margin-top:28px;opacity:0}\n'
       +'.abrok{font-size:15px;font-weight:400;letter-spacing:4px;text-transform:uppercase;color:rgba(245,245,243,0.45);margin-top:10px;opacity:0}\n'
       +'.atag{font-size:13px;font-weight:400;letter-spacing:3px;text-transform:uppercase;color:rgba(245,245,243,0.25);margin-top:14px;opacity:0}\n'
-      +'.ap{width:'+apW+';height:'+apH+';border-radius:10px;object-fit:cover;border:3px solid rgba(245,245,243,0.25);opacity:0;margin-bottom:28px}\n';
+      +'.ap{width:'+apW+';height:'+apH+';border-radius:10px;object-fit:cover;border:3px solid rgba(162,182,192,0.25);opacity:0;margin-bottom:28px}\n'
+      +'.sc-accent-top{position:absolute;top:'+(isV?'80px':'60px')+';left:50%;transform:translateX(-50%);width:40px;height:1px;background:rgba(162,182,192,0.3)}\n'
+      +'.sc-accent-bot{position:absolute;bottom:'+(isV?'80px':'60px')+';left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(162,182,192,0.1),transparent)}\n';
   }
 
   /* ── LISTING PROMO ─────────────────────────────────────────────── */
@@ -646,10 +677,11 @@
       +'.call{position:absolute;bottom:'+cBott+';left:'+side+';right:'+side+';font-size:'+callSz+';font-weight:300;color:#F5F5F3;letter-spacing:0.3px;opacity:0;transform:translateY(10px)}\n'
       +sharedCss(W,H,isV,isS);
     var scenesH='';
+    var isPan=(vidCurrentAnim==='panoramic');
     photos.forEach(function(p,i){
       var f=feats[i-1]||''; var fs=f?f.split(/[—–]/)[0].trim():'';
       scenesH+='<div class="scene" id="sc'+i+'">'
-        +'<div class="pw"><img class="pb" id="pb'+i+'" src="'+p.dataUrl+'" alt=""></div>'
+        +'<div class="pw"><img class="pb'+(i>0&&isPan?' pano':'')+'" id="pb'+i+'" src="'+p.dataUrl+'" alt=""></div>'
         +'<div class="pg"></div>'
         +(i===0?'<div class="eyeb" id="eyeb0">Gateway Real Estate Advisors</div>'
             +'<div class="addr" id="addr0">'+esc(data.addr)+'</div>'
@@ -661,7 +693,7 @@
     photos.forEach(function(p,i){
       var dur=i===0?heroD:roomD;
       tl+='\n  .set("#sc'+i+'",{opacity:1},'+t.toFixed(2)+')';
-      tl+=xfi(t); tl+=kb(i,t,dur,i);
+      tl+=xfi(t); tl+=(i>0&&isPan)?pan(i,t,dur,i):kb(i,t,dur,i);
       if(i===0){
         tl+='\n  .to("#eyeb0",{opacity:1,duration:0.7},'+(t+0.8).toFixed(2)+')';
         tl+='\n  .to("#addr0",{opacity:1,y:0,duration:1.0,ease:"power3.out"},'+(t+1.2).toFixed(2)+')';
@@ -702,9 +734,10 @@
       +'<div class="jt-bar" id="jt-bar"></div>'
       +'<div class="jt-a" id="jt-a">'+esc(data.addr)+'</div>'
       +'</div></div>\n';
+    var isPan=(vidCurrentAnim==='panoramic');
     photos.forEach(function(p,i){
       html+='<div class="scene" id="sc'+i+'">'
-        +'<div class="pw"><img class="pb" id="pb'+i+'" src="'+p.dataUrl+'" alt=""></div>'
+        +'<div class="pw"><img class="pb'+(i>0&&isPan?' pano':'')+'" id="pb'+i+'" src="'+p.dataUrl+'" alt=""></div>'
         +'<div class="pg"></div>'
         +(i===0?'<div class="hpric" id="hpric">'+esc(data.jlPrice||data.price)+'</div>'
             +(statLn?'<div class="hstat" id="hstat">'+esc(statLn)+'</div>':''):'')
@@ -720,7 +753,7 @@
     t=titleD;
     photos.forEach(function(p,i){
       var dur=i===0?heroD:roomD;
-      tl+='\n  .set("#sc'+i+'",{opacity:1},'+t.toFixed(2)+')'+xfi(t)+kb(i,t,dur,i+2);
+      tl+='\n  .set("#sc'+i+'",{opacity:1},'+t.toFixed(2)+')'+xfi(t)+((i>0&&isPan)?pan(i,t,dur,i+2):kb(i,t,dur,i+2));
       if(i===0){
         tl+='\n  .to("#hpric",{opacity:1,duration:0.9},'+(t+1.0).toFixed(2)+')';
         if(statLn) tl+='\n  .to("#hstat",{opacity:1,duration:0.7},'+(t+1.8).toFixed(2)+')';
@@ -1219,7 +1252,8 @@
     var logos=vidMakeLogos();
     var builders={'listing':buildListing,'just-listed':buildJustListed,'just-sold':buildJustSold,'open-house':buildOpenHouse,'price-improved':buildPriceImproved,'neighborhood':buildNeighborhood,'agent-intro':buildAgentIntro,'market-update':buildMarketUpdate};
     var build=builders[vidCurrentTpl]||buildListing;
-    return { html: build(data,vidPhotos,logos,vidCurrentFmt), slug: data.slug };
+    var fmt=(PLATFORM_FMT[vidCurrentPlatform]||{}).aspect||vidCurrentFmt;
+    return { html: build(data,vidPhotos,logos,fmt), slug: data.slug, _data: data, _logos: logos, _fmt: fmt };
   }
 
   /* ── STATUS + RENDER PIPELINE (unchanged) ───────────────────────── */
@@ -1272,9 +1306,148 @@
 
   var VID_REPO='gatewayhq/gatewayhq.github.io';
   var vidPollTimer=null;
+
+  // ── Photo compression ─────────────────────────────────────────────
+  // Resize photos to max 1280px before embedding so composition HTML
+  // stays under the Edge Function's 6 MB body limit.
+  function compressPhoto(dataUrl, maxDim) {
+    return new Promise(function(resolve) {
+      var img = new Image();
+      img.onload = function() {
+        var w = img.width, h = img.height;
+        if (w <= maxDim && h <= maxDim) { resolve(dataUrl); return; }
+        var scale = Math.min(maxDim / w, maxDim / h);
+        var canvas = document.createElement('canvas');
+        canvas.width  = Math.round(w * scale);
+        canvas.height = Math.round(h * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.78));
+      };
+      img.onerror = function() { resolve(dataUrl); };
+      img.src = dataUrl;
+    });
+  }
+
+  async function compressPhotos(photos, maxDim) {
+    return Promise.all(photos.map(async function(p) {
+      var compressed = await compressPhoto(p.dataUrl, maxDim || 1280);
+      return { dataUrl: compressed, name: p.name };
+    }));
+  }
   var vidRealtimeSub=null;  // active Supabase Realtime subscription
 
-  // ── Supabase-tracked render (primary path) ────────────────────────
+  // ── Edge Function render (preferred path when logged in) ──────────
+  // Compresses photos, sends composition HTML to the Supabase Edge
+  // Function which uploads to GitHub and dispatches the workflow.
+  // No client-side GitHub PAT required — uses server-side GH_PAT secret.
+  async function vidRenderViaEdge(comp, platName, compressedPhotos, branch) {
+    var sync   = window.GatewaySync;
+    var client = sync._client;
+    var userId = sync._session.user.id;
+    var auth   = sync._session.access_token;
+    var quality= (vidCurrentPlatform === 'landscape') ? 'high' : 'balanced';
+    var ref    = branch || 'main';
+
+    // Build composition using compressed photos
+    var origPhotos = vidPhotos;
+    vidPhotos = compressedPhotos;
+    var html = comp.html; // already built — rebuild with compressed photos
+    // Re-derive html from the builder using compressed photos
+    var builders = {'listing':buildListing,'just-listed':buildJustListed,'just-sold':buildJustSold,
+      'open-house':buildOpenHouse,'price-improved':buildPriceImproved,
+      'neighborhood':buildNeighborhood,'agent-intro':buildAgentIntro,'market-update':buildMarketUpdate};
+    var logos = window.GW && window.GW.logos ? window.GW.logos() : { logoS: '', logoW: '' };
+    var fmt   = (PLATFORM_FMT[vidCurrentPlatform]||{}).aspect || vidCurrentFmt;
+    var freshComp = null;
+    try {
+      var build = builders[vidCurrentTpl] || buildListing;
+      var freshHtml = build(comp._data, compressedPhotos, logos, fmt);
+      freshComp = { html: freshHtml, slug: comp.slug, _data: comp._data };
+    } finally {
+      vidPhotos = origPhotos; // always restore
+    }
+    if (!freshComp) throw new Error('Could not build composition with compressed photos');
+
+    var b64 = btoa(unescape(encodeURIComponent(freshComp.html)));
+
+    vidSetStatus('uploading', 'Compressing & uploading via secure server...');
+
+    // Get the proxy URL from GatewayAPI (points to the Supabase Edge Function)
+    var baseUrl = (window.GatewayAPI && window.GatewayAPI.proxyUrl()) || '';
+    if (!baseUrl) throw new Error('Supabase proxy URL not configured in ai-config.js');
+
+    var res = await fetch(baseUrl + '/api/video-render', {
+      method:  'POST',
+      headers: {
+        'Authorization': 'Bearer ' + auth,
+        'Content-Type':  'application/json',
+      },
+      body: JSON.stringify({
+        compHtmlB64: b64,
+        slug:        comp.slug,
+        platform:    vidCurrentPlatform,
+        musicPath:   (vidLibraryTrack && vidLibraryTrack.path) ? vidLibraryTrack.path : '',
+        branch:      ref,
+        quality:     quality,
+      }),
+    });
+
+    var result = await res.json().catch(function(){return {};});
+    if (!res.ok) {
+      throw new Error(result.error || 'Edge Function render failed (' + res.status + ')');
+    }
+
+    var jobId = result.jobId;
+    if (!jobId) {
+      // Edge Function succeeded but no job record — can't do Realtime, fall back to poll
+      throw new Error('__FALLBACK__');
+    }
+
+    // Subscribe to Realtime — reuse same polling/Realtime code as vidRenderSupabase
+    vidSetStatus('rendering', 'Queued — waiting for runner…');
+    return new Promise(function(resolve, reject) {
+      var startMs = Date.now();
+      var progressPhases = [
+        { until: 30,  msg: 'Waiting for runner… ' },
+        { until: 90,  msg: 'Rendering frames… ' },
+        { until: 180, msg: 'Encoding ' + platName + '… ' },
+        { until: 360, msg: 'Mixing audio… ' },
+        { until: 2700, msg: 'Finalizing… ' }
+      ];
+      function getPhaseMsg() {
+        var elap = (Date.now()-startMs)/1000;
+        for (var k=0; k<progressPhases.length; k++) { if (elap < progressPhases[k].until) return progressPhases[k].msg; }
+        return 'Still rendering… ';
+      }
+      var ticker = setInterval(function() {
+        var elap = Math.round((Date.now()-startMs)/1000);
+        vidSetStatus('rendering', getPhaseMsg() + elap + 's elapsed');
+      }, 3000);
+      if (vidRealtimeSub) { try { vidRealtimeSub.unsubscribe(); } catch(e){} vidRealtimeSub=null; }
+      vidRealtimeSub = client.channel('job-'+jobId)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'video_jobs', filter: 'id=eq.'+jobId }, function(payload) {
+          var row = payload.new;
+          if (!row || row.status === 'queued' || row.status === 'rendering') return;
+          clearInterval(ticker);
+          vidRealtimeSub.unsubscribe(); vidRealtimeSub = null;
+          if (row.status === 'completed' && row.render_url) {
+            var elapsed = Math.round((Date.now()-startMs)/1000);
+            resolve({ url: row.render_url, elapsed: elapsed });
+          } else {
+            var actionsUrl = row.run_id ? '\n\nActions log: https://github.com/' + VID_REPO + '/actions/runs/' + row.run_id : '';
+            reject(new Error((row.error_msg || 'Render failed') + actionsUrl));
+          }
+        })
+        .subscribe();
+      setTimeout(function() {
+        clearInterval(ticker);
+        if (vidRealtimeSub) { vidRealtimeSub.unsubscribe(); vidRealtimeSub = null; }
+        reject(new Error('Render timed out (45 min) — check the Actions log for details.'));
+      }, 45 * 60 * 1000);
+    });
+  }
+
+  // ── Supabase-tracked render (secondary path — requires client-side PAT) ──
   // Requires: ☁ Sync login (Supabase session) + GitHub PAT (repo scope).
   //
   // Same upload + dispatch as the legacy path, but adds a Supabase job
@@ -1532,41 +1705,53 @@
     if (!comp) return;
     btn.disabled = true;
 
-    // Team PAT (from Supabase team_secrets) takes priority over personal PAT
-    var token  = (window._gwTeamRenderPat || localStorage.getItem('gh_pat') || (document.getElementById('vid-gh-token')  || {}).value || '').trim();
     var branch = (localStorage.getItem('gh_branch') || (document.getElementById('vid-gh-branch') || {}).value || '').trim() || 'main';
-
-    if (!token) {
-      var settingsEl = document.getElementById('vid-settings');
-      if (settingsEl) settingsEl.open = true;
-      var tokenEl = document.getElementById('vid-gh-token');
-      if (tokenEl) tokenEl.focus();
-      vidSetStatus('error', 'GitHub token required — enter it in settings below', {
-        msg: 'Add a GitHub PAT with "repo" + "workflow" scopes in the settings below.\n\nAlso log in via ☁ Sync to enable live progress updates and job history.'
-      });
-      return;
-    }
+    var sync   = window.GatewaySync;
+    var isLoggedIn = !!(sync && sync.isLoggedIn && sync.isLoggedIn() && sync._client && sync._session);
 
     try {
-      var sync  = window.GatewaySync;
       var dlUrl;
 
-      if (sync && sync.isLoggedIn && sync.isLoggedIn() && sync._client) {
-        // ── Preferred: Supabase-tracked path ──────────────────────────
-        // Same GitHub upload + dispatch as legacy, but job state lives in
-        // Supabase so Realtime drives the UI instead of polling GitHub API.
+      if (isLoggedIn && window.GatewayAPI && window.GatewayAPI.proxyUrl()) {
+        // ── Best path: Edge Function handles upload + dispatch server-side.
+        // No client-side GitHub PAT required. Compresses photos first.
         try {
-          dlUrl = await vidRenderSupabase(comp, platName, token, branch);
+          vidSetStatus('uploading', 'Preparing photos…');
+          var compressed = await compressPhotos(vidPhotos, 1280);
+          dlUrl = await vidRenderViaEdge(comp, platName, compressed, branch);
         } catch(e) {
           if (e.message === '__FALLBACK__') {
-            // Supabase insert failed (table missing, RLS issue, etc.) — fall through
-            dlUrl = await vidRenderLegacy(comp, platName, token, branch);
+            // Edge Function unavailable (GH_PAT not set) — try client-side paths
+            var token = (window._gwTeamRenderPat || localStorage.getItem('gh_pat') || (document.getElementById('vid-gh-token')||{}).value||'').trim();
+            if (!token) throw new Error('Render requires either a server-side GH_PAT (set in Supabase Edge Function secrets) or a personal GitHub token in Settings below.');
+            dlUrl = await vidRenderSupabase(comp, platName, token, branch);
           } else {
             throw e;
           }
         }
+      } else if (isLoggedIn && sync._client) {
+        // ── Secondary path: Supabase-tracked with client-side PAT
+        var token = (window._gwTeamRenderPat || localStorage.getItem('gh_pat') || (document.getElementById('vid-gh-token')||{}).value||'').trim();
+        if (!token) {
+          var settingsEl = document.getElementById('vid-settings');
+          if (settingsEl) settingsEl.open = true;
+          throw new Error('GitHub token required — enter it in settings below, or contact your admin to set GH_PAT in the Edge Function secrets.');
+        }
+        try {
+          dlUrl = await vidRenderSupabase(comp, platName, token, branch);
+        } catch(e) {
+          if (e.message === '__FALLBACK__') {
+            dlUrl = await vidRenderLegacy(comp, platName, token, branch);
+          } else { throw e; }
+        }
       } else {
-        // ── Fallback: pure GitHub PAT polling ─────────────────────────
+        // ── Legacy path: direct GitHub API polling (no Supabase session)
+        var token = (window._gwTeamRenderPat || localStorage.getItem('gh_pat') || (document.getElementById('vid-gh-token')||{}).value||'').trim();
+        if (!token) {
+          var settingsEl = document.getElementById('vid-settings');
+          if (settingsEl) settingsEl.open = true;
+          throw new Error('Sign in via ☁ Sync for server-managed rendering, or add a GitHub PAT in settings below.');
+        }
         dlUrl = await vidRenderLegacy(comp, platName, token, branch);
       }
 

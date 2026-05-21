@@ -23,6 +23,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') || 'https://gatewayhq.github.io';
 const CLAUDE_API_KEY = Deno.env.get('CLAUDE_API_KEY') || '';
 const BUFFER_TOKEN   = Deno.env.get('BUFFER_ACCESS_TOKEN') || '';
+const GH_PAT         = Deno.env.get('GH_PAT') || '';
+const GH_REPO        = 'gatewayhq/gatewayhq.github.io';
 
 const ANTHROPIC_VER  = '2023-06-01';
 const DEFAULT_MODEL  = 'claude-sonnet-4-6';
@@ -237,6 +239,113 @@ async function handleBuffer(req: Request): Promise<Response> {
   return json({ results, errors, success: errors.length === 0 });
 }
 
+// ── Route: /api/video-render ─────────────────────────────────────
+// Accepts composition HTML (base64) + metadata, uploads to GitHub,
+// creates a video_jobs row, and dispatches the render workflow.
+// This route has NO body-size guard — payloads can be up to ~4 MB
+// (compressed photos embedded as JPEG data URLs).
+// Required Edge Function secret: GH_PAT (repo + workflow scopes)
+
+async function handleVideoRender(req: Request, userId: string): Promise<Response> {
+  if (!GH_PAT) {
+    return json({ error: 'Video rendering not configured on this server. Set GH_PAT in Supabase Edge Function secrets.' }, 503);
+  }
+
+  // deno-lint-ignore no-explicit-any
+  let body: any;
+  try { body = await req.json(); }
+  catch { return json({ error: 'Invalid JSON body' }, 400); }
+
+  const { compHtmlB64, slug, platform, musicPath, branch, quality } = body;
+  if (!compHtmlB64 || typeof compHtmlB64 !== 'string') return json({ error: 'Missing compHtmlB64' }, 400);
+  if (!slug        || typeof slug        !== 'string') return json({ error: 'Missing slug' }, 400);
+
+  const ref      = (typeof branch === 'string' && branch.trim()) ? branch.trim() : 'main';
+  const qual     = quality === 'high' ? 'high' : 'balanced';
+  const compPath = `compositions/pending/${slug}.html`;
+
+  // 1. Upload composition HTML to GitHub
+  const uploadRes = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${compPath}`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${GH_PAT}`,
+      'Content-Type':  'application/json',
+      'Accept':        'application/vnd.github+json',
+    },
+    body: JSON.stringify({ message: `Add composition: ${slug}`, content: compHtmlB64, branch: ref }),
+    signal: AbortSignal.timeout(30_000),
+  });
+
+  if (!uploadRes.ok) {
+    // deno-lint-ignore no-explicit-any
+    const ue: any = await uploadRes.json().catch(() => ({}));
+    if (uploadRes.status === 401) return json({ error: 'GitHub token configuration error — contact your admin.' }, 503);
+    if (uploadRes.status === 404) return json({ error: 'Repository not found — check GH_PAT repo access.' }, 503);
+    return json({ error: `GitHub upload failed: ${ue.message || uploadRes.status}` }, 502);
+  }
+
+  // 2. Create video_jobs row using the caller's Supabase session (respects RLS)
+  const auth   = req.headers.get('Authorization') ?? '';
+  const client = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+    { global: { headers: { Authorization: auth } } }
+  );
+
+  const { data: jobData, error: jobError } = await client
+    .from('video_jobs')
+    .insert({ user_id: userId, slug, status: 'queued', platform: platform || 'landscape', composition_path: compPath })
+    .select('id')
+    .single();
+
+  let jobId = '';
+  if (jobError || !jobData) {
+    // Non-fatal — proceed without a job record (no Realtime updates for this render)
+    console.warn('[video-render] video_jobs insert failed:', jobError?.message ?? 'no data');
+  } else {
+    jobId = jobData.id;
+  }
+
+  // 3. Dispatch GitHub Actions workflow
+  const dispatchBody: Record<string, string | Record<string, string>> = {
+    ref,
+    inputs: {
+      output_slug:       slug,
+      quality:           qual,
+      composition_path:  compPath,
+      music_path:        (typeof musicPath === 'string') ? musicPath : '',
+      ...(jobId ? { job_id: jobId } : {}),
+    },
+  };
+
+  const dispatchRes = await fetch(
+    `https://api.github.com/repos/${GH_REPO}/actions/workflows/render-listing-video.yml/dispatches`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GH_PAT}`,
+        'Content-Type':  'application/json',
+        'Accept':        'application/vnd.github+json',
+      },
+      body: JSON.stringify(dispatchBody),
+      signal: AbortSignal.timeout(15_000),
+    }
+  );
+
+  if (!dispatchRes.ok && dispatchRes.status !== 204) {
+    // deno-lint-ignore no-explicit-any
+    const de: any = await dispatchRes.json().catch(() => ({}));
+    if (jobId) {
+      await client.from('video_jobs')
+        .update({ status: 'failed', error_msg: 'Dispatch failed: ' + (de.message || dispatchRes.status) })
+        .eq('id', jobId);
+    }
+    return json({ error: `Workflow dispatch failed: ${de.message || dispatchRes.status}` }, 502);
+  }
+
+  return json({ jobId: jobId || null, slug, compositionPath: compPath });
+}
+
 // ── Route: /api/health ───────────────────────────────────────────
 // Public — no auth required. Used by health-monitor workflow and
 // the app's AI status badge on startup.
@@ -271,6 +380,10 @@ Deno.serve(async (req: Request) => {
   if (!user) {
     return json({ error: 'Sign in via ☁ Sync to use shared AI, or click ✦ AI to add a personal key.' }, 401);
   }
+
+  // /api/video-render skips the 32 KB body guard — composition HTML with
+  // compressed photos is typically 1–3 MB (within Supabase's 6 MB limit).
+  if (path.endsWith('/api/video-render') && req.method === 'POST') return handleVideoRender(req, user.id);
 
   if (path.endsWith('/api/claude')          && req.method === 'POST') return handleClaude(req, user.id);
   if (path.endsWith('/api/buffer-profiles'))                           return handleBufferProfiles();
