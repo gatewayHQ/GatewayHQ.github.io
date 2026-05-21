@@ -18,5 +18,7 @@
 //   Claude API key via the ✦ AI button in the nav.
 // ================================================================
 window.AI_CONFIG = {
-  proxyUrl: ''   // not needed — key is served from Supabase DB at login
+  // Supabase Edge Function — handles Claude, Buffer, and video render (server-side GH_PAT).
+  // All API calls route through here when an agent is logged in via ☁ Sync.
+  proxyUrl: 'https://jrtaxhfglcymipncwmvu.supabase.co/functions/v1/gateway-api'
 };

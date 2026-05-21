@@ -353,11 +353,12 @@ async function handleVideoRender(req: Request, userId: string): Promise<Response
 function handleHealth(): Response {
   return json({
     ok:        true,
-    version:   '2.1.0',
+    version:   '2.1.1',
     ts:        new Date().toISOString(),
     services: {
       claude: !!CLAUDE_API_KEY,
       buffer: !!BUFFER_TOKEN,
+      github: !!GH_PAT,
     },
   });
 }
