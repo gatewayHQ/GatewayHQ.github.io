@@ -156,13 +156,17 @@ jobs:
           path: ~/.cache/puppeteer
           key: puppeteer-chrome-${{ runner.os }}-v1
 
-      - name: Install Chrome for Puppeteer
+      - name: Install Chrome for HyperFrames
         run: |
-          # Re-install if Chrome is missing — covers cold runs AND broken caches.
+          # Use HyperFrames' own browser command — NOT node_modules/.bin/puppeteer.
+          # puppeteer is a transitive dep of hyperframes; npm does NOT create a .bin
+          # symlink for transitive deps, so node_modules/.bin/puppeteer does not exist
+          # and calling it produces exit 127 ("command not found").
+          # `hyperframes browser` is the correct, supported way to install bundled Chrome.
           CHROME_EXISTS=$(find ~/.cache/puppeteer -name 'chrome' -type f 2>/dev/null | head -1)
           if [ -z "$CHROME_EXISTS" ]; then
-            echo "::notice::Chrome not in cache — installing via puppeteer..."
-            cd /tmp/hf-tools && node_modules/.bin/puppeteer browsers install chrome
+            echo "::notice::Chrome not in cache — installing via HyperFrames browser command..."
+            cd /tmp/hf-tools && node_modules/.bin/hyperframes browser
           else
             echo "::notice::Chrome found in cache — skipping install."
           fi
