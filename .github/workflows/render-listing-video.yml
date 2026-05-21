@@ -83,7 +83,7 @@ concurrency:
 
 env:
   # Bump this string to force a full cache refresh (e.g. after a HyperFrames update)
-  HF_TOOLS_CACHE_KEY: hf-tools-v3
+  HF_TOOLS_CACHE_KEY: hf-tools-v4
 
 jobs:
   render:
@@ -132,12 +132,21 @@ jobs:
           key: ${{ env.HF_TOOLS_CACHE_KEY }}-${{ runner.os }}
 
       - name: Install HyperFrames
-        if: steps.hf-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p /tmp/hf-tools
           cd /tmp/hf-tools
-          echo '{"private":true}' > package.json
-          npm install hyperframes
+          # Install if binary is missing — covers cold runs AND broken/incomplete caches.
+          # (The cache step above only caches node_modules, not the binary check itself.)
+          if [ ! -f node_modules/.bin/hyperframes ]; then
+            echo "::notice::hyperframes binary not in cache — installing..."
+            echo '{"private":true}' > package.json
+            npm install hyperframes
+          else
+            echo "::notice::hyperframes found in cache — skipping install."
+          fi
+          # Hard-fail if binary still missing after install attempt.
+          ls -la node_modules/.bin/hyperframes \
+            || { echo "::error::hyperframes binary not found after install"; exit 1; }
 
       # ── Cache Puppeteer Chrome binary ─────────────────────────────
       # Skips ~90s Chrome download (~300 MB) on warm runs.
@@ -149,10 +158,15 @@ jobs:
           key: puppeteer-chrome-${{ runner.os }}-v1
 
       - name: Install Chrome for Puppeteer
-        if: steps.chrome-cache.outputs.cache-hit != 'true'
         run: |
-          cd /tmp/hf-tools
-          node_modules/.bin/puppeteer browsers install chrome
+          # Install Chrome if not found in cache (covers broken cache restores too).
+          CHROME_EXISTS=$(find ~/.cache/puppeteer -name 'chrome' -type f 2>/dev/null | head -1)
+          if [ -z "$CHROME_EXISTS" ]; then
+            echo "::notice::Chrome not in cache — installing via puppeteer..."
+            cd /tmp/hf-tools && node_modules/.bin/puppeteer browsers install chrome
+          else
+            echo "::notice::Chrome found in cache — skipping install."
+          fi
 
       # ── FFmpeg is pre-installed on ubuntu-latest — no install needed ──
 
