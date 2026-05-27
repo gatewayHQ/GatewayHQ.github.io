@@ -1311,8 +1311,85 @@
     } else { if (outSec) outSec.style.display='none'; }
   }
 
-  var VID_REPO='gatewayhq/gatewayhq.github.io';
   var vidPollTimer=null;
+
+  // Progress phases shared by all render paths (platName fills in phase 2 at runtime)
+  var RENDER_PROGRESS_PHASES = [
+    { until: 30,   msg: 'Waiting for runner…'  },
+    { until: 90,   msg: 'Rendering frames…'    },
+    { until: 180,  msg: null                   }, // filled with 'Encoding {platName}…'
+    { until: 360,  msg: 'Mixing audio…'        },
+    { until: 2700, msg: 'Finalizing…'          }
+  ];
+
+  // Shared Realtime + fallback-poll watcher for a video_jobs row.
+  // Both the Edge Function path and the Supabase path use this after
+  // the job is queued, avoiding duplicated Realtime/polling/ticker code.
+  function vidWatchJob(client, jobId, platName) {
+    return new Promise(function(resolve, reject) {
+      var startMs = Date.now();
+
+      function getPhaseMsg() {
+        var elap = (Date.now() - startMs) / 1000;
+        for (var k = 0; k < RENDER_PROGRESS_PHASES.length; k++) {
+          if (elap < RENDER_PROGRESS_PHASES[k].until) {
+            return RENDER_PROGRESS_PHASES[k].msg || ('Encoding ' + platName + '…');
+          }
+        }
+        return 'Finalizing…';
+      }
+
+      var ticker = setInterval(function() {
+        var elap = Math.round((Date.now() - startMs) / 1000);
+        vidSetStatus('rendering', getPhaseMsg() + ' ' + elap + 's');
+      }, 4000);
+
+      function finish(row) {
+        clearInterval(ticker);
+        clearInterval(fallbackTimer);
+        if (vidRealtimeSub) { try { client.removeChannel(vidRealtimeSub); } catch(e){} vidRealtimeSub = null; }
+        if (row.status === 'completed' && row.render_url) {
+          resolve({ url: row.render_url, elapsed: row.elapsed_sec || Math.round((Date.now()-startMs)/1000) });
+        } else {
+          var logUrl = row.run_id ? '\n\nActions log: https://github.com/' + VID_REPO + '/actions/runs/' + row.run_id : '';
+          reject(new Error((row.error_msg || 'Render failed') + logUrl));
+        }
+      }
+
+      if (vidRealtimeSub) { try { client.removeChannel(vidRealtimeSub); } catch(e){} vidRealtimeSub = null; }
+
+      vidRealtimeSub = client
+        .channel('vid-job-' + jobId)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'video_jobs', filter: 'id=eq.' + jobId },
+          function(payload) {
+            var row = payload.new || {};
+            if (row.status !== 'completed' && row.status !== 'failed') return;
+            finish(row);
+          })
+        .subscribe(function(status) {
+          if (status === 'CHANNEL_ERROR') console.warn('[Video] Realtime error; fallback polling active');
+        });
+
+      // Fallback DB poll every 15s in case Realtime doesn't fire
+      // (e.g. video_jobs not yet in the supabase_realtime publication)
+      var pollAttempts = 0;
+      var fallbackTimer = setInterval(async function() {
+        if (++pollAttempts > 200) { // 200 × 15s = 50 min
+          clearInterval(ticker);
+          clearInterval(fallbackTimer);
+          if (vidRealtimeSub) { try { client.removeChannel(vidRealtimeSub); } catch(e){} vidRealtimeSub = null; }
+          reject(new Error('Render timed out after 50 min. Check GitHub Actions for details.'));
+          return;
+        }
+        try {
+          var pr = await client.from('video_jobs')
+            .select('status,render_url,error_msg,elapsed_sec,run_id').eq('id', jobId).single();
+          var row = pr.data || {};
+          if (row.status === 'completed' || row.status === 'failed') finish(row);
+        } catch(e) {}
+      }, 15000);
+    });
+  }
 
   // ── Photo compression ─────────────────────────────────────────────
   // Resize photos to max 1280px before embedding so composition HTML
@@ -1341,54 +1418,34 @@
       return { dataUrl: compressed, name: p.name };
     }));
   }
-  var vidRealtimeSub=null;  // active Supabase Realtime subscription
+  var vidRealtimeSub=null;
 
   // ── Edge Function render (preferred path when logged in) ──────────
-  // Compresses photos, sends composition HTML to the Supabase Edge
-  // Function which uploads to GitHub and dispatches the workflow.
-  // No client-side GitHub PAT required — uses server-side GH_PAT secret.
+  // Rebuilds composition HTML with compressed photos, sends to the
+  // Supabase Edge Function (server-side GH_PAT — no client PAT needed).
   async function vidRenderViaEdge(comp, platName, compressedPhotos, branch) {
-    var sync   = window.GatewaySync;
-    var client = sync._client;
-    var userId = sync._session.user.id;
-    var auth   = sync._session.access_token;
-    var quality= vidHFQuality();
-    var ref    = branch || 'main';
+    var sync    = window.GatewaySync;
+    var client  = sync._client;
+    var auth    = sync._session.access_token;
+    var quality = vidHFQuality();
+    var ref     = branch || 'main';
 
-    // Build composition using compressed photos
-    var origPhotos = vidPhotos;
-    vidPhotos = compressedPhotos;
-    var html = comp.html; // already built — rebuild with compressed photos
-    // Re-derive html from the builder using compressed photos
+    // Builders accept photos as a parameter — no need to touch vidPhotos global.
     var builders = {'listing':buildListing,'just-listed':buildJustListed,'just-sold':buildJustSold,
       'open-house':buildOpenHouse,'price-improved':buildPriceImproved,
       'neighborhood':buildNeighborhood,'agent-intro':buildAgentIntro,'market-update':buildMarketUpdate};
     var logos = window.GW && window.GW.logos ? window.GW.logos() : { logoS: '', logoW: '' };
     var fmt   = (PLATFORM_FMT[vidCurrentPlatform]||{}).aspect || vidCurrentFmt;
-    var freshComp = null;
-    try {
-      var build = builders[vidCurrentTpl] || buildListing;
-      var freshHtml = build(comp._data, compressedPhotos, logos, fmt);
-      freshComp = { html: freshHtml, slug: comp.slug, _data: comp._data };
-    } finally {
-      vidPhotos = origPhotos; // always restore
-    }
-    if (!freshComp) throw new Error('Could not build composition with compressed photos');
-
-    var b64 = btoa(unescape(encodeURIComponent(freshComp.html)));
+    var uploadHtml = (builders[vidCurrentTpl] || buildListing)(comp._data, compressedPhotos, logos, fmt);
+    var b64 = btoa(unescape(encodeURIComponent(uploadHtml)));
 
     vidSetStatus('uploading', 'Compressing & uploading via secure server...');
-
-    // Get the proxy URL from GatewayAPI (points to the Supabase Edge Function)
     var baseUrl = (window.GatewayAPI && window.GatewayAPI.proxyUrl()) || '';
     if (!baseUrl) throw new Error('Supabase proxy URL not configured in ai-config.js');
 
     var res = await fetch(baseUrl + '/api/video-render', {
       method:  'POST',
-      headers: {
-        'Authorization': 'Bearer ' + auth,
-        'Content-Type':  'application/json',
-      },
+      headers: { 'Authorization': 'Bearer ' + auth, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         compHtmlB64: b64,
         slug:        comp.slug,
@@ -1400,74 +1457,25 @@
     });
 
     var result = await res.json().catch(function(){return {};});
-    if (!res.ok) {
-      throw new Error(result.error || 'Edge Function render failed (' + res.status + ')');
-    }
+    if (!res.ok) throw new Error(result.error || 'Edge Function render failed (' + res.status + ')');
 
     var jobId = result.jobId;
-    if (!jobId) {
-      // Edge Function succeeded but no job record — can't do Realtime, fall back to poll
-      throw new Error('__FALLBACK__');
-    }
+    if (!jobId) throw new Error('__FALLBACK__');
 
-    // Subscribe to Realtime — reuse same polling/Realtime code as vidRenderSupabase
     vidSetStatus('rendering', 'Queued — waiting for runner…');
-    return new Promise(function(resolve, reject) {
-      var startMs = Date.now();
-      var progressPhases = [
-        { until: 30,  msg: 'Waiting for runner… ' },
-        { until: 90,  msg: 'Rendering frames… ' },
-        { until: 180, msg: 'Encoding ' + platName + '… ' },
-        { until: 360, msg: 'Mixing audio… ' },
-        { until: 2700, msg: 'Finalizing… ' }
-      ];
-      function getPhaseMsg() {
-        var elap = (Date.now()-startMs)/1000;
-        for (var k=0; k<progressPhases.length; k++) { if (elap < progressPhases[k].until) return progressPhases[k].msg; }
-        return 'Still rendering… ';
-      }
-      var ticker = setInterval(function() {
-        var elap = Math.round((Date.now()-startMs)/1000);
-        vidSetStatus('rendering', getPhaseMsg() + elap + 's elapsed');
-      }, 3000);
-      if (vidRealtimeSub) { try { vidRealtimeSub.unsubscribe(); } catch(e){} vidRealtimeSub=null; }
-      vidRealtimeSub = client.channel('job-'+jobId)
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'video_jobs', filter: 'id=eq.'+jobId }, function(payload) {
-          var row = payload.new;
-          if (!row || row.status === 'queued' || row.status === 'rendering') return;
-          clearInterval(ticker);
-          vidRealtimeSub.unsubscribe(); vidRealtimeSub = null;
-          if (row.status === 'completed' && row.render_url) {
-            var elapsed = Math.round((Date.now()-startMs)/1000);
-            resolve({ url: row.render_url, elapsed: elapsed });
-          } else {
-            var actionsUrl = row.run_id ? '\n\nActions log: https://github.com/' + VID_REPO + '/actions/runs/' + row.run_id : '';
-            reject(new Error((row.error_msg || 'Render failed') + actionsUrl));
-          }
-        })
-        .subscribe();
-      setTimeout(function() {
-        clearInterval(ticker);
-        if (vidRealtimeSub) { vidRealtimeSub.unsubscribe(); vidRealtimeSub = null; }
-        reject(new Error('Render timed out (45 min) — check the Actions log for details.'));
-      }, 45 * 60 * 1000);
-    });
+    return vidWatchJob(client, jobId, platName);
   }
 
   // ── Supabase-tracked render (secondary path — requires client-side PAT) ──
   // Requires: ☁ Sync login (Supabase session) + GitHub PAT (repo scope).
-  //
-  // Same upload + dispatch as the legacy path, but adds a Supabase job
-  // record so the browser can use Realtime instead of polling GitHub API.
-  // GitHub Actions writes status back directly to Supabase via REST API
-  // using SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY repo secrets — no proxy.
-  // ─────────────────────────────────────────────────────────────────────
+  // Uploads composition + optional music to GitHub, creates a Supabase job
+  // record, dispatches the workflow, then watches the job via vidWatchJob.
   async function vidRenderSupabase(comp, platName, token, branch) {
     var sync   = window.GatewaySync;
     var client = sync._client;
     var userId = sync._session.user.id;
 
-    // 1. Upload composition to GitHub (identical to legacy path)
+    // 1. Upload composition to GitHub
     vidSetStatus('uploading', 'Adding ' + vidCurrentAnim + ' animation... Uploading to GitHub...');
     var b64      = btoa(unescape(encodeURIComponent(comp.html)));
     var compPath = 'compositions/pending/' + comp.slug + '.html';
@@ -1500,7 +1508,7 @@
       musicPath = vidLibraryTrack.path;
     }
 
-    // 2. Create job record in Supabase (browser writes directly using its session JWT)
+    // 2. Create Supabase job record
     vidSetStatus('rendering', 'Queuing render...');
     var insertRes = await client.from('video_jobs').insert({
       user_id:          userId,
@@ -1517,7 +1525,7 @@
     var jobId   = insertRes.data.id;
     var quality = vidHFQuality();
 
-    // 3. Dispatch GitHub Actions — pass job_id so Actions can webhook back to Supabase
+    // 3. Dispatch GitHub Actions — passes job_id so Actions can callback to Supabase
     var dispatchRes = await fetch('https://api.github.com/repos/' + VID_REPO + '/actions/workflows/render-listing-video.yml/dispatches', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github+json' },
@@ -1529,70 +1537,9 @@
       throw new Error('Dispatch failed: ' + (de.message || dispatchRes.status));
     }
 
-    // 4. Subscribe to Realtime — GitHub Actions PATCHes Supabase REST directly, which fires this
-    return new Promise(function(resolve, reject) {
-      var startMs = Date.now();
-      var progressPhases = [
-        { until: 30,  msg: 'Waiting for runner… ' },
-        { until: 90,  msg: 'Rendering frames… ' },
-        { until: 180, msg: 'Encoding ' + platName + '… ' },
-        { until: 360, msg: 'Mixing audio… ' },
-        { until: 2700,msg: 'Finalizing export… ' }
-      ];
-      var progressTimer = setInterval(function() {
-        var elapsed = Math.round((Date.now() - startMs) / 1000);
-        var phase = progressPhases.find(function(p){ return elapsed < p.until; }) || { msg: 'Almost done… ' };
-        vidSetStatus('rendering', phase.msg + '(' + elapsed + 's)');
-      }, 4000);
-
-      if (vidRealtimeSub) { try { client.removeChannel(vidRealtimeSub); } catch(e){} vidRealtimeSub = null; }
-
-      function finish(row, elapsed) {
-        clearInterval(progressTimer);
-        clearInterval(fallbackTimer);
-        if (vidRealtimeSub) { try { client.removeChannel(vidRealtimeSub); } catch(e){} vidRealtimeSub = null; }
-        if (row.status === 'completed') {
-          resolve({ url: row.render_url, elapsed: row.elapsed_sec || elapsed, slug: comp.slug });
-        } else {
-          var actionsUrl = row.run_id ? '\n\nActions log: https://github.com/' + VID_REPO + '/actions/runs/' + row.run_id : '';
-          reject(new Error((row.error_msg || 'Render failed') + actionsUrl));
-        }
-      }
-
-      vidRealtimeSub = client
-        .channel('video-job-' + jobId)
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'video_jobs', filter: 'id=eq.' + jobId },
-          function(payload) {
-            var row = payload.new || {};
-            var elapsed = Math.round((Date.now() - startMs) / 1000);
-            if (row.status === 'completed' || row.status === 'failed') finish(row, elapsed);
-          })
-        .subscribe(function(status) {
-          if (status === 'CHANNEL_ERROR') {
-            // Realtime unavailable — fallback polling will handle it
-            console.warn('[Video] Realtime channel error; falling back to poll');
-          }
-        });
-
-      // Fallback: poll Supabase DB directly every 15s in case Realtime doesn't fire
-      // (e.g. video_jobs not added to supabase_realtime publication yet)
-      var pollAttempts = 0;
-      var fallbackTimer = setInterval(async function() {
-        pollAttempts++;
-        if (pollAttempts > 200) { // 200 × 15s = 50 min
-          clearInterval(fallbackTimer); clearInterval(progressTimer);
-          reject(new Error('Timed out after 50 min. Check GitHub Actions for details.'));
-          return;
-        }
-        try {
-          var pr = await client.from('video_jobs').select('status,render_url,error_msg,elapsed_sec,run_id').eq('id', jobId).single();
-          var row = pr.data || {};
-          if (row.status === 'completed' || row.status === 'failed') {
-            finish(row, Math.round((Date.now() - startMs) / 1000));
-          }
-        } catch(pe){}
-      }, 15000);
-    });
+    // 4. Watch job via shared Realtime + fallback-poll helper
+    vidSetStatus('rendering', 'Queued — waiting for runner…');
+    return vidWatchJob(client, jobId, platName);
   }
 
   // ── Legacy GitHub-PAT render (fallback when not logged into Supabase) ──

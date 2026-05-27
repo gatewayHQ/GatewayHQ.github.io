@@ -154,22 +154,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/puppeteer
-          key: puppeteer-chrome-${{ runner.os }}-v1
+          # Tie Chrome cache to HF tools version so bumping HF_TOOLS_CACHE_KEY
+          # invalidates Chrome at the same time. A mismatch (old Chrome + new HF)
+          # causes render failures that are hard to diagnose.
+          key: puppeteer-chrome-${{ env.HF_TOOLS_CACHE_KEY }}-${{ runner.os }}
 
       - name: Install Chrome for HyperFrames
         run: |
-          # Use HyperFrames' own browser command — NOT node_modules/.bin/puppeteer.
-          # puppeteer is a transitive dep of hyperframes; npm does NOT create a .bin
-          # symlink for transitive deps, so node_modules/.bin/puppeteer does not exist
-          # and calling it produces exit 127 ("command not found").
-          # `hyperframes browser` is the correct, supported way to install bundled Chrome.
-          CHROME_EXISTS=$(find ~/.cache/puppeteer -name 'chrome' -type f 2>/dev/null | head -1)
-          if [ -z "$CHROME_EXISTS" ]; then
-            echo "::notice::Chrome not in cache — installing via HyperFrames browser command..."
-            cd /tmp/hf-tools && node_modules/.bin/hyperframes browser
-          else
-            echo "::notice::Chrome found in cache — skipping install."
-          fi
+          # Always run `hyperframes browser` — it is idempotent and version-aware.
+          # A simple `find -name chrome` existence check is NOT sufficient: it can
+          # match a stale binary from a previous HF version, causing the render to
+          # fail with a Chrome/Puppeteer version mismatch. The command is fast
+          # (~1s) when the correct version is already cached.
+          cd /tmp/hf-tools && node_modules/.bin/hyperframes browser
 
       # ── FFmpeg is pre-installed on ubuntu-latest — no install needed ──
 
@@ -224,6 +221,7 @@ jobs:
             /tmp/hf-tools/node_modules/.bin/hyperframes render \
               --quality "$QUALITY" \
               --fps 30 \
+              --workers 2 \
               --output "$OUTPUT"
           }
 
@@ -284,7 +282,10 @@ jobs:
             git rm --ignore-unmatch "${{ inputs.music_path }}"
           fi
           git commit -m "Rendered video: ${{ inputs.output_slug }}" || echo "Nothing to commit"
-          git push
+          # Rebase before push to handle concurrent renders committing to the same branch.
+          # Different slugs produce different files so rebase conflicts are not expected.
+          git pull --rebase origin "${{ github.ref_name }}"
+          for i in 1 2 3; do git push && break || sleep $((i * 5)); done
 
       # ── Clean up pending files on failure ────────────────────────
       # If the render fails, we still want to remove the uploaded composition
@@ -305,7 +306,9 @@ jobs:
             CHANGED=1
           fi
           if [ "$CHANGED" = "1" ]; then
-            git commit -m "chore: clean up pending files for failed render ${{ inputs.output_slug }}" && git push \
+            git commit -m "chore: clean up pending files for failed render ${{ inputs.output_slug }}" \
+            && git pull --rebase origin "${{ github.ref_name }}" \
+            && git push \
             || echo "::warning::Cleanup commit failed — pending files may remain in compositions/pending/"
           fi
 
