@@ -161,12 +161,10 @@ jobs:
 
       - name: Install Chrome for HyperFrames
         run: |
-          # Always run `hyperframes browser` — it is idempotent and version-aware.
-          # A simple `find -name chrome` existence check is NOT sufficient: it can
-          # match a stale binary from a previous HF version, causing the render to
-          # fail with a Chrome/Puppeteer version mismatch. The command is fast
-          # (~1s) when the correct version is already cached.
-          cd /tmp/hf-tools && node_modules/.bin/hyperframes browser
+          # `hyperframes browser ensure` finds or downloads the Chrome version
+          # bundled with the installed HyperFrames. Running with no arguments
+          # only prints help (exit 0, no download) — `ensure` is required.
+          cd /tmp/hf-tools && node_modules/.bin/hyperframes browser ensure
 
       # ── FFmpeg is pre-installed on ubuntu-latest — no install needed ──
 
