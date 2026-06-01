@@ -175,7 +175,24 @@ jobs:
           # Chrome — so it must not be used here.
           cd /tmp/hf-tools && node_modules/.bin/hyperframes browser ensure
 
-      # ── FFmpeg is pre-installed on ubuntu-latest — no install needed ──
+      # ── Install FFmpeg ────────────────────────────────────────────
+      # HyperFrames needs FFmpeg to encode captured frames into MP4. It is
+      # NOT guaranteed on the runner image (renders failed with
+      # "Rendering requires FFmpeg for video encoding"), so install it
+      # explicitly. Skip the apt work when it is already present.
+      - name: Install FFmpeg
+        run: |
+          if command -v ffmpeg >/dev/null 2>&1; then
+            echo "::notice::ffmpeg already present — $(ffmpeg -version | head -1)"
+          else
+            echo "::notice::ffmpeg not found — installing via apt..."
+            sudo apt-get update -qq
+            sudo apt-get install -y ffmpeg
+          fi
+          # Hard-fail early with a clear message if ffmpeg still isn't available,
+          # rather than failing opaquely inside the render step.
+          command -v ffmpeg >/dev/null 2>&1 \
+            || { echo "::error::ffmpeg not available after install"; exit 1; }
 
       # ── Fetch composition ─────────────────────────────────────────
       - name: Prepare composition
