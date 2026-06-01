@@ -18,6 +18,37 @@
   // supabase/functions/gateway-api/index.ts.
   var VID_REPO = 'gatewayhq/gatewayhq.github.io';
 
+  // ── GSAP inlining ────────────────────────────────────────────────
+  // Compositions drive every animation with GSAP. Loading it from a CDN
+  // <script src> is fatal for rendering: HyperFrames renders compositions
+  // in a deterministic/sandboxed browser, and CDN fetches there fail (the
+  // jsdelivr request is commonly 403'd / rate-limited on CI runners). When
+  // GSAP fails to load, window.__timelines[...] never registers, every scene
+  // stays at opacity:0, and the render produces a near-empty video that the
+  // workflow's 100 KB size-guard rejects — so EVERY render fails.
+  //
+  // Fix: vendor gsap.min.js in the repo and inline its source directly into
+  // each composition so the render is fully self-contained (no network).
+  var GSAP_INLINE  = '';
+  var _gsapPromise = null;
+  function ensureGsapSource() {
+    if (GSAP_INLINE) return Promise.resolve(GSAP_INLINE);
+    if (_gsapPromise) return _gsapPromise;
+    _gsapPromise = fetch('lib/gsap.min.js')
+      .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+      .then(function(txt){ GSAP_INLINE = txt; return txt; })
+      .catch(function(e){
+        // Non-fatal: fall back to the CDN <script> so local preview still
+        // works. Render reliability requires the inline path, so vidRender
+        // awaits this before building the composition.
+        console.warn('[Video] Could not load lib/gsap.min.js to inline — falling back to CDN:', e.message);
+        return '';
+      });
+    return _gsapPromise;
+  }
+  // Kick off the fetch eagerly so GSAP is usually cached before the first render.
+  ensureGsapSource();
+
   var VID_TEMPLATES = [
     { id:'listing',        name:'Listing Promo',        icon:'🏠', desc:'30–60s · all photos',    formId:'vtf-listing'        },
     { id:'just-listed',    name:'Just Listed',          icon:'🔑', desc:'20–45s · all photos',    formId:'vtf-just-listed'    },
@@ -556,7 +587,9 @@
     return '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n'
       +'<meta name="viewport" content="width='+w+', height='+h+'">\n'
       +'<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">\n'
-      +'<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"><\/script>\n'
+      +(GSAP_INLINE
+        ? '<script>'+GSAP_INLINE+'<\/script>\n'
+        : '<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"><\/script>\n')
       +'<style>\n* { margin:0; padding:0; box-sizing:border-box; }\n'
       +'html,body { width:'+w+'px; height:'+h+'px; overflow:hidden; background:#0D1117; font-family:\'Inter\',\'Helvetica Neue\',sans-serif; color:#fff; }\n'
       +'#root { position:relative; width:'+w+'px; height:'+h+'px; overflow:hidden; }\n'
@@ -1664,6 +1697,9 @@
   window.vidRender = async function() {
     var btn = document.getElementById('vid-gen-btn');
     var platName = { reels:'Reels/TikTok', feed:'Instagram Feed', landscape:'YouTube/FB', shorts:'YouTube Shorts', story:'Story Format' }[vidCurrentPlatform] || vidCurrentPlatform;
+    // Ensure GSAP is inlined into the composition (not CDN-loaded) so the
+    // deterministic HyperFrames render has a working animation engine.
+    await ensureGsapSource();
     var comp = vidBuildComposition();
     if (!comp) return;
     btn.disabled = true;

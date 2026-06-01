@@ -82,8 +82,13 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  # Pin HyperFrames so renders are reproducible. An unpinned `npm install
+  # hyperframes` silently pulls the latest release, and a breaking change
+  # (e.g. stricter sandboxed rendering) takes down a previously-working
+  # pipeline with no code change. Bump deliberately, then re-test a render.
+  HF_VERSION: 0.6.65
   # Bump this string to force a full cache refresh (e.g. after a HyperFrames update)
-  HF_TOOLS_CACHE_KEY: hf-tools-v4
+  HF_TOOLS_CACHE_KEY: hf-tools-v5
 
 jobs:
   render:
@@ -137,9 +142,9 @@ jobs:
           cd /tmp/hf-tools
           # Re-install if binary is missing — covers cold runs AND broken/incomplete caches.
           if [ ! -f node_modules/.bin/hyperframes ]; then
-            echo "::notice::hyperframes binary not in cache — installing..."
+            echo "::notice::hyperframes binary not in cache — installing hyperframes@${HF_VERSION}..."
             echo '{"private":true}' > package.json
-            npm install hyperframes
+            npm install "hyperframes@${HF_VERSION}"
           else
             echo "::notice::hyperframes found in cache — skipping install."
           fi
@@ -147,26 +152,28 @@ jobs:
           ls -la node_modules/.bin/hyperframes \
             || { echo "::error::hyperframes binary not found after install"; exit 1; }
 
-      # ── Cache Puppeteer Chrome binary ─────────────────────────────
-      # Skips ~90s Chrome download (~300 MB) on warm runs.
+      # ── Cache HyperFrames Chrome binary ───────────────────────────
+      # Skips the ~100 MB Chrome download on warm runs. HyperFrames stores its
+      # browser (and font cache) under ~/.cache/hyperframes — NOT
+      # ~/.cache/puppeteer — so the cache must target that path or it never
+      # hits and every run re-downloads Chrome.
       - name: Restore Chrome cache
         id: chrome-cache
         uses: actions/cache@v4
         with:
-          path: ~/.cache/puppeteer
-          # Tie Chrome cache to HF tools version so bumping HF_TOOLS_CACHE_KEY
-          # invalidates Chrome at the same time. A mismatch (old Chrome + new HF)
-          # causes render failures that are hard to diagnose.
-          key: puppeteer-chrome-${{ env.HF_TOOLS_CACHE_KEY }}-${{ runner.os }}
+          path: ~/.cache/hyperframes
+          # Tie Chrome cache to HF version so bumping HF_VERSION invalidates
+          # Chrome at the same time. A mismatch (old Chrome + new HF) causes
+          # render failures that are hard to diagnose.
+          key: hf-chrome-${{ env.HF_VERSION }}-${{ runner.os }}
 
       - name: Install Chrome for HyperFrames
         run: |
-          # Always run `hyperframes browser` — it is idempotent and version-aware.
-          # A simple `find -name chrome` existence check is NOT sufficient: it can
-          # match a stale binary from a previous HF version, causing the render to
-          # fail with a Chrome/Puppeteer version mismatch. The command is fast
-          # (~1s) when the correct version is already cached.
-          cd /tmp/hf-tools && node_modules/.bin/hyperframes browser
+          # `hyperframes browser ensure` downloads Chrome if missing and is a
+          # no-op when already cached. The bare `hyperframes browser` (no
+          # subcommand) only prints help and exits 0 — it does NOT install
+          # Chrome — so it must not be used here.
+          cd /tmp/hf-tools && node_modules/.bin/hyperframes browser ensure
 
       # ── FFmpeg is pre-installed on ubuntu-latest — no install needed ──
 
