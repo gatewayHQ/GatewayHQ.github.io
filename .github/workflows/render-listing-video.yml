@@ -329,21 +329,44 @@ jobs:
           cd "${{ github.workspace }}"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "GitHub Actions"
-          CHANGED=0
+
+          # ── Capture full runner diagnostics into a committed file ──────
+          # The Actions log isn't always reachable by whoever triggered the
+          # render, and these renders succeed locally but fail on the runner,
+          # so write the runner's own environment + the real error into the
+          # repo where it can be read directly via git. Every command is
+          # guarded so diagnostic collection never masks the original failure.
+          DIAG="diagnostics/${{ inputs.output_slug }}-${{ github.run_id }}.log"
+          mkdir -p diagnostics
+          {
+            echo "=== Render failure diagnostics ==="
+            echo "slug:   ${{ inputs.output_slug }}"
+            echo "run_id: ${{ github.run_id }}"
+            echo "ref:    ${{ github.ref_name }}"
+            echo "date:   $(date -u)"
+            echo; echo "=== node / npm ==="; node -v 2>&1; npm -v 2>&1
+            echo; echo "=== ffmpeg / ffprobe ==="; (command -v ffmpeg && ffmpeg -version | head -1) 2>&1; (command -v ffprobe && ffprobe -version | head -1) 2>&1
+            echo; echo "=== chrome ==="; (cd /tmp/hf-tools && node_modules/.bin/hyperframes browser path) 2>&1
+            echo; echo "=== hyperframes doctor ==="; (cd /tmp/hf-render 2>/dev/null || cd /tmp; cd /tmp/hf-render; /tmp/hf-tools/node_modules/.bin/hyperframes doctor) 2>&1
+            echo; echo "=== memory ==="; free -m 2>&1
+            echo; echo "=== disk ==="; df -h 2>&1 | head
+            echo; echo "=== render log tail (/tmp/hf-render.log) ==="
+            [ -f /tmp/hf-render.log ] && tail -60 /tmp/hf-render.log 2>&1 || echo "(no render log — failure occurred before/after the render step)"
+          } > "$DIAG" 2>&1 || true
+          git add "$DIAG" || true
+
+          # ── Remove orphaned pending files ──────────────────────────────
           if [ -n "${{ inputs.composition_path }}" ] && [ -f "${{ inputs.composition_path }}" ]; then
             git rm --ignore-unmatch "${{ inputs.composition_path }}"
-            CHANGED=1
           fi
           if [ -n "${{ inputs.music_path }}" ] && [ -f "${{ inputs.music_path }}" ]; then
             git rm --ignore-unmatch "${{ inputs.music_path }}"
-            CHANGED=1
           fi
-          if [ "$CHANGED" = "1" ]; then
-            git commit -m "chore: clean up pending files for failed render ${{ inputs.output_slug }}" \
-            && git pull --rebase origin "${{ github.ref_name }}" \
-            && git push \
-            || echo "::warning::Cleanup commit failed — pending files may remain in compositions/pending/"
-          fi
+
+          git commit -m "chore: diagnostics + clean up for failed render ${{ inputs.output_slug }}" \
+          && git pull --rebase origin "${{ github.ref_name }}" \
+          && for i in 1 2 3; do git push && break || sleep $((i * 5)); done \
+          || echo "::warning::Diagnostics/cleanup commit failed"
 
       # ── Report final status to Supabase ──────────────────────────
       - name: Report final status
