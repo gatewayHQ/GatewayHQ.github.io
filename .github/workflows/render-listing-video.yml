@@ -179,19 +179,23 @@ jobs:
       # HyperFrames needs FFmpeg (and ffprobe, for the music-mix step) to
       # encode captured frames into MP4. It is NOT guaranteed on the runner
       # image (renders failed with "Rendering requires FFmpeg for video
-      # encoding"), so install it explicitly. This action fetches a recent
-      # static build with ffprobe and caches it — faster and more reliable
-      # than apt. Pinned to a commit SHA (not the floating @v1 tag) because
-      # this workflow has contents:write; bump deliberately after review.
+      # encoding"), so install it explicitly via apt. apt pulls from the
+      # runner's own Ubuntu mirror — no external binary download and no
+      # third-party action to resolve, so it can't hit the CDN-403/rate-limit
+      # failure class. ffmpeg in Ubuntu's universe repo bundles ffprobe.
       - name: Install FFmpeg
-        uses: AnimMouse/setup-ffmpeg@ae28d57dabbb148eff63170b6bf7f2b60062cbae # v1
-
-      - name: Verify FFmpeg
         run: |
-          # Fail fast with a clear message if the binaries aren't on PATH,
+          if command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1; then
+            echo "::notice::ffmpeg already present — $(ffmpeg -version | head -1)"
+          else
+            echo "::notice::installing ffmpeg via apt..."
+            sudo apt-get update -qq
+            sudo apt-get install -y ffmpeg
+          fi
+          # Fail fast with a clear message if either binary is still missing,
           # rather than failing opaquely inside the render step.
-          command -v ffmpeg  >/dev/null 2>&1 || { echo "::error::ffmpeg not on PATH after setup";  exit 1; }
-          command -v ffprobe >/dev/null 2>&1 || { echo "::error::ffprobe not on PATH after setup"; exit 1; }
+          command -v ffmpeg  >/dev/null 2>&1 || { echo "::error::ffmpeg not on PATH after install";  exit 1; }
+          command -v ffprobe >/dev/null 2>&1 || { echo "::error::ffprobe not on PATH after install"; exit 1; }
           ffmpeg -version | head -1
 
       # ── Fetch composition ─────────────────────────────────────────
@@ -241,12 +245,17 @@ jobs:
           esac
           echo "Rendering at quality=$QUALITY"
 
+          # Capture render output to a log so the real error can be surfaced
+          # to Supabase (and the app) on failure — the runner's Actions log
+          # isn't always accessible to whoever triggered the render.
+          RENDER_LOG=/tmp/hf-render.log
           render_attempt() {
             /tmp/hf-tools/node_modules/.bin/hyperframes render \
               --quality "$QUALITY" \
               --fps 30 \
               --workers 2 \
-              --output "$OUTPUT"
+              --output "$OUTPUT" 2>&1 | tee -a "$RENDER_LOG"
+            return "${PIPESTATUS[0]}"
           }
 
           # Attempt 1
@@ -349,11 +358,19 @@ jobs:
           ELAPSED=$(( $(date +%s) - START_EPOCH ))
           if [ "$JOB_STATUS" = "success" ]; then
             RENDER_URL="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/renders/${{ inputs.output_slug }}.mp4"
-            PAYLOAD=$(printf '{"status":"completed","render_url":"%s","elapsed_sec":%d,"run_id":"%s"}' \
-              "$RENDER_URL" "$ELAPSED" "${{ github.run_id }}")
+            PAYLOAD=$(jq -nc --arg url "$RENDER_URL" --argjson e "$ELAPSED" --arg run "${{ github.run_id }}" \
+              '{status:"completed", render_url:$url, elapsed_sec:$e, run_id:$run}')
           else
-            PAYLOAD=$(printf '{"status":"failed","error_msg":"Render workflow %s — check the Actions log for details.","elapsed_sec":%d,"run_id":"%s"}' \
-              "$JOB_STATUS" "$ELAPSED" "${{ github.run_id }}")
+            # Surface the actual render error (not just "check the Actions log").
+            # Pull the most informative lines from the render log if present.
+            ERR=""
+            if [ -f /tmp/hf-render.log ]; then
+              ERR=$(grep -iE "error|not found|requires|failed|cannot|exception|✗" /tmp/hf-render.log | tail -8)
+              [ -z "$ERR" ] && ERR=$(tail -12 /tmp/hf-render.log)
+            fi
+            [ -z "$ERR" ] && ERR="Render workflow $JOB_STATUS — no render log captured (failure likely before/after the render step). Run ${{ github.run_id }}."
+            PAYLOAD=$(jq -nc --arg msg "$ERR" --argjson e "$ELAPSED" --arg run "${{ github.run_id }}" \
+              '{status:"failed", error_msg:$msg, elapsed_sec:$e, run_id:$run}')
           fi
           curl -sf -X PATCH "${SB_URL}/rest/v1/video_jobs?id=eq.${{ inputs.job_id }}" \
             -H "apikey: ${SB_KEY}" \
