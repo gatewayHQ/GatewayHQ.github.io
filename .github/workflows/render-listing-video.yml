@@ -176,23 +176,23 @@ jobs:
           cd /tmp/hf-tools && node_modules/.bin/hyperframes browser ensure
 
       # ── Install FFmpeg ────────────────────────────────────────────
-      # HyperFrames needs FFmpeg to encode captured frames into MP4. It is
-      # NOT guaranteed on the runner image (renders failed with
-      # "Rendering requires FFmpeg for video encoding"), so install it
-      # explicitly. Skip the apt work when it is already present.
+      # HyperFrames needs FFmpeg (and ffprobe, for the music-mix step) to
+      # encode captured frames into MP4. It is NOT guaranteed on the runner
+      # image (renders failed with "Rendering requires FFmpeg for video
+      # encoding"), so install it explicitly. This action fetches a recent
+      # static build with ffprobe and caches it — faster and more reliable
+      # than apt. Pinned to a commit SHA (not the floating @v1 tag) because
+      # this workflow has contents:write; bump deliberately after review.
       - name: Install FFmpeg
+        uses: AnimMouse/setup-ffmpeg@ae28d57dabbb148eff63170b6bf7f2b60062cbae # v1
+
+      - name: Verify FFmpeg
         run: |
-          if command -v ffmpeg >/dev/null 2>&1; then
-            echo "::notice::ffmpeg already present — $(ffmpeg -version | head -1)"
-          else
-            echo "::notice::ffmpeg not found — installing via apt..."
-            sudo apt-get update -qq
-            sudo apt-get install -y ffmpeg
-          fi
-          # Hard-fail early with a clear message if ffmpeg still isn't available,
+          # Fail fast with a clear message if the binaries aren't on PATH,
           # rather than failing opaquely inside the render step.
-          command -v ffmpeg >/dev/null 2>&1 \
-            || { echo "::error::ffmpeg not available after install"; exit 1; }
+          command -v ffmpeg  >/dev/null 2>&1 || { echo "::error::ffmpeg not on PATH after setup";  exit 1; }
+          command -v ffprobe >/dev/null 2>&1 || { echo "::error::ffprobe not on PATH after setup"; exit 1; }
+          ffmpeg -version | head -1
 
       # ── Fetch composition ─────────────────────────────────────────
       - name: Prepare composition
