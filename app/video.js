@@ -9,6 +9,15 @@
   var vidCurrentFmt  = '16:9';
   var vidType        = 'residential';
 
+  // GitHub repo used for composition uploads, workflow dispatch, and render
+  // polling/links. Referenced by every render path AND by vidSetStatus when
+  // rendering the success/error result UI — so a missing declaration throws
+  // "ReferenceError: VID_REPO is not defined" on EVERY render outcome, which
+  // silently breaks the Video Generator for all agents even when the render
+  // itself succeeds server-side. Keep in sync with GH_REPO in
+  // supabase/functions/gateway-api/index.ts.
+  var VID_REPO = 'gatewayhq/gatewayhq.github.io';
+
   var VID_TEMPLATES = [
     { id:'listing',        name:'Listing Promo',        icon:'🏠', desc:'30–60s · all photos',    formId:'vtf-listing'        },
     { id:'just-listed',    name:'Just Listed',          icon:'🔑', desc:'20–45s · all photos',    formId:'vtf-just-listed'    },
