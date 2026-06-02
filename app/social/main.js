@@ -6,6 +6,7 @@
 import { renderTemplate, TEMPLATE_ORDER, TEMPLATES, THEME_ORDER, THEMES, SIZES } from './renderer.js';
 import { loadFonts } from './design-tokens.js';
 import { exportPNG, exportAllSocial } from './export.js';
+import { writeCaption } from './ai.js';
 
 const $ = (id) => document.getElementById(id);
 const state = { type: 'commercial', photo: null, heads: [null, null], logo: null, ready: false };
@@ -14,20 +15,20 @@ const SIZE_ORDER = ['ig-portrait', 'square', 'story', 'linkedin', 'postcard-6x4'
 
 // Default kicker + stat labels per template, by property type. Values start
 // empty; the agent fills them. Switching template/type resets the labels.
-const KICKER = { 'cre-just-listed': 'For Sale', 'cre-just-closed': 'Just Closed', 'cre-stats': 'By the Numbers' };
+const KICKER = {
+  'cre-just-listed': 'For Sale', 'cre-just-closed': 'Just Closed', 'cre-open-house': 'Open House',
+  'cre-for-lease': 'For Lease', 'cre-coming-soon': 'Coming Soon', 'cre-stats': 'By the Numbers',
+  'cre-testimonial': 'Client Review', 'cre-meet-agent': 'Meet Your Advisor',
+};
 const STAT_LABELS = {
-  'cre-just-listed': {
-    commercial: ['Price', 'Building SF', 'Cap Rate'],
-    residential: ['Price', 'Beds', 'Baths'],
-  },
-  'cre-just-closed': {
-    commercial: ['Sale Price', 'Building SF', 'Cap Rate'],
-    residential: ['Sale Price', 'Beds', 'Days on Mkt'],
-  },
-  'cre-stats': {
-    commercial: ['Avg Cap Rate', 'Price / Unit', 'Occupancy', 'Rent Growth'],
-    residential: ['Median Price', 'Days on Mkt', 'Homes Sold', 'YoY Change'],
-  },
+  'cre-just-listed': { commercial: ['Price', 'Building SF', 'Cap Rate'], residential: ['Price', 'Beds', 'Baths'] },
+  'cre-just-closed': { commercial: ['Sale Price', 'Building SF', 'Cap Rate'], residential: ['Sale Price', 'Beds', 'Days on Mkt'] },
+  'cre-open-house':  { commercial: ['Date', 'Time', 'Building SF'], residential: ['Date', 'Time', 'Price'] },
+  'cre-for-lease':   { commercial: ['Lease Rate', 'SF Available', 'NNN'], residential: ['Rent / mo', 'Beds', 'Baths'] },
+  'cre-coming-soon': { commercial: ['Price', 'Building SF', 'Cap Rate'], residential: ['Price', 'Beds', 'Baths'] },
+  'cre-stats':       { commercial: ['Avg Cap Rate', 'Price / Unit', 'Occupancy', 'Rent Growth'], residential: ['Median Price', 'Days on Mkt', 'Homes Sold', 'YoY Change'] },
+  'cre-testimonial': { commercial: [], residential: [] },
+  'cre-meet-agent':  { commercial: ['Years Exp.', 'Closed', 'Specialty'], residential: ['Years Exp.', 'Homes Sold', 'Specialty'] },
 };
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
@@ -60,6 +61,10 @@ async function init() {
 
   $('g-download').addEventListener('click', () => doExport(false));
   $('g-download-all').addEventListener('click', () => doExport(true));
+  $('g-cap-btn') && $('g-cap-btn').addEventListener('click', aiCaption);
+  $('g-cap-copy') && $('g-cap-copy').addEventListener('click', () => {
+    const t = $('g-cap-out'); t.select(); navigator.clipboard?.writeText(t.value).then(() => { $('g-cap-status').textContent = 'Copied!'; }).catch(() => {});
+  });
 
   $('g-kicker').value = KICKER['cre-just-listed'];
   resetStatLabels();
@@ -119,6 +124,34 @@ async function doExport(all) {
     else await exportPNG(currentOpts(), base);
     status.textContent = '✓ Downloaded';
   } catch (e) { status.textContent = 'Export failed: ' + (e.message || e); }
+}
+
+// ── AI caption + hashtags ────────────────────────────────────────────────────
+async function aiCaption() {
+  const btn = $('g-cap-btn'); const status = $('g-cap-status'); const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '✨ Writing…'; status.textContent = '';
+  try {
+    const photoDataUrl = state.photo ? toJpegDataUrl(state.photo, 640) : null;
+    const text = await writeCaption({
+      platform: $('g-cap-platform').value, type: state.type, data: collectData(), photoDataUrl,
+    });
+    $('g-cap-out').value = text;
+    status.textContent = text ? 'Done — review & copy.' : 'No caption returned.';
+  } catch (e) {
+    const msg = (e && e.message) || 'failed';
+    status.textContent = /too large|413|no image|received no image/i.test(msg)
+      ? 'AI server needs updating (run “supabase functions deploy gateway-api”).'
+      : msg;
+  } finally { btn.disabled = false; btn.textContent = orig; }
+}
+
+function toJpegDataUrl(img, max) {
+  const iw = img.width || img.naturalWidth, ih = img.height || img.naturalHeight;
+  const s = Math.min(1, max / Math.max(iw, ih));
+  const w = Math.max(1, Math.round(iw * s)), h = Math.max(1, Math.round(ih * s));
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  c.getContext('2d').drawImage(img, 0, 0, w, h);
+  return c.toDataURL('image/jpeg', 0.72);
 }
 
 // ── image upload (HTMLImageElement decode, downscale longest side to 1920) ───

@@ -1495,6 +1495,19 @@
         <button id="g-download" class="g-btn primary" type="button">⬇️ Download PNG (current size)</button>
         <button id="g-download-all" class="g-btn ghost" type="button">📦 All social sizes (.zip)</button>
         <div id="g-status" class="g-note"></div>
+
+        <label class="g-label" style="margin-top:18px">✨ AI caption &amp; hashtags</label>
+        <div class="g-mini">
+          <select id="g-cap-platform" class="g-in" style="margin-bottom:0">
+            <option value="Instagram">Instagram</option>
+            <option value="Facebook">Facebook</option>
+            <option value="LinkedIn">LinkedIn</option>
+          </select>
+          <button id="g-cap-btn" class="g-btn ghost" type="button" style="width:auto;margin:0;padding:9px 14px;white-space:nowrap">✨ Write caption</button>
+        </div>
+        <textarea id="g-cap-out" class="g-in" rows="6" placeholder="Your AI-written caption + hashtags appear here — copy &amp; paste alongside the image." style="resize:vertical"></textarea>
+        <button id="g-cap-copy" class="g-btn ghost" type="button">📋 Copy caption</button>
+        <div id="g-cap-status" class="g-note"></div>
       </div>
     </div>
   </div>
