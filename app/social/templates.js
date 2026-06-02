@@ -51,35 +51,39 @@ function bg(ctx, W, H, theme) {
   vGradient(ctx, 0, 0, W, H, [[0, theme.bg1], [0.55, theme.bg2], [1, theme.bg1]]);
 }
 
+// Shared lower block for listing templates: address headline -> City, State ->
+// detail subtitle -> stat row. Uses a flowing cursor and an adaptive stat-row
+// position so lines never overlap regardless of how long the address is.
+function listingBody(ctx, W, H, data, theme, startY) {
+  const M = W * 0.07;
+  const hl = wrapFit(ctx, data.title || 'Property Address', W - M * 2, W * 0.060, 800, 2, W * 0.038);
+  let y = drawBlock(ctx, hl.lines, M, startY, hl.px, hl.lineHeight, 800, theme.ink);
+  if (data.city) { y += H * 0.044; fitLine(ctx, data.city, M, y, W - M * 2, W * 0.028, 600, theme.sub, 'left'); }
+  if (data.subtitle) { y += H * 0.036; fitLine(ctx, data.subtitle, M, y, W - M * 2, W * 0.022, 600, theme.faint || theme.sub, 'left'); }
+  const stats = (data.stats || []).slice(0, 3);
+  if (stats.length) {
+    const statY = Math.min(H * 0.815, Math.max(H * 0.80, y + H * 0.085));
+    statRow(ctx, stats, M, statY, W - M * 2, theme, { valuePx: W * 0.058, labelPx: W * 0.016 });
+  }
+}
+
 // ── 1. Just Listed / For Sale (photo-led) ───────────────────────────────────
 function creJustListed(ctx, W, H, data, theme, assets) {
   bg(ctx, W, H, theme);
   const M = W * 0.07;
-  const photoH = Math.round(H * 0.56);
+  const photoH = Math.round(H * 0.55);
   if (assets.photo) {
     blurExtend(ctx, assets.photo, 0, 0, W, photoH, 0.0);
     coverInto(ctx, assets.photo, 0, 0, W, photoH);
   } else { vGradient(ctx, 0, 0, W, photoH, [[0, theme.bg2], [1, theme.bg1]]); }
-  // scrim fading photo into the panel
   vGradient(ctx, 0, photoH - H * 0.18, W, H * 0.18, [[0, 'rgba(13,17,23,0)'], [1, theme.bg1]]);
 
   // gold accent bar + kicker
-  let y = photoH + H * 0.055;
-  ctx.fillStyle = theme.accent; ctx.fillRect(M, y - W * 0.028, W * 0.012, W * 0.034);
-  kicker(ctx, data.kicker || 'For Sale', M + W * 0.028, y, theme.accent, W * 0.020, 5);
+  const ky = photoH + H * 0.05;
+  ctx.fillStyle = theme.accent; ctx.fillRect(M, ky - W * 0.028, W * 0.012, W * 0.034);
+  kicker(ctx, data.kicker || 'For Sale', M + W * 0.028, ky, theme.accent, W * 0.020, 5);
 
-  // headline (address / property name), auto-fit to 2 lines
-  y += H * 0.012;
-  const hl = wrapFit(ctx, data.title || 'Property Address', W - M * 2, W * 0.062, 800, 2, W * 0.04);
-  drawBlock(ctx, hl.lines, M, y, hl.px, hl.lineHeight, 800, theme.ink);
-  y += hl.px + (hl.lines.length - 1) * hl.lineHeight + H * 0.02;
-
-  if (data.subtitle) { fitLine(ctx, data.subtitle, M, y + W * 0.022, W - M * 2, W * 0.026, 600, theme.sub); y += H * 0.04; }
-
-  // stat row
-  const stats = (data.stats || []).slice(0, 3);
-  if (stats.length) statRow(ctx, stats, M, H * 0.80, W - M * 2, theme, { valuePx: W * 0.06, labelPx: W * 0.016 });
-
+  listingBody(ctx, W, H, data, theme, ky + H * 0.022);
   footer(ctx, W, H, data, theme, assets);
 }
 
@@ -89,8 +93,8 @@ function creJustClosed(ctx, W, H, data, theme, assets) {
   const M = W * 0.07;
   const photoH = Math.round(H * 0.5);
   if (assets.photo) { blurExtend(ctx, assets.photo, 0, 0, W, photoH); coverInto(ctx, assets.photo, 0, 0, W, photoH); }
-  // big translucent "CLOSED" sash badge
-  const bw = W * 0.46, bh = H * 0.066, bx = M, by = photoH - bh - H * 0.03;
+  // pill badge
+  const bw = W * 0.46, bh = H * 0.062, bx = M, by = photoH - bh - H * 0.03;
   fillRoundRect(ctx, bx, by, bw, bh, bh / 2, theme.accent);
   setFont(ctx, bh * 0.42, 800, 4); ctx.fillStyle = theme.accentInk; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   ctx.fillText((data.kicker || 'JUST CLOSED').toUpperCase(), bx + bw * 0.08, by + bh / 2);
@@ -98,14 +102,7 @@ function creJustClosed(ctx, W, H, data, theme, assets) {
   ctx.textBaseline = 'alphabetic';
   vGradient(ctx, 0, photoH - H * 0.16, W, H * 0.16, [[0, 'rgba(13,17,23,0)'], [1, theme.bg1]]);
 
-  let y = photoH + H * 0.05;
-  const hl = wrapFit(ctx, data.title || 'Property Address', W - M * 2, W * 0.058, 800, 2, W * 0.038);
-  drawBlock(ctx, hl.lines, M, y, hl.px, hl.lineHeight, 800, theme.ink);
-  y += hl.px + (hl.lines.length - 1) * hl.lineHeight + H * 0.022;
-  if (data.subtitle) { fitLine(ctx, data.subtitle, M, y + W * 0.02, W - M * 2, W * 0.024, 600, theme.sub); }
-
-  const stats = (data.stats || []).slice(0, 3);
-  if (stats.length) statRow(ctx, stats, M, H * 0.80, W - M * 2, theme, { valuePx: W * 0.06, labelPx: W * 0.016 });
+  listingBody(ctx, W, H, data, theme, photoH + H * 0.07);
   footer(ctx, W, H, data, theme, assets);
 }
 
