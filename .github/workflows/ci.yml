@@ -30,6 +30,16 @@ jobs:
               FAILED=1
             fi
           done
+          # Video Generator modules are ES modules — check as modules (works on Node 20+/22).
+          for f in app/video/*.js; do
+            [ -f "$f" ] || continue
+            if node --check --input-type=module < "$f" 2>&1; then
+              echo "  ✓ $f (esm)"
+            else
+              echo "  ✗ FAIL: $f"
+              FAILED=1
+            fi
+          done
           [ "$FAILED" = "0" ] || { echo ""; echo "❌ Syntax errors found."; exit 1; }
           echo ""; echo "✅ All JS files pass syntax check."
 
@@ -94,10 +104,9 @@ jobs:
             "page-landing" "page-video" "page-social" "page-valuation"
             "page-home-valuation" "page-leasing" "page-invoice" "page-multifamily"
             "global-status"
-            "vid-gen-btn" "vid-scenes-preview" "vid-status-bar"
-            "anim-preview-wrap" "vid-music-tab-lib" "vid-music-tab-up"
-            "vid-music-library-panel" "vid-music-upload-panel"
-            "vid-est-time" "vid-ai-fill-btn"
+            # Video Generator (client-side renderer) — see app/video/main.js
+            "v2-file" "v2-thumbs" "v2-format" "v2-canvas" "v2-scrub"
+            "v2-generate" "v2-progress" "v2-bar" "v2-output" "v2-support"
           )
           for id in "${REQUIRED_IDS[@]}"; do
             if ! grep -q "id=\"$id\"" index.html; then
@@ -113,7 +122,6 @@ jobs:
           # utils.js must come before all other app modules (it defines window.GW)
           UTILS_LINE=$(grep -n '"app/utils.js"' index.html | cut -d: -f1)
           ROUTER_LINE=$(grep -n '"app/router.js"' index.html | cut -d: -f1)
-          VIDEO_LINE=$(grep -n '"app/video.js"' index.html | cut -d: -f1)
           if [ -n "$UTILS_LINE" ] && [ -n "$ROUTER_LINE" ]; then
             if [ "$UTILS_LINE" -lt "$ROUTER_LINE" ]; then
               echo "✅ Script load order correct (utils.js before router.js)"
