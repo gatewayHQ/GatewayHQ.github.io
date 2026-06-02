@@ -1296,9 +1296,13 @@
     .v2-row>.v2-in{margin-bottom:8px}
     .v2-drop{border:2px dashed rgba(162,182,192,0.35);border-radius:12px;padding:22px;text-align:center;color:var(--brand-cream);cursor:pointer;transition:border-color .15s,background .15s}
     .v2-drop.drag{border-color:#C8A84B;background:rgba(200,168,75,0.06)}
-    .v2-thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-    .v2-thumb{position:relative;width:80px;height:80px;border-radius:8px;overflow:hidden;border:1px solid rgba(162,182,192,0.25)}
-    .v2-thumb canvas{display:block;width:80px;height:80px}
+    .v2-thumbs{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+    .v2-thumb-col{display:flex;flex-direction:column;gap:4px;width:96px}
+    .v2-thumb{position:relative;width:96px;height:80px;border-radius:8px;overflow:hidden;border:1px solid rgba(162,182,192,0.25)}
+    .v2-thumb canvas{display:block;width:96px;height:80px}
+    .v2-cap{width:96px;box-sizing:border-box;font-size:10px;padding:3px 5px;border-radius:6px;border:1px solid rgba(162,182,192,0.25);background:rgba(255,255,255,0.04);color:var(--brand-cream)}
+    .v2-cap::placeholder{color:rgba(162,182,192,0.45)}
+    .v2-hero-tag{font-size:9px;text-align:center;color:#C8A84B;font-weight:700;letter-spacing:1px}
     .v2-thumb-num{position:absolute;top:2px;left:4px;font-size:11px;font-weight:700;color:#fff;text-shadow:0 1px 2px #000}
     .v2-thumb-x{position:absolute;top:2px;right:2px;width:18px;height:18px;border:none;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;font-size:10px;cursor:pointer;line-height:1}
     .v2-thumb-mv{position:absolute;bottom:2px;width:20px;height:18px;border:none;border-radius:4px;background:rgba(0,0,0,0.6);color:#fff;cursor:pointer;font-size:12px;line-height:1}
@@ -1328,7 +1332,7 @@
         <div id="v2-drop" class="v2-drop">
           <input id="v2-file" type="file" accept="image/*" multiple hidden>
           <div>📷 Drop photos here or <span style="text-decoration:underline">browse</span></div>
-          <div style="font-size:11px;color:var(--brand-gray);margin-top:4px">First photo is the hero · use ‹ › to reorder.</div>
+          <div style="font-size:11px;color:var(--brand-gray);margin-top:4px">First photo is the hero · use ‹ › to reorder · type a caption on each photo.</div>
         </div>
         <div id="v2-thumbs" class="v2-thumbs"></div>
 
@@ -1343,21 +1347,31 @@
           <input id="v2-baths" class="v2-in" placeholder="Baths">
           <input id="v2-sqft" class="v2-in" placeholder="Sq Ft">
         </div>
-        <input id="v2-feat1" class="v2-in" placeholder="Feature 1 — Renovated Kitchen">
-        <input id="v2-feat2" class="v2-in" placeholder="Feature 2 — Primary Suite">
-        <input id="v2-feat3" class="v2-in" placeholder="Feature 3 — Large Backyard">
         <div class="v2-row">
           <input id="v2-agent" class="v2-in" placeholder="Agent name">
           <input id="v2-cta" class="v2-in" placeholder="Call to action — Schedule a Showing">
         </div>
         <input id="v2-brokerage" class="v2-in" value="Gateway Real Estate Advisors">
 
-        <label class="v2-label" style="margin-top:18px">Format</label>
-        <select id="v2-format" class="v2-in"></select>
+        <div class="v2-row">
+          <div style="flex:1">
+            <label class="v2-label" style="margin-top:18px">Format</label>
+            <select id="v2-format" class="v2-in"></select>
+          </div>
+          <div style="flex:1">
+            <label class="v2-label" style="margin-top:18px">Motion</label>
+            <select id="v2-anim" class="v2-in">
+              <option value="kenburns" selected>Ken Burns (gentle zoom)</option>
+              <option value="scan">Room Scan (pan across)</option>
+              <option value="none">Static (no motion)</option>
+            </select>
+          </div>
+        </div>
 
         <label class="v2-label" style="margin-top:14px">Music (optional)</label>
+        <select id="v2-music-lib" class="v2-in"></select>
         <div class="v2-row" style="align-items:center">
-          <input id="v2-music" type="file" accept="audio/*" class="v2-in" style="padding:6px;margin-bottom:0">
+          <input id="v2-music" type="file" accept="audio/*" class="v2-in" style="padding:6px;margin-bottom:0" title="Upload your own track">
           <button id="v2-music-clear" class="v2-btn-ghost" type="button">Clear</button>
         </div>
         <div id="v2-music-label" style="font-size:11px;color:var(--brand-gray);margin-top:4px"></div>

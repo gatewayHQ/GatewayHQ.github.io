@@ -14,21 +14,21 @@ const DUR = { hero: 4.0, photo: 3.2, stats: 3.0, agent: 4.0 };
 
 /**
  * @param {Object} data   { address, price, beds, baths, sqft, eyebrow,
- *                          agent, brokerage, cta, features:[], format }
- * @param {Array}  images resolved drawables (ImageBitmap/HTMLImageElement) in order
+ *                          agent, brokerage, cta, format }
+ * @param {Array}  photos [{ image (drawable), caption (string) }] in order.
+ *                        First photo is the hero; captions apply to photos 2+.
  * @param {Object} brand  { bg, primary, gray, font, logo (Image|null) }
- * @param {string} anim   animation id ('kenburns' default)
+ * @param {string} anim   animation id ('kenburns' | 'scan' | 'none')
  */
-export function buildModel(data, images, brand, anim = 'kenburns') {
+export function buildModel(data, photos, brand, anim = 'kenburns') {
   const fmt = FORMATS[data.format] || FORMATS.reels;
   const scenes = [];
-  const feats = (data.features || []).filter(Boolean);
 
-  images.forEach((img, i) => {
+  photos.forEach((ph, i) => {
     if (i === 0) {
       // Hero: eyebrow + address + price stacked bottom-left.
       scenes.push({
-        kind: 'photo', image: img, anim, durationSec: DUR.hero,
+        kind: 'photo', image: ph.image, anim, durationSec: DUR.hero,
         texts: compact([
           data.eyebrow && { text: data.eyebrow, x: 0.06, y: 0.74, size: 0.018, weight: 600, letterSpacing: 4, transform: 'upper', color: 'rgba(245,245,243,0.7)', delay: 0.6 },
           data.address && { text: data.address, x: 0.06, y: 0.82, size: 0.052, weight: 300, delay: 0.9, maxWidth: 0.88 },
@@ -36,11 +36,12 @@ export function buildModel(data, images, brand, anim = 'kenburns') {
         ]),
       });
     } else {
-      const cap = feats[i - 1];
+      // Caption travels with this photo (entered on the thumbnail).
+      const cap = (ph.caption || '').trim();
       scenes.push({
-        kind: 'photo', image: img, anim, durationSec: DUR.photo,
+        kind: 'photo', image: ph.image, anim, durationSec: DUR.photo,
         texts: compact([
-          cap && { text: cap.split(/[—–-]/)[0].trim(), x: 0.06, y: 0.9, size: 0.034, weight: 400, delay: 0.7 },
+          cap && { text: cap, x: 0.06, y: 0.9, size: 0.034, weight: 400, delay: 0.7, maxWidth: 0.88 },
         ]),
       });
     }

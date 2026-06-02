@@ -50,11 +50,13 @@ async function init() {
 
   wirePhotos();
   wireMusic();
+  loadMusicLibrary();
   wirePreview();
   $('v2-generate').addEventListener('click', generate);
-  ['v2-address','v2-price','v2-eyebrow','v2-beds','v2-baths','v2-sqft','v2-feat1','v2-feat2','v2-feat3','v2-agent','v2-cta','v2-brokerage']
+  ['v2-address','v2-price','v2-eyebrow','v2-beds','v2-baths','v2-sqft','v2-agent','v2-cta','v2-brokerage']
     .forEach((id) => $(id) && $(id).addEventListener('input', debounce(rebuild, 250)));
   fmt.addEventListener('change', rebuild);
+  $('v2-anim') && $('v2-anim').addEventListener('change', () => { stopPlay(); rebuild(); });
 
   rebuild();
 }
@@ -104,9 +106,10 @@ function loadBitmap(file) {
 function renderThumbs() {
   const wrap = $('v2-thumbs'); wrap.innerHTML = '';
   state.photos.forEach((p, i) => {
+    const col = document.createElement('div'); col.className = 'v2-thumb-col';
     const d = document.createElement('div'); d.className = 'v2-thumb';
-    const c = document.createElement('canvas'); c.width = 80; c.height = 80;
-    coverDraw(c.getContext('2d'), p.bitmap, 80, 80);
+    const c = document.createElement('canvas'); c.width = 96; c.height = 80;
+    coverDraw(c.getContext('2d'), p.bitmap, 96, 80);
     d.appendChild(c);
     const num = document.createElement('span'); num.className = 'v2-thumb-num'; num.textContent = i + 1; d.appendChild(num);
     const del = document.createElement('button'); del.className = 'v2-thumb-x'; del.textContent = '✕';
@@ -114,7 +117,18 @@ function renderThumbs() {
     d.appendChild(del);
     if (i > 0) { const lf = document.createElement('button'); lf.className = 'v2-thumb-mv v2-thumb-l'; lf.textContent = '‹'; lf.onclick = () => move(i, -1); d.appendChild(lf); }
     if (i < state.photos.length - 1) { const rt = document.createElement('button'); rt.className = 'v2-thumb-mv v2-thumb-r'; rt.textContent = '›'; rt.onclick = () => move(i, 1); d.appendChild(rt); }
-    wrap.appendChild(d);
+    col.appendChild(d);
+    // First photo is the hero (shows address/price); photos 2+ get a caption that
+    // travels with the photo when reordered — no slot-to-photo guesswork.
+    if (i === 0) {
+      const tag = document.createElement('div'); tag.className = 'v2-hero-tag'; tag.textContent = 'HERO'; col.appendChild(tag);
+    } else {
+      const cap = document.createElement('input'); cap.className = 'v2-cap'; cap.type = 'text';
+      cap.placeholder = 'Caption…'; cap.value = p.caption || '';
+      cap.addEventListener('input', debounce(() => { p.caption = cap.value; if (!state.playing) rebuild(); }, 250));
+      col.appendChild(cap);
+    }
+    wrap.appendChild(col);
   });
 }
 function move(i, dir) { const j = i + dir; if (j < 0 || j >= state.photos.length) return; const t = state.photos[i]; state.photos[i] = state.photos[j]; state.photos[j] = t; renderThumbs(); rebuild(); }
@@ -127,18 +141,63 @@ function coverDraw(ctx, img, W, H) {
 
 // ── Music ─────────────────────────────────────────────────────────────────
 function wireMusic() {
+  const lib = $('v2-music-lib');
+  if (lib) lib.addEventListener('change', () => onPickLibrary(lib.value));
   $('v2-music').addEventListener('change', async (e) => {
     const f = e.target.files[0]; if (!f) return;
     try {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      const buf = await new AC().decodeAudioData(await f.arrayBuffer());
-      state.music = buf; state.musicName = f.name;
-      $('v2-music-label').textContent = '🎵 ' + f.name;
-    } catch { $('v2-music-label').textContent = 'Could not read that audio file.'; }
+      await decodeIntoState(await f.arrayBuffer(), f.name);
+      if (lib) lib.value = '';                       // upload overrides library pick
+    } catch { state.music = null; $('v2-music-label').textContent = 'Could not read that audio file.'; }
   });
-  $('v2-music-clear').addEventListener('click', () => {
-    state.music = null; state.musicName = ''; $('v2-music').value = ''; $('v2-music-label').textContent = '';
+  $('v2-music-clear').addEventListener('click', clearMusic);
+}
+
+// Populate the library dropdown from music/manifest.json (graceful if absent).
+async function loadMusicLibrary() {
+  const lib = $('v2-music-lib'); if (!lib) return;
+  lib.innerHTML = '<option value="">No music</option>';
+  let tracks = [];
+  try {
+    const res = await fetch('music/manifest.json', { cache: 'no-store' });
+    if (res.ok) tracks = (await res.json()).tracks || [];
+  } catch { /* no manifest yet */ }
+  tracks.forEach((t) => {
+    const o = document.createElement('option'); o.value = t.file; o.textContent = t.label || t.file;
+    lib.appendChild(o);
   });
+  if (!tracks.length) {
+    const o = document.createElement('option'); o.disabled = true;
+    o.textContent = '— library coming soon · upload your own below —'; lib.appendChild(o);
+  }
+}
+
+async function onPickLibrary(file) {
+  if (!file) { clearMusic(); return; }
+  const lib = $('v2-music-lib');
+  const label = lib?.options[lib.selectedIndex]?.textContent || file;
+  $('v2-music-label').textContent = 'Loading ' + label + '…';
+  try {
+    const res = await fetch('music/' + file); if (!res.ok) throw new Error('missing');
+    await decodeIntoState(await res.arrayBuffer(), label);
+    $('v2-music').value = '';
+  } catch {
+    state.music = null; state.musicName = '';
+    $('v2-music-label').textContent = 'That track isn’t available yet — try uploading your own.';
+  }
+}
+
+async function decodeIntoState(arrayBuffer, name) {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  state.music = await new AC().decodeAudioData(arrayBuffer);
+  state.musicName = name;
+  $('v2-music-label').textContent = '🎵 ' + name;
+}
+
+function clearMusic() {
+  state.music = null; state.musicName = '';
+  $('v2-music').value = ''; const lib = $('v2-music-lib'); if (lib) lib.value = '';
+  $('v2-music-label').textContent = '';
 }
 
 // ── Model + preview ─────────────────────────────────────────────────────────
@@ -146,19 +205,19 @@ function readData() {
   const v = (id) => ($(id)?.value || '').trim();
   return {
     format: $('v2-format')?.value || 'reels',
+    anim: $('v2-anim')?.value || 'kenburns',
     address: v('v2-address'), price: v('v2-price'), eyebrow: v('v2-eyebrow'),
     beds: v('v2-beds'), baths: v('v2-baths'), sqft: v('v2-sqft'),
     agent: v('v2-agent'), brokerage: v('v2-brokerage') || 'Gateway Real Estate Advisors',
     cta: v('v2-cta') || 'Schedule a Showing',
-    features: [v('v2-feat1'), v('v2-feat2'), v('v2-feat3')].filter(Boolean),
   };
 }
 
 function rebuild() {
   const data = readData();
-  const images = state.photos.map((p) => p.bitmap);
-  if (!images.length) { state.model = null; drawPlaceholder(); return; }
-  state.model = buildModel(data, images, { logo: state.logo }, 'kenburns');
+  if (!state.photos.length) { state.model = null; drawPlaceholder(); return; }
+  const photos = state.photos.map((p) => ({ image: p.bitmap, caption: p.caption || '' }));
+  state.model = buildModel(data, photos, { logo: state.logo }, data.anim);
   const c = $('v2-canvas'); c.width = state.model.width; c.height = state.model.height;
   drawAt(currentScrubTime());
 }

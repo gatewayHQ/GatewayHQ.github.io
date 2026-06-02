@@ -3,7 +3,7 @@
 // it paints exactly one frame. The same function powers the live preview
 // scrubber AND the final encode, so the agent's preview === the download.
 
-import { cameraFor, boundaryBlackAlpha, easeOut, clamp01, lerp } from './animations.js';
+import { cameraFor, boundaryBlackAlpha, easeOut, easeInOut, clamp01, lerp } from './animations.js';
 
 // Resolve which scene is on screen at time t, plus the scene-local time.
 function sceneAt(model, t) {
@@ -51,8 +51,14 @@ export function drawFrame(model, t, ctx, W, H) {
 // ── Photo scene: full-bleed image with Ken Burns + gradient + text ──────────
 function drawPhotoScene(scene, index, localT, dur, ctx, W, H, model) {
   const p = dur > 0 ? localT / dur : 0;
-  const cam = cameraFor(scene.anim || 'kenburns', index, p);
-  if (scene.image) drawCover(ctx, scene.image, W, H, cam.scale, cam.panX, cam.panY);
+  if (scene.image) {
+    if (scene.anim === 'scan') {
+      drawScan(ctx, scene.image, W, H, p, index);
+    } else {
+      const cam = cameraFor(scene.anim || 'kenburns', index, p);
+      drawCover(ctx, scene.image, W, H, cam.scale, cam.panX, cam.panY);
+    }
+  }
 
   // Bottom scrim for text legibility.
   if (scene.texts && scene.texts.length) {
@@ -152,6 +158,31 @@ function drawCover(ctx, img, W, H, scale = 1, panX = 0, panY = 0) {
   else                  { dw = W * scale; dh = dw / imgAR; }
   const dx = (W - dw) / 2 + panX * W;
   const dy = (H - dh) / 2 + panY * H;
+  ctx.drawImage(img, dx, dy, dw, dh);
+}
+
+// "Room scan" — zoom in slightly so the cover image overflows the frame, then
+// glide across the longer axis from one edge to the other so the viewer sees
+// the whole room as if the camera is panning. Direction alternates per scene
+// index so consecutive photos sweep opposite ways. Fully deterministic.
+function drawScan(ctx, img, W, H, p, index) {
+  const iw = img.width || img.naturalWidth, ih = img.height || img.naturalHeight;
+  if (!iw || !ih) return;
+  const imgAR = iw / ih, canvasAR = W / H;
+  const zoom = 1.12;
+  let dw, dh;
+  if (imgAR > canvasAR) { dh = H; dw = dh * imgAR; } else { dw = W; dh = dw / imgAR; }
+  dw *= zoom; dh *= zoom;
+  const overX = dw - W, overY = dh - H;
+  const e = easeInOut(p);
+  let dx = (W - dw) / 2, dy = (H - dh) / 2;
+  if (overX >= overY) {
+    const span = overX / 2;
+    dx += (index % 2) ? lerp(-span, span, e) : lerp(span, -span, e);
+  } else {
+    const span = overY / 2;
+    dy += (index % 2) ? lerp(-span, span, e) : lerp(span, -span, e);
+  }
   ctx.drawImage(img, dx, dy, dw, dh);
 }
 
