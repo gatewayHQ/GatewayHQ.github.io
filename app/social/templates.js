@@ -145,9 +145,81 @@ function creStats(ctx, W, H, data, theme, assets) {
   footer(ctx, W, H, data, theme, assets);
 }
 
+// ── 4. Testimonial / 5-star review (engagement content) ─────────────────────
+function creTestimonial(ctx, W, H, data, theme, assets) {
+  bg(ctx, W, H, theme);
+  const M = W * 0.09;
+  // oversized quotation mark
+  setFont(ctx, W * 0.34, 800); ctx.fillStyle = theme.accent; ctx.globalAlpha = 0.22;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText('“', M - W * 0.01, H * 0.30);
+  ctx.globalAlpha = 1;
+
+  let y = H * 0.16;
+  kicker(ctx, data.kicker || 'Client Review', M, y, theme.accent, W * 0.020, 5);
+
+  // stars
+  y = H * 0.26;
+  stars(ctx, M, y, W * 0.045, 5, theme.accent);
+
+  // the quote — large, wraps up to 6 lines, auto-fit
+  y += H * 0.03;
+  const q = wrapFit(ctx, data.title || 'They made the whole process effortless and got us a great result.', W - M * 2, W * 0.058, 800, 6, W * 0.03, 1.18);
+  y = drawBlock(ctx, q.lines, M, y, q.px, q.lineHeight, 800, theme.ink);
+
+  // reviewer
+  if (data.subtitle) { y += H * 0.05; fitLine(ctx, '— ' + data.subtitle, M, y, W - M * 2, W * 0.026, 600, theme.sub); }
+  footer(ctx, W, H, data, theme, assets);
+}
+
+// ── 5. Meet the Advisor (personal brand) ────────────────────────────────────
+function creMeetAgent(ctx, W, H, data, theme, assets) {
+  bg(ctx, W, H, theme);
+  const M = W * 0.08;
+  const portrait = (assets.headshots && assets.headshots[0]) || assets.photo;
+  const r = W * 0.21, cx = W / 2, cy = H * 0.30;
+  if (portrait) circleImage(ctx, portrait, cx, cy, r, theme.accent);
+  else { ctx.fillStyle = theme.bg2; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill(); }
+
+  let y = cy + r + H * 0.06;
+  kicker(ctx, data.kicker || 'Meet Your Advisor', cx, y, theme.accent, W * 0.02, 5, 'center'); y += H * 0.035;
+  const nm = wrapFit(ctx, data.title || (data.agents && data.agents[0] && data.agents[0].name) || 'Your Name', W - M * 2, W * 0.07, 800, 2, W * 0.05);
+  setFont(ctx, nm.px, 800); ctx.fillStyle = theme.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  nm.lines.forEach((ln, i) => ctx.fillText(ln, cx, y + nm.px + i * nm.lineHeight));
+  y += nm.px + (nm.lines.length - 1) * nm.lineHeight + H * 0.012;
+  if (data.subtitle) { fitLine(ctx, data.subtitle, cx, y + W * 0.025, W - M * 2, W * 0.026, 600, theme.sub, 'center'); }
+
+  const stats = (data.stats || []).slice(0, 3);
+  if (stats.length) statRow(ctx, stats, M, H * 0.80, W - M * 2, theme, { valuePx: W * 0.058, labelPx: W * 0.015 });
+  footer(ctx, W, H, data, theme, assets);
+}
+
+// 5-pointed star row in gold.
+function stars(ctx, x, y, size, n, color) {
+  ctx.fillStyle = color;
+  for (let s = 0; s < n; s++) {
+    const cx = x + size + s * (size * 2.3), cy = y;
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const rad = i % 2 === 0 ? size : size * 0.45;
+      const a = -Math.PI / 2 + i * Math.PI / 5;
+      const px = cx + Math.cos(a) * rad, py = cy + Math.sin(a) * rad;
+      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+    ctx.closePath(); ctx.fill();
+  }
+}
+
 export const TEMPLATES = {
-  'cre-just-listed': { name: 'Just Listed — For Sale', kind: 'photo', render: creJustListed },
-  'cre-just-closed': { name: 'Just Closed — Sold/Leased', kind: 'photo', render: creJustClosed },
-  'cre-stats':       { name: 'By the Numbers — Market', kind: 'data', render: creStats },
+  'cre-just-listed':  { name: 'Just Listed — For Sale', kind: 'photo', render: creJustListed },
+  'cre-just-closed':  { name: 'Just Closed — Sold/Leased', kind: 'photo', render: creJustClosed },
+  'cre-open-house':   { name: 'Open House', kind: 'photo', render: creJustListed },
+  'cre-for-lease':    { name: 'For Lease', kind: 'photo', render: creJustListed },
+  'cre-coming-soon':  { name: 'Coming Soon', kind: 'photo', render: creJustListed },
+  'cre-stats':        { name: 'By the Numbers — Market', kind: 'data', render: creStats },
+  'cre-testimonial':  { name: 'Testimonial / Review', kind: 'text', render: creTestimonial },
+  'cre-meet-agent':   { name: 'Meet the Advisor', kind: 'agent', render: creMeetAgent },
 };
-export const TEMPLATE_ORDER = ['cre-just-listed', 'cre-just-closed', 'cre-stats'];
+export const TEMPLATE_ORDER = [
+  'cre-just-listed', 'cre-just-closed', 'cre-open-house', 'cre-for-lease',
+  'cre-coming-soon', 'cre-stats', 'cre-testimonial', 'cre-meet-agent',
+];
