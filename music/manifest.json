@@ -1,4 +1,12 @@
 {
-  "_note": "Royalty-free background tracks for the Video Generator. Add MP3/M4A files to this folder and list them here. Use ONLY properly-licensed / royalty-free music — trending pop songs are copyrighted and Facebook will mute or block business-page videos that use them. Each entry: { id, label, file }.",
-  "tracks": []
+  "_note": "Background tracks for the Video Generator. The tracks below are ORIGINAL works synthesized for Gateway (public-domain / brokerage-owned) — no third-party license, safe to use commercially on Facebook/Instagram business pages with no attribution. To add professionally-produced tracks later, drop a properly-licensed (royalty-free) MP3/M4A here and append an entry. Never add trending/copyrighted pop songs — Facebook mutes or blocks them on business pages.",
+  "license": "Original works generated for Gateway Real Estate Advisors. No attribution required.",
+  "tracks": [
+    { "id": "luxury",    "label": "Luxury · Calm",        "file": "01-luxury.mp3" },
+    { "id": "upbeat",    "label": "Upbeat · Bright",      "file": "02-upbeat.mp3" },
+    { "id": "cinematic", "label": "Cinematic · Dramatic", "file": "03-cinematic.mp3" },
+    { "id": "warm",      "label": "Warm · Acoustic",      "file": "04-warm.mp3" },
+    { "id": "modern",    "label": "Modern · Lo-fi Beat",  "file": "05-modern.mp3" },
+    { "id": "corporate", "label": "Corporate · Clean",    "file": "06-corporate.mp3" }
+  ]
 }
