@@ -121,19 +121,28 @@ export function circleImage(ctx, img, cx, cy, r, ring) {
 }
 
 // A row of big stat tiles separated by hairlines: [{value,label}].
+// Each value AND label auto-shrinks to fit its column (with padding) so a long
+// number like "$2,080,000" never overruns into the next column or the divider.
 export function statRow(ctx, items, x, y, w, theme, opts = {}) {
   const n = items.length; if (!n) return;
-  const valuePx = opts.valuePx || w * 0.085;
-  const labelPx = opts.labelPx || w * 0.018;
+  const valuePx0 = opts.valuePx || w * 0.085;
+  const labelPx0 = opts.labelPx || w * 0.018;
   const cellW = w / n;
-  ctx.textBaseline = 'alphabetic';
+  const pad = cellW * 0.12;                 // keep clear of the dividers
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center';
   items.forEach((it, i) => {
     const cx = x + cellW * (i + 0.5);
-    setFont(ctx, valuePx, 800); ctx.fillStyle = theme.ink; ctx.textAlign = 'center';
-    ctx.fillText(String(it.value || '—'), cx, y);
-    setFont(ctx, labelPx, 600, 3); ctx.fillStyle = theme.sub;
-    ctx.fillText(String(it.label || '').toUpperCase(), cx, y + labelPx * 2.4);
-    if (i > 0) hairline(ctx, x + cellW * i, y - valuePx * 0.78, x + cellW * i, y + labelPx * 1.2, theme.hairline, 2);
+    // value — shrink to fit the cell
+    const valStr = String(it.value || '—');
+    let vpx = valuePx0; setFont(ctx, vpx, 800);
+    while (ctx.measureText(valStr).width > cellW - pad * 2 && vpx > valuePx0 * 0.42) { vpx -= 2; setFont(ctx, vpx, 800); }
+    ctx.fillStyle = theme.ink; ctx.fillText(valStr, cx, y);
+    // label — shrink to fit too
+    const lab = String(it.label || '').toUpperCase();
+    let lpx = labelPx0; setFont(ctx, lpx, 600, 2);
+    while (ctx.measureText(lab).width > cellW - pad && lpx > labelPx0 * 0.6) { lpx -= 1; setFont(ctx, lpx, 600, 2); }
+    ctx.fillStyle = theme.sub; ctx.fillText(lab, cx, y + valuePx0 * 0.5 + labelPx0 * 1.5);
     try { ctx.letterSpacing = '0px'; } catch {}
+    if (i > 0) hairline(ctx, x + cellW * i, y - valuePx0 * 0.72, x + cellW * i, y + labelPx0 * 0.6, theme.hairline, 2);
   });
 }
