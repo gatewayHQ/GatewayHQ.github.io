@@ -34,23 +34,29 @@ function footer(ctx, W, H, data, theme, assets) {
   // Agent text on the left.
   const textRight = ((heads.length || assets.logo) ? rightEdge : (W - M)) - W * 0.03;
   const maxW = textRight - M;
-  const nameY = fy + H * 0.05, phoneY = nameY + H * 0.030;
+  const nameY = fy + H * 0.044;
+  const anyTitle = agents.some(a => a.title);
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
 
   if (agents.length >= 2) {
-    // Two columns — each agent's phone sits directly under their name, so
-    // there's no ambiguity about whose number is whose.
+    // Two columns — each agent's title (accent/highlighted) and phone sit
+    // directly under their name, so there's no ambiguity about whose is whose.
     const colW = (textRight - M) / 2;
     agents.slice(0, 2).forEach((a, i) => {
-      const cx = M + colW * i;
-      fitLine(ctx, a.name, cx, nameY, colW - W * 0.025, W * 0.024, 700, theme.ink, 'left');
-      if (a.phone) { setFont(ctx, W * 0.017, 600); ctx.fillStyle = theme.sub; ctx.textAlign = 'left'; ctx.fillText(a.phone, cx, phoneY); }
+      const cx = M + colW * i, cw = colW - W * 0.025;
+      let yy = nameY;
+      fitLine(ctx, a.name, cx, yy, cw, W * 0.023, 700, theme.ink, 'left'); yy += H * 0.026;
+      if (a.title) { fitLine(ctx, a.title, cx, yy, cw, W * 0.0155, 700, theme.accent, 'left'); yy += H * 0.024; }
+      if (a.phone) { setFont(ctx, W * 0.016, 600); ctx.fillStyle = theme.sub; ctx.textAlign = 'left'; ctx.fillText(a.phone, cx, yy); }
     });
-    if (data.brokerage) { setFont(ctx, W * 0.014, 600, 2); ctx.fillStyle = theme.faint || theme.sub; ctx.fillText(data.brokerage.toUpperCase(), M, phoneY + H * 0.028); }
+    // Brokerage line only when there's vertical room (no titles crowding it).
+    if (data.brokerage && !anyTitle) { setFont(ctx, W * 0.014, 600, 2); ctx.fillStyle = theme.faint || theme.sub; ctx.fillText(data.brokerage.toUpperCase(), M, nameY + H * 0.058); }
   } else if (agents.length === 1) {
-    fitLine(ctx, agents[0].name, M, nameY, maxW, W * 0.027, 700, theme.ink, 'left');
-    const line2 = [agents[0].phone, data.brokerage].filter(Boolean).join('   ·   ');
-    if (line2) { setFont(ctx, W * 0.017, 600, 1.2); ctx.fillStyle = theme.sub; ctx.fillText(line2, M, phoneY); }
+    const a = agents[0]; let yy = nameY;
+    fitLine(ctx, a.name, M, yy, maxW, W * 0.027, 700, theme.ink, 'left'); yy += H * 0.030;
+    if (a.title) { fitLine(ctx, a.title, M, yy, maxW, W * 0.018, 700, theme.accent, 'left'); yy += H * 0.026; }
+    const line2 = [a.phone, data.brokerage].filter(Boolean).join('   ·   ');
+    if (line2) { setFont(ctx, W * 0.016, 600, 1.2); ctx.fillStyle = theme.sub; ctx.fillText(line2, M, yy); }
   } else if (data.brokerage) {
     setFont(ctx, W * 0.02, 600, 2); ctx.fillStyle = theme.sub; ctx.fillText(data.brokerage.toUpperCase(), M, fy + H * 0.055);
   }
