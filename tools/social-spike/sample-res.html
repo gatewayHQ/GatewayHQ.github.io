@@ -1,0 +1,29 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body>
+<script type="module">
+import { renderTemplate } from '/app/social/renderer.js';
+import { loadFonts } from '/app/social/design-tokens.js';
+function house(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
+  const sky=x.createLinearGradient(0,0,0,h);sky.addColorStop(0,'#bcd0dd');sky.addColorStop(1,'#e7eef2');x.fillStyle=sky;x.fillRect(0,0,w,h);
+  x.fillStyle='#3a4a39';x.fillRect(0,h*0.7,w,h*0.3);                       // lawn
+  x.fillStyle='#cdb89a';x.fillRect(w*0.2,h*0.4,w*0.6,h*0.35);              // house
+  x.fillStyle='#7a3b2e';x.beginPath();x.moveTo(w*0.16,h*0.4);x.lineTo(w*0.5,h*0.2);x.lineTo(w*0.84,h*0.4);x.closePath();x.fill(); // roof
+  x.fillStyle='#34506b';for(let i=0;i<3;i++)x.fillRect(w*(0.28+i*0.16),h*0.5,w*0.08,h*0.12); // windows
+  return createImageBitmap(c);}
+function head(w,tone){const c=document.createElement('canvas');c.width=w;c.height=w;const x=c.getContext('2d');
+  x.fillStyle=tone;x.fillRect(0,0,w,w);x.fillStyle='#e8c9a8';x.beginPath();x.arc(w/2,w*0.42,w*0.2,0,7);x.fill();
+  x.fillStyle='#2b3038';x.beginPath();x.ellipse(w/2,w*0.96,w*0.34,w*0.32,0,0,7);x.fill();return createImageBitmap(c);}
+const agents=[{name:'Jane Carter',phone:'402.555.0100'},{name:'Mike Boone',phone:'402.555.0200'}];
+const SET={
+ 'cre-just-listed':{kicker:'Just Listed',title:'742 Maple Avenue, Lincoln NE',subtitle:'4 Bed · 3 Bath · 2,850 SF',
+   stats:[{value:'$525,000',label:'Price'},{value:'4',label:'Beds'},{value:'3',label:'Baths'}],agents,brokerage:'Gateway Real Estate Advisors'},
+ 'cre-stats':{kicker:'By the Numbers',title:'Lincoln Residential · Q2 2026',subtitle:'Local market snapshot',
+   stats:[{value:'$342K',label:'Median Price'},{value:'18',label:'Days on Mkt'},{value:'214',label:'Homes Sold'},{value:'+4.2%',label:'YoY Change'}],agents,brokerage:'Gateway Real Estate Advisors'},
+};
+(async()=>{await loadFonts('/');const photo=await house(1600,1100);const h1=await head(500,'#6b7a89'),h2=await head(500,'#8a7d6b');
+ const out=[];
+ for(const [id,sizeId,heads] of [['cre-just-listed','ig-portrait',[h1,h2]],['cre-stats','ig-portrait',[h1,h2]]]){
+   const c=document.createElement('canvas');
+   renderTemplate(c,{templateId:id,sizeId,theme:'luxe-dark',data:SET[id],assets:{photo,headshots:heads}});
+   out.push({key:'res-'+id,b64:c.toDataURL('image/png').split(',')[1]});}
+ window.__PNGS=out;})();
+</script></body></html>

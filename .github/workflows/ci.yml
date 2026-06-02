@@ -103,11 +103,14 @@ jobs:
           REQUIRED_IDS=(
             "page-landing" "page-video" "page-social" "page-valuation"
             "page-home-valuation" "page-leasing" "page-invoice" "page-multifamily"
+            "page-graphics"
             "global-status"
             # Video Generator (client-side renderer) — see app/video/main.js
             "v2-file" "v2-thumbs" "v2-format" "v2-anim" "v2-canvas" "v2-scrub"
             "v2-generate" "v2-progress" "v2-bar" "v2-output" "v2-support"
             "v2-music-lib" "v2-ai-caption" "v2-headshot"
+            # Social & Mailer Graphics — see app/social/main.js
+            "g-template" "g-theme" "g-size" "g-canvas" "g-stats" "g-download" "g-a1n" "g-head1"
           )
           for id in "${REQUIRED_IDS[@]}"; do
             if ! grep -q "id=\"$id\"" index.html; then

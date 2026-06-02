@@ -8,20 +8,42 @@ import {
   fitLine, wrapFit, drawBlock, circleImage, statRow, fillRoundRect,
 } from './draw.js';
 
-// Shared footer band: agent + phone left, brokerage kicker, headshot/logo right.
-function footer(ctx, W, H, data, theme, assets, onLight) {
+// Shared footer band: up to TWO agents (co-listings) + brokerage left,
+// one or two headshots right. Falls back to single-agent / logo.
+function footer(ctx, W, H, data, theme, assets) {
   const M = W * 0.07;
   const fy = H - H * 0.13;
   hairline(ctx, M, fy, W - M, fy, theme.hairline, 2);
-  const baseY = fy + H * 0.055;
+
+  const agents = (Array.isArray(data.agents) && data.agents.length)
+    ? data.agents.filter(a => a && a.name)
+    : (data.agent ? [{ name: data.agent, phone: data.phone }] : []);
+  const heads = (Array.isArray(assets.headshots) && assets.headshots.length)
+    ? assets.headshots.filter(Boolean)
+    : (assets.headshot ? [assets.headshot] : []);
+
+  // Headshots on the right (1–2 circles, side by side).
+  const r = W * 0.052, cy = fy + H * 0.052;
+  let rightEdge = W - M;
+  for (let i = heads.length - 1; i >= 0 && i >= heads.length - 2; i--) {
+    circleImage(ctx, heads[i], rightEdge - r, cy, r, theme.accent);
+    rightEdge -= (r * 2 + W * 0.016);
+  }
+  if (!heads.length && assets.logo) circleImage(ctx, assets.logo, W - M - r, cy, r, theme.hairline);
+
+  // Agent text on the left (auto-fit so two names never overflow).
+  const textRight = (heads.length ? rightEdge : (W - M)) - W * 0.03;
+  const maxW = textRight - M;
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  if (data.agent) { setFont(ctx, W * 0.027, 700); ctx.fillStyle = theme.ink; ctx.fillText(data.agent, M, baseY); }
-  const line2 = [data.phone, data.brokerage].filter(Boolean).join('   ·   ');
-  if (line2) { setFont(ctx, W * 0.018, 600, 1.5); ctx.fillStyle = theme.sub; ctx.fillText(line2, M, baseY + H * 0.032); }
-  // right side: headshot circle, else logo coin
-  const r = W * 0.055, cx = W - M - r, cy = fy + H * 0.052;
-  if (assets.headshot) circleImage(ctx, assets.headshot, cx, cy, r, theme.accent);
-  else if (assets.logo) circleImage(ctx, assets.logo, cx, cy, r, theme.hairline);
+  if (agents.length) {
+    const names = agents.map(a => a.name).join('   &   ');
+    fitLine(ctx, names, M, fy + H * 0.05, maxW, W * 0.027, 700, theme.ink, 'left');
+    const phones = agents.map(a => a.phone).filter(Boolean).join('   ·   ');
+    const line2 = [phones, data.brokerage].filter(Boolean).join('   ·   ');
+    if (line2) { setFont(ctx, W * 0.017, 600, 1.2); ctx.fillStyle = theme.sub; ctx.fillText(line2, M, fy + H * 0.05 + H * 0.030); }
+  } else if (data.brokerage) {
+    setFont(ctx, W * 0.02, 600, 2); ctx.fillStyle = theme.sub; ctx.fillText(data.brokerage.toUpperCase(), M, fy + H * 0.055);
+  }
   try { ctx.letterSpacing = '0px'; } catch {}
 }
 

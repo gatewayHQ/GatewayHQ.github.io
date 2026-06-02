@@ -10,7 +10,8 @@ var pageNames = {
   valuation: 'Valuation Tool',
   invoice: 'Invoice Generator',
   'home-valuation': 'Home Valuation Generator',
-  'video': 'Video Generator'
+  'video': 'Video Generator',
+  'graphics': 'Social & Mailer Graphics'
 };
 
 // Cache page element references — avoids repeated getElementById on every nav
