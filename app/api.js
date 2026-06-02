@@ -143,10 +143,38 @@ var GatewayAPI = (function () {
   var _inFlight = {};
 
   function _dedupeKey(system, user, opts) {
-    return (opts && opts.model || DEFAULT_MODEL) + '|' + _hash32((system || '') + '\x00' + user);
+    var imgSig = '';
+    if (opts && opts.images && opts.images.length) {
+      var s = opts.images.map(function (im) { return typeof im === 'string' ? im : (im.data || ''); }).join('');
+      imgSig = '|i' + _hash32(s);
+    }
+    return (opts && opts.model || DEFAULT_MODEL) + '|' + _hash32((system || '') + '\x00' + user) + imgSig;
   }
 
   // ── Claude ──────────────────────────────────────────────────────
+
+  // Normalize opts.images (array of data URLs or {media_type,data}) into the
+  // {media_type,data} blocks our proxy expects. Returns undefined if none.
+  function _imagesToBlocks(images) {
+    if (!images || !images.length) return undefined;
+    return images.map(function (im) {
+      if (typeof im === 'string') {
+        var m = /^data:([^;]+);base64,(.*)$/.exec(im) || [];
+        return { media_type: m[1] || 'image/jpeg', data: m[2] || '' };
+      }
+      return { media_type: im.media_type || 'image/jpeg', data: im.data || '' };
+    });
+  }
+  // For the direct-to-Anthropic path: build a multimodal content array.
+  function _imagesToContent(images, userPrompt) {
+    var blocks = _imagesToBlocks(images);
+    if (!blocks) return userPrompt;
+    var content = blocks.map(function (b) {
+      return { type: 'image', source: { type: 'base64', media_type: b.media_type, data: b.data } };
+    });
+    content.push({ type: 'text', text: userPrompt });
+    return content;
+  }
 
   function claude(systemPrompt, userPrompt, opts) {
     opts = opts || {};
@@ -171,7 +199,8 @@ var GatewayAPI = (function () {
             system:     systemPrompt || '',
             user:       userPrompt,
             max_tokens: opts.max_tokens || DEFAULT_TOKENS,
-            model:      opts.model     || DEFAULT_MODEL
+            model:      opts.model     || DEFAULT_MODEL,
+            images:     _imagesToBlocks(opts.images)
           })
         })
           .then(function (r) {
@@ -205,7 +234,7 @@ var GatewayAPI = (function () {
             model:      opts.model     || DEFAULT_MODEL,
             max_tokens: opts.max_tokens || DEFAULT_TOKENS,
             system:     systemPrompt   || '',
-            messages:   [{ role: 'user', content: userPrompt }]
+            messages:   [{ role: 'user', content: _imagesToContent(opts.images, userPrompt) }]
           })
         })
           .then(function (r) {

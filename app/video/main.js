@@ -57,8 +57,57 @@ async function init() {
     .forEach((id) => $(id) && $(id).addEventListener('input', debounce(rebuild, 250)));
   fmt.addEventListener('change', rebuild);
   $('v2-anim') && $('v2-anim').addEventListener('change', () => { stopPlay(); rebuild(); });
+  $('v2-ai-caption') && $('v2-ai-caption').addEventListener('click', aiCaptionPhotos);
 
   rebuild();
+}
+
+// ── AI auto-captions ────────────────────────────────────────────────────────
+// Sends each photo (after the hero) to Claude vision via the shared proxy and
+// fills its caption. The agent can still edit any result.
+async function aiCaptionPhotos() {
+  const api = window.GatewayAPI;
+  if (!api || !api.claude) { alert('AI is not available. Make sure you are signed in via ☁ Sync.'); return; }
+  if (state.photos.length < 2) { alert('Add at least 2 photos — the first is the hero, captions apply to the rest.'); return; }
+  const btn = $('v2-ai-caption'); const orig = btn.textContent; btn.disabled = true;
+  const system = 'You are a real-estate marketing assistant writing short on-screen captions for a listing video.';
+  let failed = 0;
+  for (let i = 1; i < state.photos.length; i++) {
+    btn.textContent = `✨ Captioning ${i}/${state.photos.length - 1}…`;
+    try {
+      const jpeg = toJpegDataUrl(state.photos[i].bitmap, 512);
+      const prompt = 'Look at this real-estate photo and write a punchy caption (2 to 5 words, Title Case, no quotes, no period) naming the room or feature shown — e.g. "Renovated Kitchen", "Spa-Like Primary Bath", "Backyard Oasis", "Open-Concept Living". Reply with ONLY the caption.';
+      const text = await api.claude(system, prompt, { images: [jpeg], max_tokens: 40 });
+      const caption = (text || '').split('\n')[0].replace(/^["'\s]+|["'.\s]+$/g, '').slice(0, 48);
+      if (caption) state.photos[i].caption = caption;
+    } catch (e) {
+      failed++;
+      console.warn('[video] caption failed for photo', i + 1, e && e.message);
+      if (/sign in|not configured|api key/i.test(e && e.message || '')) {
+        btn.disabled = false; btn.textContent = orig;
+        alert(e.message);
+        renderThumbs(); rebuild(); return;
+      }
+    }
+  }
+  renderThumbs(); rebuild();
+  btn.disabled = false; btn.textContent = orig;
+  if (failed) showCaptionNote(`${failed} photo(s) couldn’t be captioned — you can type those manually.`);
+}
+
+function showCaptionNote(msg) {
+  const el = $('v2-ai-note'); if (el) el.textContent = msg;
+}
+
+// Draw a drawable to a JPEG data URL with its longest side <= max (keeps the
+// vision payload small + cheap).
+function toJpegDataUrl(img, max) {
+  const iw = img.width || img.naturalWidth, ih = img.height || img.naturalHeight;
+  const s = Math.min(1, max / Math.max(iw, ih));
+  const w = Math.max(1, Math.round(iw * s)), h = Math.max(1, Math.round(ih * s));
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  c.getContext('2d').drawImage(img, 0, 0, w, h);
+  return c.toDataURL('image/jpeg', 0.72);
 }
 
 // ── Photos ──────────────────────────────────────────────────────────────────

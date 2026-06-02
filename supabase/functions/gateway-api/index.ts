@@ -31,7 +31,10 @@ const FETCH_TIMEOUT  = 45_000;
 
 // Hard caps — prevent runaway cost and abuse
 const MAX_TOKENS_CAP  = 4000;
-const MAX_BODY_BYTES  = 32_768; // 32 KB
+// 4 MB: text prompts are tiny, but vision requests carry one or more
+// downscaled JPEG photos (base64) for auto-captioning. Output cost is still
+// bounded by MAX_TOKENS_CAP and the per-user rate limit.
+const MAX_BODY_BYTES  = 4_194_304; // 4 MB
 
 // Allowlist — only these model IDs pass through to Anthropic
 const ALLOWED_MODELS = new Set([
@@ -115,13 +118,36 @@ async function handleClaude(req: Request, userId: string): Promise<Response> {
     });
   }
 
-  let body: { system?: string; user?: string; max_tokens?: number; model?: string };
+  let body: {
+    system?: string; user?: string; max_tokens?: number; model?: string;
+    images?: Array<{ media_type?: string; data?: string }>;
+  };
   try { body = await req.json(); }
   catch { return json({ error: 'Invalid JSON body' }, 400); }
 
-  const { system, user, max_tokens, model } = body;
+  const { system, user, max_tokens, model, images } = body;
   if (!user || typeof user !== 'string' || !user.trim()) {
     return json({ error: 'Missing or empty user prompt' }, 400);
+  }
+
+  // Build the message content. With images (vision, e.g. photo auto-captioning)
+  // we send Anthropic content blocks: the photos followed by the text prompt.
+  const ALLOWED_IMG = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+  // deno-lint-ignore no-explicit-any
+  let content: any = user.trim();
+  if (Array.isArray(images) && images.length) {
+    if (images.length > 10) return json({ error: 'Too many images (max 10)' }, 400);
+    // deno-lint-ignore no-explicit-any
+    const blocks: any[] = [];
+    for (const im of images) {
+      const mt = im?.media_type ?? '';
+      if (!ALLOWED_IMG.has(mt) || typeof im?.data !== 'string' || !im.data) {
+        return json({ error: 'Invalid image (allowed: jpeg, png, webp, gif)' }, 400);
+      }
+      blocks.push({ type: 'image', source: { type: 'base64', media_type: mt, data: im.data } });
+    }
+    blocks.push({ type: 'text', text: user.trim() });
+    content = blocks;
   }
 
   // Token cap — caller can request less, never more than our ceiling
@@ -146,7 +172,7 @@ async function handleClaude(req: Request, userId: string): Promise<Response> {
         model:      resolvedModel,
         max_tokens: clampedTokens,
         system:     system || '',
-        messages:   [{ role: 'user', content: user.trim() }],
+        messages:   [{ role: 'user', content }],
       }),
       signal: AbortSignal.timeout(FETCH_TIMEOUT),
     });
