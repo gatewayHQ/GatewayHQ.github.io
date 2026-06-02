@@ -12,6 +12,7 @@ const state = {
   music: null,         // AudioBuffer
   musicName: '',
   logo: null,          // HTMLImageElement | null
+  headshot: null,      // drawable | null — agent headshot for the closing card
   model: null,
   playing: false,
   rafId: 0,
@@ -49,6 +50,7 @@ async function init() {
   }
 
   wirePhotos();
+  wireHeadshot();
   wireMusic();
   loadMusicLibrary();
   wirePreview();
@@ -145,6 +147,22 @@ function wirePhotos() {
   drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('drag'); });
   drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
   drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('drag'); addPhotos(e.dataTransfer.files); });
+}
+
+// ── Agent headshot (closing card) ───────────────────────────────────────────
+function wireHeadshot() {
+  const inp = $('v2-headshot'); if (!inp) return;
+  inp.addEventListener('change', async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      state.headshot = await loadBitmap(f);
+      $('v2-headshot-label').textContent = '🧑 ' + f.name + ' — shown on the closing card';
+      rebuild();
+    } catch { $('v2-headshot-label').textContent = 'Could not read that image.'; }
+  });
+  $('v2-headshot-clear') && $('v2-headshot-clear').addEventListener('click', () => {
+    state.headshot = null; inp.value = ''; $('v2-headshot-label').textContent = ''; rebuild();
+  });
 }
 
 async function addPhotos(files) {
@@ -293,7 +311,7 @@ function rebuild() {
   const data = readData();
   if (!state.photos.length) { state.model = null; drawPlaceholder(); return; }
   const photos = state.photos.map((p) => ({ image: p.bitmap, caption: p.caption || '' }));
-  state.model = buildModel(data, photos, { logo: state.logo }, data.anim);
+  state.model = buildModel(data, photos, { logo: state.logo, headshot: state.headshot }, data.anim);
   const c = $('v2-canvas'); c.width = state.model.width; c.height = state.model.height;
   drawAt(currentScrubTime());
 }

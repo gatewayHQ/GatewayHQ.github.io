@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body>
+<script type="module">
+import { buildModel } from '/app/video/scene-model.js';
+import { drawFrame, totalDuration } from '/app/video/renderer.js';
+function img(w,h,draw){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);return createImageBitmap(c);}
+async function main(){
+  const photo=await img(1600,1000,(x,w,h)=>{const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,'#4a5d3a');g.addColorStop(1,'#2b3724');x.fillStyle=g;x.fillRect(0,0,w,h);});
+  // simple headshot: portrait bg + head + shoulders
+  const head=await img(600,600,(x,w,h)=>{x.fillStyle='#7d8a99';x.fillRect(0,0,w,h);
+    x.fillStyle='#e8c9a8';x.beginPath();x.arc(w/2,h*0.42,w*0.20,0,7);x.fill();           // face
+    x.fillStyle='#39414d';x.beginPath();x.ellipse(w/2,h*0.95,w*0.34,h*0.32,0,0,7);x.fill();}); // shoulders
+  const data={format:'reels',address:'3100 Nebraska Street, Sioux City, IA',price:'$240,000',agent:'Jane Carter',brokerage:'Gateway Real Estate Advisors',cta:'Schedule a Showing'};
+  const model=buildModel(data,[{image:photo,caption:''}],{logo:null,headshot:head},'kenburns');
+  const c=document.createElement('canvas');c.width=model.width;c.height=model.height;
+  drawFrame(model, totalDuration(model)-1.4, c.getContext('2d'), c.width, c.height); // mid closing card
+  window.__PNG=c.toDataURL('image/png');
+}
+main();
+</script></body></html>

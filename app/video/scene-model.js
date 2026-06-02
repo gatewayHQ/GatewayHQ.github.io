@@ -53,9 +53,12 @@ export function buildModel(data, photos, brand, anim = 'kenburns') {
   ]);
   if (cols.length) scenes.push({ kind: 'card', durationSec: DUR.stats, columns: cols, texts: [] });
 
-  // Agent close.
+  // Agent close. A headshot (if uploaded) takes the top slot; else the logo.
+  const headshot = brand.headshot || null;
   scenes.push({
-    kind: 'card', durationSec: DUR.agent, logo: brand.logo || null, logoY: 0.26, logoScale: 0.16,
+    kind: 'card', durationSec: DUR.agent,
+    logo: headshot ? null : (brand.logo || null), logoY: 0.26, logoScale: 0.16,
+    headshot, headshotY: 0.27, headshotR: 0.16,
     texts: compact([
       { text: data.cta || 'Schedule a Showing', x: 0.5, y: 0.56, size: 0.044, weight: 200, align: 'center' },
       data.agent     && { text: data.agent,     x: 0.5, y: 0.66, size: 0.030, weight: 300, align: 'center', delay: 0.6 },
