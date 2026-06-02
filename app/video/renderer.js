@@ -139,8 +139,13 @@ function drawCardScene(scene, localT, dur, ctx, W, H, model) {
   g.addColorStop(0, '#0D1117'); g.addColorStop(0.55, '#131E27'); g.addColorStop(1, '#0D1117');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
-  // optional logo
-  if (scene.logo) {
+  // Agent headshot (circular, framed) takes the top slot when provided;
+  // otherwise the brand logo.
+  if (scene.headshot) {
+    const a = easeOut(clamp01((localT - 0.2) / 0.8));
+    const r = Math.min(W, H) * (scene.headshotR || 0.16);
+    drawCircleImage(ctx, scene.headshot, W / 2, H * (scene.headshotY || 0.27), r, a);
+  } else if (scene.logo) {
     const lw = Math.round(W * (scene.logoScale || 0.14));
     const la = clamp01((localT - 0.2) / 0.8);
     ctx.globalAlpha = easeOut(la);
@@ -151,6 +156,29 @@ function drawCardScene(scene, localT, dur, ctx, W, H, model) {
 
   if (scene.columns) drawStatColumns(scene.columns, localT, ctx, W, H, model);
   drawTexts(scene.texts || [], localT, ctx, W, H, model);
+}
+
+// Draw an image cropped to a circle with a thin gold ring (agent headshot).
+function drawCircleImage(ctx, img, cx, cy, r, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
+  coverInto(ctx, img, cx - r, cy - r, r * 2, r * 2);
+  ctx.restore();
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.lineWidth = Math.max(2, r * 0.045); ctx.strokeStyle = 'rgba(200,168,75,0.85)'; ctx.stroke();
+  ctx.restore();
+}
+
+// object-fit: cover an image into the box (x,y,w,h).
+function coverInto(ctx, img, x, y, w, h) {
+  const iw = img.width || img.naturalWidth, ih = img.height || img.naturalHeight;
+  if (!iw || !ih) return;
+  const ar = iw / ih, car = w / h; let dw, dh;
+  if (ar > car) { dh = h; dw = dh * ar; } else { dw = w; dh = dw / ar; }
+  ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
 }
 
 // Stat columns (beds · baths · sqft) with a thin divider between each.
