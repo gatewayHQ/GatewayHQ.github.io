@@ -70,29 +70,56 @@ async function aiCaptionPhotos() {
   if (!api || !api.claude) { alert('AI is not available. Make sure you are signed in via ☁ Sync.'); return; }
   if (state.photos.length < 2) { alert('Add at least 2 photos — the first is the hero, captions apply to the rest.'); return; }
   const btn = $('v2-ai-caption'); const orig = btn.textContent; btn.disabled = true;
+  showCaptionNote('');
   const system = 'You are a real-estate marketing assistant writing short on-screen captions for a listing video.';
-  let failed = 0;
+  const total = state.photos.length - 1;
+  let ok = 0, failed = 0, lastErr = '', serverStale = false;
   for (let i = 1; i < state.photos.length; i++) {
-    btn.textContent = `✨ Captioning ${i}/${state.photos.length - 1}…`;
+    btn.textContent = `✨ Captioning ${i}/${total}…`;
     try {
       const jpeg = toJpegDataUrl(state.photos[i].bitmap, 512);
       const prompt = 'Look at this real-estate photo and write a punchy caption (2 to 5 words, Title Case, no quotes, no period) naming the room or feature shown — e.g. "Renovated Kitchen", "Spa-Like Primary Bath", "Backyard Oasis", "Open-Concept Living". Reply with ONLY the caption.';
       const text = await api.claude(system, prompt, { images: [jpeg], max_tokens: 40 });
-      const caption = (text || '').split('\n')[0].replace(/^["'\s]+|["'.\s]+$/g, '').slice(0, 48);
-      if (caption) state.photos[i].caption = caption;
+      const caption = cleanCaption(text);
+      if (!caption) {
+        // A 200 with a refusal like "I don't see a photo" means the proxy
+        // stripped the image — i.e. the Edge Function wasn't redeployed with
+        // vision support. Surface that clearly instead of pasting the refusal.
+        failed++; serverStale = true; lastErr = 'the AI server received no image';
+      } else { state.photos[i].caption = caption; ok++; }
     } catch (e) {
       failed++;
-      console.warn('[video] caption failed for photo', i + 1, e && e.message);
-      if (/sign in|not configured|api key/i.test(e && e.message || '')) {
+      const msg = (e && e.message) || 'request failed';
+      lastErr = msg;
+      if (/too large|413/i.test(msg)) serverStale = true;
+      console.warn('[video] caption failed for photo', i + 1, msg);
+      if (/sign in|not configured|api key/i.test(msg)) {
         btn.disabled = false; btn.textContent = orig;
-        alert(e.message);
-        renderThumbs(); rebuild(); return;
+        renderThumbs(); rebuild();
+        showCaptionNote(msg);
+        return;
       }
     }
   }
   renderThumbs(); rebuild();
   btn.disabled = false; btn.textContent = orig;
-  if (failed) showCaptionNote(`${failed} photo(s) couldn’t be captioned — you can type those manually.`);
+  if (failed && ok === 0 && serverStale) {
+    showCaptionNote('AI captions failed: your AI server needs updating (ask your admin to run “supabase functions deploy gateway-api”). Type captions manually for now.');
+  } else if (failed) {
+    showCaptionNote(`Captioned ${ok} of ${total}. ${failed} didn’t work${lastErr ? ' (' + lastErr + ')' : ''} — type those manually.`);
+  } else {
+    showCaptionNote(`✓ Captioned all ${ok} photos — edit any you’d like.`);
+  }
+}
+
+// Accept only a short caption-like phrase; reject refusals / sentences so a
+// "I don't see a photo" reply never lands in a caption box.
+function cleanCaption(text) {
+  let c = (text || '').split('\n')[0].replace(/^["'\s]+|["'.\s]+$/g, '').trim();
+  if (!c) return '';
+  if (c.split(/\s+/).length > 8) return '';                       // too long = not a caption
+  if (/\b(i|sorry|unable|cannot|can'?t|don'?t|do not|no (image|photo)|provide|attach|isn'?t)\b/i.test(c)) return '';
+  return c.slice(0, 48);
 }
 
 function showCaptionNote(msg) {
