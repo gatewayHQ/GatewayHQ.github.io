@@ -61,15 +61,75 @@ function drawPhotoScene(scene, index, localT, dur, ctx, W, H, model) {
   }
 
   // Bottom scrim for text legibility.
-  if (scene.texts && scene.texts.length) {
-    const g = ctx.createLinearGradient(0, H * 0.45, 0, H);
+  if ((scene.texts && scene.texts.length) || scene.heroText) {
+    const g = ctx.createLinearGradient(0, H * 0.40, 0, H);
     g.addColorStop(0, 'rgba(13,17,23,0)');
-    g.addColorStop(0.65, 'rgba(13,17,23,0.55)');
-    g.addColorStop(1, 'rgba(13,17,23,0.94)');
+    g.addColorStop(0.6, 'rgba(13,17,23,0.55)');
+    g.addColorStop(1, 'rgba(13,17,23,0.95)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }
 
+  if (scene.heroText) drawHeroStack(ctx, scene.heroText, localT, W, H, model);
   drawTexts(scene.texts || [], localT, ctx, W, H, model);
+}
+
+// Hero overlay laid out as a measured, bottom-anchored stack so a wrapping
+// address never collides with the badge above it (the old bug). Order bottom
+// -> top: price, address (wraps), badge pill.
+function drawHeroStack(ctx, hero, localT, W, H, model) {
+  const x = W * 0.06;
+  const gap = H * 0.022;
+  let bottom = H * 0.93;
+  if (hero.price)   bottom = drawTextBlock(ctx, model, hero.price,   x, bottom, Math.round(H * 0.044), 200, '#F5F5F3', localT, 1.4, W * 0.88) - gap;
+  if (hero.address) bottom = drawTextBlock(ctx, model, hero.address, x, bottom, Math.round(H * 0.052), 300, '#F5F5F3', localT, 0.9, W * 0.86) - gap * 1.4;
+  if (hero.badge)   drawBadge(ctx, model, hero.badge, x, bottom, H, localT, 0.5);
+}
+
+// Draws wrapped text whose BOTTOM sits at `bottom`; returns the block's TOP y.
+function drawTextBlock(ctx, model, text, x, bottom, fs, weight, color, localT, delay, maxW) {
+  setFont(ctx, model, fs, weight, 0);
+  const lines = wrapLines(ctx, text, maxW);
+  const lh = fs * 1.16;
+  const top = bottom - lines.length * lh;
+  const reveal = easeOut(clamp01((localT - delay) / 0.7));
+  if (reveal <= 0) return top;
+  const rise = (1 - reveal) * 18;
+  ctx.globalAlpha = reveal; ctx.fillStyle = color; ctx.textAlign = 'left';
+  for (let i = 0; i < lines.length; i++) ctx.fillText(lines[i], x, top + i * lh + fs * 0.82 - rise);
+  ctx.globalAlpha = 1;
+  return top;
+}
+
+// Filled "pill" badge (e.g. JUST SOLD) — larger and visually distinct.
+function drawBadge(ctx, model, text, x, bottom, H, localT, delay) {
+  const reveal = easeOut(clamp01((localT - delay) / 0.7));
+  if (reveal <= 0) return;
+  const fs = Math.round(H * 0.027);
+  setFont(ctx, model, fs, 700, 2);
+  const label = String(text).toUpperCase();
+  const tw = ctx.measureText(label).width;
+  const padX = fs * 0.75, padY = fs * 0.5;
+  const bw = tw + padX * 2, bh = fs + padY * 2;
+  const top = bottom - bh;
+  const rise = (1 - reveal) * 18;
+  ctx.globalAlpha = reveal;
+  roundRect(ctx, x, top - rise, bw, bh, bh / 2);
+  ctx.fillStyle = '#C8A84B'; ctx.fill();
+  setFont(ctx, model, fs, 700, 2);
+  ctx.fillStyle = '#0D1117'; ctx.textAlign = 'left';
+  ctx.fillText(label, x + padX, top - rise + padY + fs * 0.80);
+  ctx.globalAlpha = 1;
+  try { ctx.letterSpacing = '0px'; } catch { /* older engines */ }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 
 // ── Card scene: solid/branded background with centered stacked lines ────────
@@ -175,12 +235,15 @@ function drawScan(ctx, img, W, H, p, index) {
   dw *= zoom; dh *= zoom;
   const overX = dw - W, overY = dh - H;
   const e = easeInOut(p);
+  // Travel a fraction of the available overflow (not edge-to-edge) so the pan
+  // reads as a slow, smooth glide rather than a fast sweep.
+  const TRAVEL = 0.72;
   let dx = (W - dw) / 2, dy = (H - dh) / 2;
   if (overX >= overY) {
-    const span = overX / 2;
+    const span = (overX / 2) * TRAVEL;
     dx += (index % 2) ? lerp(-span, span, e) : lerp(span, -span, e);
   } else {
-    const span = overY / 2;
+    const span = (overY / 2) * TRAVEL;
     dy += (index % 2) ? lerp(-span, span, e) : lerp(span, -span, e);
   }
   ctx.drawImage(img, dx, dy, dw, dh);
@@ -193,7 +256,8 @@ function setFont(ctx, model, px, weight = 400, letterSpacing = 0) {
   try { ctx.letterSpacing = letterSpacing ? `${letterSpacing}px` : '0px'; } catch { /* older engines */ }
 }
 
-function drawTextWrapped(ctx, text, x, y, maxWidth, lineHeight) {
+// Split text into lines that fit maxWidth (uses the ctx's current font).
+function wrapLines(ctx, text, maxWidth) {
   const words = String(text).split(/\s+/);
   let line = '', lines = [];
   for (const w of words) {
@@ -202,6 +266,11 @@ function drawTextWrapped(ctx, text, x, y, maxWidth, lineHeight) {
     else line = test;
   }
   if (line) lines.push(line);
+  return lines;
+}
+
+function drawTextWrapped(ctx, text, x, y, maxWidth, lineHeight) {
+  const lines = wrapLines(ctx, text, maxWidth);
   // anchor the block so its last line sits at y (bottom-aligned captions)
   const startY = y - (lines.length - 1) * lineHeight;
   lines.forEach((ln, i) => ctx.fillText(ln, x, startY + i * lineHeight));

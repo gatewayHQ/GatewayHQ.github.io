@@ -26,14 +26,12 @@ export function buildModel(data, photos, brand, anim = 'kenburns') {
 
   photos.forEach((ph, i) => {
     if (i === 0) {
-      // Hero: eyebrow + address + price stacked bottom-left.
+      // Hero: badge + address + price as a measured bottom-anchored stack
+      // (renderer.drawHeroStack) so a wrapping address never overlaps the badge.
       scenes.push({
         kind: 'photo', image: ph.image, anim, durationSec: DUR.hero,
-        texts: compact([
-          data.eyebrow && { text: data.eyebrow, x: 0.06, y: 0.74, size: 0.018, weight: 600, letterSpacing: 4, transform: 'upper', color: 'rgba(245,245,243,0.7)', delay: 0.6 },
-          data.address && { text: data.address, x: 0.06, y: 0.82, size: 0.052, weight: 300, delay: 0.9, maxWidth: 0.88 },
-          data.price   && { text: data.price,   x: 0.06, y: 0.90, size: 0.040, weight: 200, delay: 1.4, color: '#F5F5F3' },
-        ]),
+        heroText: { badge: data.eyebrow || '', address: data.address || '', price: data.price || '' },
+        texts: [],
       });
     } else {
       // Caption travels with this photo (entered on the thumbnail).

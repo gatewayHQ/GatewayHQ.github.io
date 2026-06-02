@@ -1,0 +1,17 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body>
+<script type="module">
+import { buildModel } from '/app/video/scene-model.js';
+import { drawFrame } from '/app/video/renderer.js';
+function grass(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,'#4a5d3a');g.addColorStop(1,'#2b3724');x.fillStyle=g;x.fillRect(0,0,w,h);
+  for(let i=0;i<4000;i++){x.fillStyle='rgba('+(60+Math.random()*60|0)+','+(90+Math.random()*70|0)+',60,0.25)';x.fillRect(Math.random()*w,Math.random()*h,2,6);}
+  return createImageBitmap(c);}
+(async()=>{
+  const img=await grass(1600,1000);
+  const data={format:'reels',eyebrow:'JUST SOLD',address:'3100 Nebraska Street, Sioux City, IA',price:'$240,000'};
+  const model=buildModel(data,[{image:img,caption:''}],{logo:null},'kenburns');
+  const c=document.createElement('canvas');c.width=model.width;c.height=model.height;
+  drawFrame(model,2.6,c.getContext('2d'),c.width,c.height); // hero, all elements visible
+  window.__PNG=c.toDataURL('image/png');
+})();
+</script></body></html>
