@@ -11,6 +11,45 @@ import { writeCaption } from './ai.js';
 const $ = (id) => document.getElementById(id);
 const state = { type: 'commercial', photo: null, heads: [null, null], logo: null, ready: false };
 
+const PROFILE_KEY = 'gw_agent_profile';
+const PROFILE_FIELDS = ['g-a1n', 'g-a1t', 'g-a1p', 'g-a2n', 'g-a2t', 'g-a2p', 'g-brokerage'];
+
+function saveProfile() {
+  const data = {};
+  PROFILE_FIELDS.forEach((id) => { if ($(id)) data[id] = $(id).value; });
+  try { localStorage.setItem(PROFILE_KEY, JSON.stringify(data)); } catch {}
+  updateProfileBar();
+}
+
+function loadProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    PROFILE_FIELDS.forEach((id) => { if ($(id) && data[id] != null) $(id).value = data[id]; });
+  } catch {}
+  updateProfileBar();
+}
+
+function clearProfile() {
+  try { localStorage.removeItem(PROFILE_KEY); } catch {}
+  PROFILE_FIELDS.forEach((id) => { if ($(id)) $(id).value = id === 'g-brokerage' ? 'Gateway Real Estate Advisors' : ''; });
+  updateProfileBar();
+  preview();
+}
+
+function updateProfileBar() {
+  const bar = $('g-profile-bar'); if (!bar) return;
+  const saved = (() => { try { return !!localStorage.getItem(PROFILE_KEY); } catch { return false; } })();
+  if (saved) {
+    bar.innerHTML = 'Details saved &nbsp;·&nbsp; <a href="#" id="g-profile-clear" style="color:var(--muted,#888);text-decoration:underline">Clear</a>';
+    const cl = $('g-profile-clear');
+    if (cl) cl.addEventListener('click', (e) => { e.preventDefault(); clearProfile(); });
+  } else {
+    bar.textContent = '';
+  }
+}
+
 const SIZE_ORDER = ['ig-portrait', 'square', 'story', 'linkedin', 'postcard-6x4'];
 
 // Default kicker + stat labels per template, by property type. Values start
@@ -54,6 +93,10 @@ async function init() {
   ['g-theme', 'g-size'].forEach((id) => $(id).addEventListener('change', preview));
   ['g-title', 'g-city', 'g-subtitle', 'g-kicker', 'g-brokerage', 'g-a1n', 'g-a1t', 'g-a1p', 'g-a2n', 'g-a2t', 'g-a2p']
     .forEach((id) => $(id) && $(id).addEventListener('input', debounce(preview, 200)));
+
+  // auto-save agent profile on every keystroke; auto-load on init
+  PROFILE_FIELDS.forEach((id) => $(id) && $(id).addEventListener('input', debounce(saveProfile, 400)));
+  loadProfile();
 
   wireImage('g-photo', 'g-photo-clear', (img) => { state.photo = img; }, 'g-photo-label');
   wireImage('g-head1', 'g-head1-clear', (img) => { state.heads[0] = img; }, 'g-head1-label');
