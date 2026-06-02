@@ -107,7 +107,7 @@ jobs:
             # Video Generator (client-side renderer) — see app/video/main.js
             "v2-file" "v2-thumbs" "v2-format" "v2-anim" "v2-canvas" "v2-scrub"
             "v2-generate" "v2-progress" "v2-bar" "v2-output" "v2-support"
-            "v2-music-lib"
+            "v2-music-lib" "v2-ai-caption"
           )
           for id in "${REQUIRED_IDS[@]}"; do
             if ! grep -q "id=\"$id\"" index.html; then
