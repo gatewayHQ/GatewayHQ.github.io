@@ -270,7 +270,8 @@ async function handleBuffer(req: Request): Promise<Response> {
 function handleHealth(): Response {
   return json({
     ok:        true,
-    version:   '2.1.2',
+    version:   '2.2.0',          // 2.2.0 = vision/image support for /api/claude
+    vision:    true,             // present only on builds with photo auto-caption support
     ts:        new Date().toISOString(),
     services: {
       claude: !!CLAUDE_API_KEY,
