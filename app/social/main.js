@@ -52,7 +52,7 @@ async function init() {
 
   $('g-template').addEventListener('change', () => { $('g-kicker').value = KICKER[$('g-template').value] || ''; resetStatLabels(); preview(); });
   ['g-theme', 'g-size'].forEach((id) => $(id).addEventListener('change', preview));
-  ['g-title', 'g-city', 'g-subtitle', 'g-kicker', 'g-brokerage', 'g-a1n', 'g-a1p', 'g-a2n', 'g-a2p']
+  ['g-title', 'g-city', 'g-subtitle', 'g-kicker', 'g-brokerage', 'g-a1n', 'g-a1t', 'g-a1p', 'g-a2n', 'g-a2t', 'g-a2p']
     .forEach((id) => $(id) && $(id).addEventListener('input', debounce(preview, 200)));
 
   wireImage('g-photo', 'g-photo-clear', (img) => { state.photo = img; }, 'g-photo-label');
@@ -97,8 +97,8 @@ function collectData() {
     .map((r) => ({ value: r.querySelector('.g-sv').value.trim(), label: r.querySelector('.g-sl').value.trim() }))
     .filter((s) => s.value || s.label);
   const agents = [
-    { name: v('g-a1n'), phone: v('g-a1p') },
-    { name: v('g-a2n'), phone: v('g-a2p') },
+    { name: v('g-a1n'), title: v('g-a1t'), phone: v('g-a1p') },
+    { name: v('g-a2n'), title: v('g-a2t'), phone: v('g-a2p') },
   ].filter((a) => a.name);
   return { kicker: v('g-kicker'), title: v('g-title'), city: v('g-city'), subtitle: v('g-subtitle'), stats, agents, brokerage: v('g-brokerage') || 'Gateway Real Estate Advisors' };
 }

@@ -4,7 +4,7 @@ import { renderTemplate } from '/app/social/renderer.js';
 import { loadFonts } from '/app/social/design-tokens.js';
 function mf(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');const s=x.createLinearGradient(0,0,0,h);s.addColorStop(0,'#3b6ea5');s.addColorStop(1,'#bcd');x.fillStyle=s;x.fillRect(0,0,w,h);x.fillStyle='#cdbfa7';x.fillRect(w*0.08,h*0.25,w*0.8,h*0.6);x.fillStyle='#6b4a3a';x.fillRect(w*0.08,h*0.22,w*0.8,h*0.05);x.fillStyle='#2c3e50';for(let r=0;r<3;r++)for(let cc=0;cc<6;cc++)x.fillRect(w*(0.12+cc*0.13),h*(0.32+r*0.17),w*0.07,h*0.1);x.fillStyle='#3a4a39';x.fillRect(0,h*0.85,w,h*0.15);return createImageBitmap(c);}
 function coin(w){const c=document.createElement('canvas');c.width=w;c.height=w;const x=c.getContext('2d');x.fillStyle='#0D1117';x.fillRect(0,0,w,w);x.strokeStyle='#C8A84B';x.lineWidth=w*0.05;x.beginPath();x.arc(w/2,w/2,w*0.4,0,7);x.stroke();x.fillStyle='#C8A84B';x.font='800 '+(w*0.3)+'px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('G',w/2,w/2);return createImageBitmap(c);}
-const agents=[{name:'Daniel Stillson',phone:'712.739.0830'},{name:'Nic Madsen',phone:'712.650.6552'}];
+const agents=[{name:'Daniel Stillson',title:'Managing Partner',phone:'712.739.0830'},{name:'Nic Madsen',title:'VP of Commercial Sales',phone:'712.650.6552'}];
 (async()=>{await loadFonts('/');const photo=await mf(1600,1100);const logo=await coin(300);
  const exact={kicker:'For Sale',title:'1000 S Crawford Rd',city:'Sioux City, IA',subtitle:'Class B · Multifamily · 24 Units',
    stats:[{value:'$2,080,000',label:'Price'},{value:'24',label:'Units'},{value:'7%',label:'Cap Rate'}],agents,brokerage:'Gateway Real Estate Advisors'};
