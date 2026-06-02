@@ -145,6 +145,12 @@
       <p>Upload photos, enter property details, and generate a branded 30-second promo video for residential, multifamily, or commercial listings</p>
       <span class="tool-tag new">NEW</span>
     </div>
+    <div class="tool-card" onclick="navigateTo('graphics')">
+      <div class="tool-icon">🎨</div>
+      <h3>Social &amp; Mailer Graphics</h3>
+      <p>Create premium branded graphics for Instagram, Facebook, LinkedIn and print mailers — Just Listed, Just Closed, market stats and more</p>
+      <span class="tool-tag new">NEW</span>
+    </div>
   </div>
   <div class="landing-footer">
     GATEWAY REAL ESTATE ADVISORS
@@ -1406,7 +1412,96 @@
   </div>
 </div>
 
+<!-- ========== SOCIAL & MAILER GRAPHICS ========== -->
+<div id="page-graphics" class="page">
+  <style>
+    #page-graphics .g-wrap{max-width:1100px;margin:0 auto;padding:8px 0 48px}
+    #page-graphics .g-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
+    @media(max-width:860px){#page-graphics .g-grid{grid-template-columns:1fr}}
+    #page-graphics .g-label{display:block;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--brand-gray);margin:14px 0 6px}
+    #page-graphics .g-in{width:100%;box-sizing:border-box;background:rgba(255,255,255,0.04);border:1px solid rgba(162,182,192,0.25);border-radius:8px;color:var(--brand-cream);padding:9px 11px;font-size:14px;margin-bottom:8px}
+    #page-graphics .g-in::placeholder{color:rgba(162,182,192,0.5)}
+    #page-graphics .g-row{display:flex;gap:8px}
+    #page-graphics .g-row>*{flex:1}
+    #page-graphics .g-stat-row{display:flex;gap:8px}
+    #page-graphics .g-type-btn{flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(162,182,192,0.25);color:var(--brand-cream);border-radius:8px;padding:10px;cursor:pointer;font-size:13px;font-weight:600}
+    #page-graphics .g-type-btn.on{background:rgba(200,168,75,0.18);border-color:#C8A84B;color:#F5F5F3}
+    #page-graphics .g-canvas-wrap{background:#0D1117;border:1px solid rgba(162,182,192,0.25);border-radius:12px;padding:8px;display:flex;justify-content:center}
+    #page-graphics #g-canvas{max-height:560px;max-width:100%;border-radius:6px}
+    #page-graphics .g-btn{width:100%;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px}
+    #page-graphics .g-btn.primary{background:linear-gradient(135deg,#C8A84B,#a8893a);color:#0D1117}
+    #page-graphics .g-btn.ghost{background:rgba(255,255,255,0.06);border:1px solid rgba(162,182,192,0.25);color:var(--brand-cream)}
+    #page-graphics .g-mini{display:flex;gap:8px;align-items:center;margin-bottom:4px}
+    #page-graphics .g-note{font-size:11px;color:var(--brand-gray);margin-top:6px}
+  </style>
+
+  <div class="g-wrap">
+    <h2 style="text-align:center;font-size:28px;margin-bottom:6px;color:var(--brand-cream)">Social &amp; Mailer Graphics</h2>
+    <p style="text-align:center;color:var(--brand-gray);font-size:13px;margin-bottom:20px">Premium branded graphics for Instagram, Facebook, LinkedIn &amp; print mailers — built in your browser.</p>
+
+    <div class="g-grid">
+      <div>
+        <label class="g-label">Property type</label>
+        <div class="g-row">
+          <button type="button" class="g-type-btn on" data-type="commercial">Commercial</button>
+          <button type="button" class="g-type-btn" data-type="residential">Residential</button>
+        </div>
+
+        <div class="g-row">
+          <div><label class="g-label">Template</label><select id="g-template" class="g-in"></select></div>
+          <div><label class="g-label">Theme</label><select id="g-theme" class="g-in"></select></div>
+        </div>
+        <label class="g-label">Output size</label>
+        <select id="g-size" class="g-in"></select>
+
+        <label class="g-label">Headline</label>
+        <input id="g-title" class="g-in" placeholder="2600 Dodge Street">
+        <input id="g-subtitle" class="g-in" placeholder="Class A Office · 48,000 SF · Downtown">
+        <input id="g-kicker" class="g-in" placeholder="Badge — For Sale">
+
+        <label class="g-label">Photo</label>
+        <div class="g-mini">
+          <input id="g-photo" type="file" accept="image/*" class="g-in" style="margin-bottom:0;padding:6px">
+          <button id="g-photo-clear" class="g-btn ghost" type="button" style="width:auto;margin:0;padding:8px 12px">Clear</button>
+        </div>
+        <div id="g-photo-label" class="g-note"></div>
+
+        <label class="g-label">Stats</label>
+        <div id="g-stats"></div>
+
+        <label class="g-label">Agent 1</label>
+        <div class="g-row"><input id="g-a1n" class="g-in" placeholder="Agent name"><input id="g-a1p" class="g-in" placeholder="Phone"></div>
+        <div class="g-mini">
+          <input id="g-head1" type="file" accept="image/*" class="g-in" style="margin-bottom:0;padding:6px" title="Headshot">
+          <button id="g-head1-clear" class="g-btn ghost" type="button" style="width:auto;margin:0;padding:8px 12px">Clear</button>
+        </div>
+        <div id="g-head1-label" class="g-note"></div>
+
+        <label class="g-label">Agent 2 (optional — co-listing)</label>
+        <div class="g-row"><input id="g-a2n" class="g-in" placeholder="Agent name"><input id="g-a2p" class="g-in" placeholder="Phone"></div>
+        <div class="g-mini">
+          <input id="g-head2" type="file" accept="image/*" class="g-in" style="margin-bottom:0;padding:6px" title="Headshot">
+          <button id="g-head2-clear" class="g-btn ghost" type="button" style="width:auto;margin:0;padding:8px 12px">Clear</button>
+        </div>
+        <div id="g-head2-label" class="g-note"></div>
+
+        <label class="g-label">Brokerage</label>
+        <input id="g-brokerage" class="g-in" value="Gateway Real Estate Advisors">
+      </div>
+
+      <div>
+        <label class="g-label">Preview</label>
+        <div class="g-canvas-wrap"><canvas id="g-canvas" width="1080" height="1350"></canvas></div>
+        <button id="g-download" class="g-btn primary" type="button">⬇️ Download PNG (current size)</button>
+        <button id="g-download-all" class="g-btn ghost" type="button">📦 All social sizes (.zip)</button>
+        <div id="g-status" class="g-note"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ========== SYNC MODAL ========== -->
+
 <div id="sync-modal" onclick="if(event.target===this)closeSyncModal()">
   <div class="sync-modal-card">
 
@@ -1506,6 +1601,8 @@
 <script src="app/home-valuation.js" defer></script>
 <!-- Video Generator: client-side renderer (ES module graph; no build step) -->
 <script type="module" src="app/video/main.js"></script>
+<!-- Social & Mailer Graphics: client-side renderer (ES module graph) -->
+<script type="module" src="app/social/main.js"></script>
 
 </body>
 </html>
