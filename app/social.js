@@ -153,7 +153,7 @@ function initSocialBuilder() {
   renderSocialAgents();
   smMetricToggle();
   renderTemplatePresetSelect();
-  updateSocialPreview();
+  onTemplateChange();
 }
 
 function addSocialAgent() {
