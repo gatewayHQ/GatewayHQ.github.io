@@ -5,6 +5,7 @@ var socialInitialized = false;
 var invoiceInitialized = false;
 var smAgents = [];
 var smPhotos = [null, null];
+var smUnitMix = [];
 
 // ── Template Preset Save / Load / Delete ─────────────────────────────────
 var SM_PRESET_KEY = 'gw_template_presets';
@@ -47,7 +48,12 @@ function saveTemplatePreset() {
   var name = prompt('Name this template:');
   if (!name || !name.trim()) return;
   name = name.trim();
+  var umToggle = document.getElementById('sm-show-unitmix');
   var data = { name: name, palette: smPalette, fields: {}, metrics: {},
+               unitMixOn: !!(umToggle && umToggle.checked),
+               unitMix: smUnitMix.map(function(r) {
+                 return { type: r.type, units: r.units, size: r.size, rent: r.rent };
+               }),
                agents: smAgents.map(function(a) {
                  return { name: a.name, title: a.title, phone: a.phone,
                           email: a.email, license: a.license };
@@ -102,6 +108,17 @@ function loadTemplatePreset() {
     smMetricToggle();
   }
 
+  // Restore unit mix
+  smUnitMix = (preset.unitMix || []).map(function(r) {
+    return { type: r.type || '', units: r.units || '', size: r.size || '', rent: r.rent || '' };
+  });
+  smRenderUnitMix();
+  var umToggle = document.getElementById('sm-show-unitmix');
+  if (umToggle) {
+    umToggle.checked = !!preset.unitMixOn;
+    smToggleUnitMix();
+  }
+
   // Restore agents (no photos — too large to store)
   if (preset.agents && preset.agents.length) {
     smAgents = preset.agents.map(function(a) {
@@ -131,6 +148,8 @@ function deleteTemplatePreset() {
 function initSocialBuilder() {
   socialInitialized = true;
   smAgents = [{ name: '', title: '', phone: '', email: '', license: '', photo: null }];
+  smUnitMix = [];
+  smRenderUnitMix();
   renderSocialAgents();
   smMetricToggle();
   renderTemplatePresetSelect();
@@ -371,6 +390,9 @@ function onTemplateChange() {
   var metricsValues = document.getElementById('sm-metrics-values');
   if (resFields) resFields.style.display = isResidential ? 'block' : 'none';
   if (commFields) commFields.style.display = isNewCommercial ? 'block' : 'none';
+  // Unit Mix is a Premium Commercial-only option
+  var umSection = document.getElementById('sm-unitmix-section');
+  if (umSection) umSection.style.display = isPremiumComm ? 'block' : 'none';
   if (metricsSection) metricsSection.style.display = isResidential ? 'none' : '';
   if (metricsValues) metricsValues.style.display = isResidential ? 'none' : '';
   var jsSoldFields = document.getElementById('sm-just-sold-fields');
@@ -1739,6 +1761,171 @@ function onFormatChange() {
   updateSocialPreview();
 }
 
+// ── Unit Mix (Premium Commercial option) ─────────────────────────────────
+function smEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+function smRenderUnitMix() {
+  var c = document.getElementById('sm-unitmix-rows');
+  if (!c) return;
+  c.innerHTML = '';
+  smUnitMix.forEach(function(r, i) {
+    var row = document.createElement('div');
+    row.style.cssText = 'display:grid;grid-template-columns:1.6fr 0.8fr 0.9fr 1fr auto;gap:6px;margin-bottom:6px;align-items:center';
+    row.innerHTML =
+      '<input type="text" placeholder="e.g. 2BR / 2BA" value="' + smEsc(r.type) + '" oninput="smUnitMix[' + i + '].type=this.value; updateSocialPreview()">' +
+      '<input type="text" placeholder="e.g. 12" value="' + smEsc(r.units) + '" oninput="smUnitMix[' + i + '].units=this.value; updateSocialPreview()">' +
+      '<input type="text" placeholder="e.g. 950" value="' + smEsc(r.size) + '" oninput="smUnitMix[' + i + '].size=this.value; updateSocialPreview()">' +
+      '<input type="text" placeholder="e.g. $1,450" value="' + smEsc(r.rent) + '" oninput="smUnitMix[' + i + '].rent=this.value; updateSocialPreview()">' +
+      '<button type="button" title="Remove" onclick="smRemoveUnitMixRow(' + i + ')" style="background:#1E3040;border:1px solid #7a3030;color:#e07070;border-radius:4px;cursor:pointer;padding:6px 9px;line-height:1">&times;</button>';
+    c.appendChild(row);
+  });
+}
+
+function smAddUnitMixRow() {
+  smUnitMix.push({ type: '', units: '', size: '', rent: '' });
+  smRenderUnitMix();
+  updateSocialPreview();
+}
+
+function smRemoveUnitMixRow(i) {
+  smUnitMix.splice(i, 1);
+  smRenderUnitMix();
+  updateSocialPreview();
+}
+
+function smToggleUnitMix() {
+  var on = document.getElementById('sm-show-unitmix');
+  var body = document.getElementById('sm-unitmix-body');
+  var checked = !!(on && on.checked);
+  if (body) body.style.display = checked ? 'block' : 'none';
+  if (checked && smUnitMix.length === 0) {
+    smUnitMix.push({ type: '', units: '', size: '', rent: '' });
+    smRenderUnitMix();
+  }
+  updateSocialPreview();
+}
+
+// Returns the populated unit-mix rows, or [] when the option is off
+function smGetUnitMix() {
+  var on = document.getElementById('sm-show-unitmix');
+  if (!on || !on.checked) return [];
+  return smUnitMix.filter(function(r) {
+    return (r.type && r.type.trim()) || (r.units && r.units.trim()) ||
+           (r.size && r.size.trim()) || (r.rent && r.rent.trim());
+  }).slice(0, 8);
+}
+
+// Shrink a font until `text` fits `maxWidth`; truncate with an ellipsis if it
+// still overflows at the minimum size. Returns the font string + final text.
+function smFitFont(ctx, text, maxWidth, baseSize, weight, family, minSize) {
+  var size = baseSize;
+  ctx.font = weight + ' ' + size + 'px ' + family;
+  while (size > minSize && ctx.measureText(text).width > maxWidth) {
+    size -= 1;
+    ctx.font = weight + ' ' + size + 'px ' + family;
+  }
+  var t = text;
+  if (ctx.measureText(t).width > maxWidth) {
+    while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
+    t += '…';
+  }
+  return { font: weight + ' ' + size + 'px ' + family, text: t };
+}
+
+// Draws a Unit Mix table for the premium commercial templates. Anchors at
+// (x, topY), spans width `w`, and auto-shrinks (vertically via `maxH`, and
+// per-cell horizontally) so spacing never gets compromised. Returns the
+// height consumed. Pass measureOnly=true to compute height without drawing —
+// the bottom-anchored layouts need the height before they know topY.
+function drawUnitMixPanel(ctx, x, topY, w, maxH, rows, measureOnly) {
+  var GOLD = '#C8A84B', BLUE = '#A2B6C0', CREAM = '#E4E3D4';
+  var FAM = '"Montserrat", sans-serif';
+
+  var hasUnits = rows.some(function(r) { return r.units && r.units.trim(); });
+  var hasSize  = rows.some(function(r) { return r.size  && r.size.trim();  });
+  var hasRent  = rows.some(function(r) { return r.rent  && r.rent.trim();  });
+  var cols = [{ key: 'type', label: 'UNIT TYPE', align: 'left' }];
+  if (hasUnits) cols.push({ key: 'units', label: 'UNITS',  align: 'center' });
+  if (hasSize)  cols.push({ key: 'size',  label: 'AVG SF', align: 'center' });
+  if (hasRent)  cols.push({ key: 'rent',  label: 'RENT',   align: 'right'  });
+
+  // Base (unscaled) metrics
+  var padX = 24, padTop = 16, padBot = 16;
+  var titleH = 38, headerH = 30, rowH = 50;
+  var natural = padTop + titleH + headerH + rows.length * rowH + padBot;
+
+  // Vertical auto-shrink so the whole panel fits the available budget
+  var scale = natural > maxH ? Math.max(0.45, maxH / natural) : 1;
+  padTop *= scale; padBot *= scale; titleH *= scale; headerH *= scale; rowH *= scale;
+  var titleFont  = Math.round(22 * scale);
+  var headerFont = Math.max(9, Math.round(13 * scale));
+  var rowFont    = Math.round(24 * scale);
+  var totalH = padTop + titleH + headerH + rows.length * rowH + padBot;
+
+  if (measureOnly) return totalH;
+
+  // Panel card
+  ctx.fillStyle = 'rgba(255,255,255,0.07)';
+  ctx.beginPath(); roundRect(ctx, x, topY, w, totalH, 12); ctx.fill();
+  ctx.strokeStyle = 'rgba(200,168,75,0.45)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); roundRect(ctx, x, topY, w, totalH, 12); ctx.stroke();
+
+  var innerX = x + padX, innerW = w - padX * 2;
+  var nNum = cols.length - 1;
+  var typeW = nNum > 0 ? innerW * 0.42 : innerW;
+  var numW  = nNum > 0 ? (innerW - typeW) / nNum : 0;
+  function colX(i) { return i === 0 ? innerX : innerX + typeW + (i - 1) * numW; }
+  function colW(i) { return i === 0 ? typeW : numW; }
+  function alignX(c, i) {
+    return c.align === 'left'  ? colX(i)
+         : c.align === 'right' ? colX(i) + colW(i)
+         : colX(i) + colW(i) / 2;
+  }
+
+  // Title
+  var cy = topY + padTop;
+  ctx.textAlign = 'left';
+  ctx.font = '800 ' + titleFont + 'px ' + FAM; ctx.fillStyle = GOLD;
+  ctx.fillText('UNIT MIX', innerX, cy + titleFont * 0.82);
+  cy += titleH;
+
+  // Column headers
+  ctx.font = '700 ' + headerFont + 'px ' + FAM; ctx.fillStyle = BLUE;
+  cols.forEach(function(c, i) {
+    ctx.textAlign = c.align;
+    ctx.fillText(c.label, alignX(c, i), cy + headerFont * 0.82);
+  });
+  cy += headerH;
+  ctx.strokeStyle = 'rgba(200,168,75,0.35)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(innerX, cy - 4); ctx.lineTo(innerX + innerW, cy - 4); ctx.stroke();
+
+  // Data rows
+  rows.forEach(function(r, ri) {
+    var rowTop = cy + ri * rowH;
+    var baseline = rowTop + rowH * 0.66;
+    cols.forEach(function(c, i) {
+      var val = (r[c.key] || '').toString().trim();
+      if (!val && c.key === 'type') val = '—';
+      if (!val) return;
+      var fit = smFitFont(ctx, val, colW(i) - 10, rowFont,
+                          c.key === 'type' ? '600' : '700', FAM, Math.max(11, Math.round(rowFont * 0.6)));
+      ctx.font = fit.font;
+      ctx.fillStyle = (c.key === 'units' || c.key === 'rent') ? GOLD : CREAM;
+      ctx.textAlign = c.align;
+      ctx.fillText(fit.text, alignX(c, i), baseline);
+    });
+    if (ri < rows.length - 1) {
+      ctx.strokeStyle = 'rgba(162,182,192,0.15)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(innerX, rowTop + rowH); ctx.lineTo(innerX + innerW, rowTop + rowH); ctx.stroke();
+    }
+  });
+
+  return totalH;
+}
+
 // ── Collect commercial metric chips ──────────────────────────────────────
 function smGetMetrics(max) {
   var defs = [
@@ -1901,6 +2088,17 @@ async function drawCommExclusive(canvas, ctx, heading) {
       mStartX += mW + mGap;
     });
     y -= mH + 22;
+  }
+
+  // ── Unit Mix panel (optional) — auto-shrinks to fit available space ───
+  var unitMix = smGetUnitMix();
+  if (unitMix.length) {
+    var umW = W - LEFT * 2;
+    // Reserve headroom up top for price + address + property name
+    var umMaxH = Math.max(160, y - 130 - 210);
+    var umH = drawUnitMixPanel(ctx, LEFT, 0, umW, umMaxH, unitMix, true);
+    drawUnitMixPanel(ctx, LEFT, y - umH, umW, umMaxH, unitMix, false);
+    y -= umH + 26;
   }
 
   // Price — always reset textAlign to left before drawing
@@ -2068,6 +2266,16 @@ async function drawCommInvestmentAlert(canvas, ctx) {
       });
     }
     y -= totalMetH + 26;
+  }
+
+  // ── Unit Mix panel (optional) — auto-shrinks to fit available space ───
+  var unitMix = smGetUnitMix();
+  if (unitMix.length) {
+    var umW = W - LEFT * 2;
+    var umMaxH = Math.max(160, y - 130 - 210);
+    var umH = drawUnitMixPanel(ctx, LEFT, 0, umW, umMaxH, unitMix, true);
+    drawUnitMixPanel(ctx, LEFT, y - umH, umW, umMaxH, unitMix, false);
+    y -= umH + 26;
   }
 
   // ── Price ─────────────────────────────────────────────────────────────
