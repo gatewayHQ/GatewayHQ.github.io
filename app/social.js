@@ -6,6 +6,7 @@ var invoiceInitialized = false;
 var smAgents = [];
 var smPhotos = [null, null];
 var smUnitMix = [];
+var smQRImage = null;
 
 // ── Template Preset Save / Load / Delete ─────────────────────────────────
 var SM_PRESET_KEY = 'gw_template_presets';
@@ -21,7 +22,7 @@ var SM_FIELD_IDS = [
   'sm-js-unit1-label','sm-js-unit1-units','sm-js-unit1-pct',
   'sm-js-unit2-label','sm-js-unit2-units','sm-js-unit2-pct',
   'sm-js-unit3-label','sm-js-unit3-units','sm-js-unit3-pct',
-  'sm-broker-record','sm-photo1-label'
+  'sm-broker-record','sm-photo1-label','sm-qr-cta'
 ];
 
 // Cache filter value per render cycle — avoids DOM query on every canvas draw call
@@ -49,7 +50,9 @@ function saveTemplatePreset() {
   if (!name || !name.trim()) return;
   name = name.trim();
   var umToggle = document.getElementById('sm-show-unitmix');
+  var qrToggle = document.getElementById('sm-show-qr');
   var data = { name: name, palette: smPalette, fields: {}, metrics: {},
+               qrOn: !!(qrToggle && qrToggle.checked),
                unitMixOn: !!(umToggle && umToggle.checked),
                unitMix: smUnitMix.map(function(r) {
                  return { type: r.type, units: r.units, size: r.size, rent: r.rent };
@@ -119,6 +122,13 @@ function loadTemplatePreset() {
     smToggleUnitMix();
   }
 
+  // Restore QR toggle (CTA text restored via fields; image not stored)
+  var qrToggle = document.getElementById('sm-show-qr');
+  if (qrToggle) {
+    qrToggle.checked = !!preset.qrOn;
+    smToggleQR();
+  }
+
   // Restore agents (no photos — too large to store)
   if (preset.agents && preset.agents.length) {
     smAgents = preset.agents.map(function(a) {
@@ -150,6 +160,7 @@ function initSocialBuilder() {
   smAgents = [{ name: '', title: '', phone: '', email: '', license: '', photo: null }];
   smUnitMix = [];
   smRenderUnitMix();
+  smQRImage = null;
   renderSocialAgents();
   smMetricToggle();
   renderTemplatePresetSelect();
@@ -1997,6 +2008,143 @@ function withTextShadow(ctx, fn) {
   ctx.restore();
 }
 
+// ── QR Code placeholder (toggle on/off — applies to every template) ───────
+function smToggleQR() {
+  var on = document.getElementById('sm-show-qr');
+  var body = document.getElementById('sm-qr-body');
+  if (body) body.style.display = (on && on.checked) ? 'block' : 'none';
+  updateSocialPreview();
+}
+
+function handleSocialQR(input) {
+  if (!(input.files && input.files[0])) return;
+  var file = input.files[0];
+  function setImg(dataUrl) {
+    if (!dataUrl) return;
+    if (window.GW && GW.evictImage) GW.evictImage(smQRImage);
+    smQRImage = dataUrl;
+    var p = document.getElementById('sm-qr-preview');
+    if (p) p.innerHTML = '<img src="' + dataUrl + '" style="width:100%;height:100%;object-fit:contain;background:#fff">';
+    updateSocialPreview();
+  }
+  if (window.GW && GW.compressImage) {
+    GW.compressImage(file, 600, 0.92).then(setImg);
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(e) { setImg(e.target.result); };
+  reader.readAsDataURL(file);
+}
+
+function clearSocialQR() {
+  if (window.GW && GW.evictImage) GW.evictImage(smQRImage);
+  smQRImage = null;
+  var p = document.getElementById('sm-qr-preview');
+  if (p) p.innerHTML = '＋ QR<br>image';
+  var inp = document.getElementById('sm-qr-input');
+  if (inp) inp.value = '';
+  updateSocialPreview();
+}
+
+// A QR-looking placeholder motif (finder patterns + module field + a center
+// chip that flags it as a placeholder, not a scannable code).
+function drawQRMotif(ctx, x, y, size, color) {
+  var n = 11, m = size / n;
+  ctx.fillStyle = color;
+  for (var r = 0; r < n; r++) {
+    for (var c = 0; c < n; c++) {
+      if ((r < 3 && c < 3) || (r < 3 && c >= n - 3) || (r >= n - 3 && c < 3)) continue; // finder zones
+      if (((r * 7 + c * 3 + (r ^ c)) % 3) === 0) {
+        ctx.fillRect(Math.round(x + c * m + m * 0.12), Math.round(y + r * m + m * 0.12),
+                     Math.ceil(m * 0.76), Math.ceil(m * 0.76));
+      }
+    }
+  }
+  function finder(fx, fy) {
+    var s = m * 3;
+    ctx.fillStyle = color;   ctx.fillRect(fx, fy, s, s);
+    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(fx + m * 0.6, fy + m * 0.6, s - m * 1.2, s - m * 1.2);
+    ctx.fillStyle = color;   ctx.fillRect(fx + m * 1.1, fy + m * 1.1, s - m * 2.2, s - m * 2.2);
+  }
+  finder(x, y);
+  finder(x + size - m * 3, y);
+  finder(x, y + size - m * 3);
+  // Center placeholder chip
+  var chip = size * 0.30, cx = x + size / 2 - chip / 2, cy = y + size / 2 - chip / 2;
+  ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); roundRect(ctx, cx - 3, cy - 3, chip + 6, chip + 6, 6); ctx.fill();
+  ctx.fillStyle = color;     ctx.beginPath(); roundRect(ctx, cx, cy, chip, chip, 5); ctx.fill();
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = '800 ' + Math.round(chip * 0.42) + 'px "Montserrat", sans-serif';
+  ctx.fillText('QR', x + size / 2, y + size / 2 + 1);
+  ctx.textBaseline = 'alphabetic';
+}
+
+// Draws the CTA + QR code (uploaded image or placeholder) in the bottom-right.
+// Called as a final overlay after every template renders, so it works uniformly.
+async function drawQRPlaceholder(ctx, W, H) {
+  var on = document.getElementById('sm-show-qr');
+  if (!on || !on.checked) return;
+  var ctaEl = document.getElementById('sm-qr-cta');
+  var cta = ((ctaEl && ctaEl.value) || 'Scan for Photos & Pricing').trim().toUpperCase();
+
+  var GOLD = '#C8A84B', NAVY = '#0D1B22';
+  var isLandscape = W > H;
+  var qr = Math.round(Math.min(W, H) * (isLandscape ? 0.22 : 0.155));
+  qr = Math.max(92, Math.min(190, qr));
+  var margin = Math.round(W * 0.045);
+  var pad = Math.round(qr * 0.11);
+  var cardSize = qr + pad * 2;
+  var x = W - margin - cardSize;
+  var y = H - margin - cardSize;
+
+  ctx.save();
+
+  // ── CTA pill above the card ───────────────────────────────────────────
+  var fs = Math.max(13, Math.round(cardSize * 0.135));
+  ctx.font = '800 ' + fs + 'px "Montserrat", sans-serif';
+  var maxCtaW = cardSize + margin * 1.5;
+  while (fs > 10 && ctx.measureText(cta).width > maxCtaW) {
+    fs -= 1; ctx.font = '800 ' + fs + 'px "Montserrat", sans-serif';
+  }
+  var hasLS = ('letterSpacing' in ctx);
+  if (hasLS) ctx.letterSpacing = '0.5px';
+  ctx.font = '800 ' + fs + 'px "Montserrat", sans-serif';
+  var ctaW = ctx.measureText(cta).width;
+  var ctaPadX = Math.round(fs * 0.75), ctaPadY = Math.round(fs * 0.42);
+  var ctaH = fs + ctaPadY * 2, ctaPillW = ctaW + ctaPadX * 2;
+  var ctaCx = x + cardSize / 2;
+  var ctaY = y - 12 - ctaH;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 4;
+  ctx.fillStyle = GOLD;
+  ctx.beginPath(); roundRect(ctx, ctaCx - ctaPillW / 2, ctaY, ctaPillW, ctaH, ctaH / 2); ctx.fill();
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+  ctx.fillStyle = NAVY;
+  ctx.fillText(cta, ctaCx, ctaY + ctaPadY + fs * 0.78);
+  if (hasLS) ctx.letterSpacing = '0px';
+
+  // ── White card ────────────────────────────────────────────────────────
+  ctx.shadowColor = 'rgba(0,0,0,0.40)'; ctx.shadowBlur = 22; ctx.shadowOffsetY = 6;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.beginPath(); roundRect(ctx, x, y, cardSize, cardSize, Math.round(qr * 0.10)); ctx.fill();
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+
+  // ── QR image or placeholder ───────────────────────────────────────────
+  var qx = x + pad, qy = y + pad;
+  if (smQRImage) {
+    try {
+      var img = await loadImageAsync(smQRImage);
+      if (img) ctx.drawImage(img, qx, qy, qr, qr);
+      else drawQRMotif(ctx, qx, qy, qr, NAVY);
+    } catch (e) { drawQRMotif(ctx, qx, qy, qr, NAVY); }
+  } else {
+    drawQRMotif(ctx, qx, qy, qr, NAVY);
+  }
+
+  ctx.restore();
+}
+
 // ── Collect commercial metric chips ──────────────────────────────────────
 function smGetMetrics(max) {
   var defs = [
@@ -2532,7 +2680,7 @@ function downloadMailer() {
   });
 }
 
-async function updateSocialPreview() {
+async function renderSocialTemplate() {
   var canvas = document.getElementById('sm-canvas');
   var ctx = canvas.getContext('2d');
   var fmt = smCurrentFormat();
@@ -2823,6 +2971,14 @@ async function updateSocialPreview() {
   // Bottom accent line
   ctx.fillStyle = pal.accent;
   ctx.fillRect(0, H - 3, W, 3);
+}
+
+// Renders the selected template, then overlays the QR placeholder (if enabled)
+// so it appears identically on every template without per-template wiring.
+async function updateSocialPreview() {
+  await renderSocialTemplate();
+  var canvas = document.getElementById('sm-canvas');
+  if (canvas) await drawQRPlaceholder(canvas.getContext('2d'), canvas.width, canvas.height);
 }
 
 // Debounce wrapper — prevents redundant canvas redraws on every keystroke.

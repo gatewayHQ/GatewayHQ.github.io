@@ -331,6 +331,41 @@
         </div>
       </div>
 
+      <!-- QR CODE (toggle on/off — applies to every template) -->
+      <div class="form-section">
+        <h4 style="margin-bottom:6px">
+          <label style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;font:inherit;color:inherit">
+            <input type="checkbox" id="sm-show-qr" onchange="smToggleQR()" style="accent-color:#C8A84B;width:15px;height:15px">
+            QR Code <span style="font-size:11px;color:var(--brand-gray);font-weight:400">(bottom-right, all templates)</span>
+          </label>
+        </h4>
+        <div id="sm-qr-body" style="display:none">
+          <div class="form-row">
+            <label>Call-to-Action <span style="font-size:11px;color:var(--brand-gray);font-weight:400">— the text above the code</span></label>
+            <input type="text" id="sm-qr-cta" value="Scan for Photos &amp; Pricing" oninput="updateSocialPreview()">
+            <div style="font-size:10px;color:var(--brand-gray);margin-top:4px;line-height:1.5">
+              💡 Short, action-first + a clear payoff scans best. Try:
+              <span style="color:#C8A84B">Scan for Photos &amp; Pricing</span> ·
+              <span style="color:#C8A84B">Scan to Tour This Property</span> ·
+              <span style="color:#C8A84B">Scan for the Full Offering</span> ·
+              <span style="color:#C8A84B">Scan for Details &amp; Floor Plans</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start;margin-top:8px">
+            <div onclick="document.getElementById('sm-qr-input').click()" title="Upload your QR code image (optional)"
+                 style="width:84px;height:84px;flex:0 0 auto;border:1px dashed var(--input-border);border-radius:8px;background:var(--input-bg);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden">
+              <div id="sm-qr-preview" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--brand-gray);font-size:11px;text-align:center;padding:4px">＋ QR<br>image</div>
+              <input type="file" id="sm-qr-input" accept="image/*" style="display:none" onchange="handleSocialQR(this)">
+            </div>
+            <div style="font-size:11px;color:var(--brand-gray);line-height:1.6">
+              Optional: upload your real QR code image to drop it straight into the design.
+              Leave empty to render a placeholder you can overlay later.
+              <button type="button" onclick="clearSocialQR()" style="display:block;margin-top:6px;font-size:11px;padding:4px 10px;background:transparent;border:1px solid var(--input-border);color:var(--brand-gray);border-radius:6px;cursor:pointer">Clear image</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="form-section">
         <h4>Color Palette</h4>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
