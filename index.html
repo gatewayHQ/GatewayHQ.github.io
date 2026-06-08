@@ -341,7 +341,16 @@
         </h4>
         <div id="sm-qr-body" style="display:none">
           <div class="form-row">
-            <label>Call-to-Action <span style="font-size:11px;color:var(--brand-gray);font-weight:400">— the text above the code</span></label>
+            <label>Position <span style="font-size:11px;color:var(--brand-gray);font-weight:400">— move it to dodge agents or other content</span></label>
+            <select id="sm-qr-pos" onchange="updateSocialPreview()">
+              <option value="br">Bottom Right (default)</option>
+              <option value="bl">Bottom Left</option>
+              <option value="tr">Top Right</option>
+              <option value="tl">Top Left</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Call-to-Action <span style="font-size:11px;color:var(--brand-gray);font-weight:400">— the text shown with the code</span></label>
             <input type="text" id="sm-qr-cta" value="Scan for Photos &amp; Pricing" oninput="updateSocialPreview()">
             <div style="font-size:10px;color:var(--brand-gray);margin-top:4px;line-height:1.5">
               💡 Short, action-first + a clear payoff scans best. Try:
