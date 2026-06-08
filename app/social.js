@@ -1944,6 +1944,59 @@ function drawUnitMixPanel(ctx, x, topY, w, maxH, rows, measureOnly) {
   return totalH;
 }
 
+// ── Premium template shared helpers ──────────────────────────────────────
+// A soft top scrim so the badge + logo stay legible over bright skies, while
+// leaving the middle of the photo (the building) untouched.
+function drawPremiumTopScrim(ctx, W, H, rgbPrefix) {
+  var h = Math.round(H * 0.22);
+  var g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, rgbPrefix + '0.55)');
+  g.addColorStop(0.55, rgbPrefix + '0.22)');
+  g.addColorStop(1, rgbPrefix + '0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, h);
+}
+
+// High-contrast status badge: a solid gold pill with dark navy text. Reads
+// instantly on any photo (bright or dark) — built for print/mailers.
+// Returns the pill's width/height so callers can place elements relative to it.
+function drawPremiumBadge(ctx, text, x, topY, GOLD) {
+  var NAVY = '#0D1B22';
+  var fs = 30, padX = 24, padY = 14;
+  var hasLS = ('letterSpacing' in ctx);
+  ctx.save();
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  if (hasLS) ctx.letterSpacing = '2px';
+  ctx.font = '800 ' + fs + 'px "Montserrat", sans-serif';
+  var tw = ctx.measureText(text).width;
+  var pillW = tw + padX * 2, pillH = fs + padY * 2;
+  // Drop shadow for separation from the photo
+  ctx.shadowColor = 'rgba(0,0,0,0.40)';
+  ctx.shadowBlur = 20;
+  ctx.shadowOffsetY = 5;
+  ctx.fillStyle = GOLD;
+  ctx.beginPath(); roundRect(ctx, x, topY, pillW, pillH, 9); ctx.fill();
+  // Text (no shadow)
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+  ctx.fillStyle = NAVY;
+  ctx.fillText(text, x + padX, topY + padY + fs * 0.78);
+  if (hasLS) ctx.letterSpacing = '0px';
+  ctx.restore();
+  return { w: pillW, h: pillH };
+}
+
+// Run a draw callback with a soft dark text shadow applied — keeps light text
+// readable where the gradient is intentionally gentle (over the photo).
+function withTextShadow(ctx, fn) {
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.55)';
+  ctx.shadowBlur = 14;
+  ctx.shadowOffsetY = 2;
+  fn();
+  ctx.restore();
+}
+
 // ── Collect commercial metric chips ──────────────────────────────────────
 function smGetMetrics(max) {
   var defs = [
@@ -2001,30 +2054,33 @@ async function drawCommExclusive(canvas, ctx, heading) {
   }
 
   // ── Dark gradient overlay ─────────────────────────────────────────────
+  // Keep the photo (building) bright through the upper-middle, ramp to a
+  // strong scrim only in the bottom third where the text actually sits.
   var grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0,    'rgba(8,16,22,0.12)');
-  grad.addColorStop(0.40, 'rgba(8,16,22,0.25)');
-  grad.addColorStop(0.68, 'rgba(8,16,22,0.88)');
-  grad.addColorStop(1,    'rgba(8,16,22,0.98)');
+  grad.addColorStop(0,    'rgba(8,16,22,0.00)');
+  grad.addColorStop(0.40, 'rgba(8,16,22,0.03)');
+  grad.addColorStop(0.55, 'rgba(8,16,22,0.28)');
+  grad.addColorStop(0.68, 'rgba(8,16,22,0.82)');
+  grad.addColorStop(1,    'rgba(8,16,22,0.97)');
   ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
 
-  // ── TOP: gold edge + badge + logo ─────────────────────────────────────
+  // ── TOP: gold edge + top scrim + badge + logo ─────────────────────────
   ctx.fillStyle = GOLD; ctx.fillRect(0, 0, W, 6);
+  drawPremiumTopScrim(ctx, W, H, 'rgba(8,16,22,');
 
   var badgeText = heading === 'comm-exclusive'        ? 'EXCLUSIVELY OFFERED' :
                   heading === 'comm-just-sold-premium' ? 'JUST SOLD' :
                   heading.replace('comm-','').replace(/-/g,' ').toUpperCase();
-  ctx.textAlign = 'left';
-  ctx.font = '800 34px "Montserrat", sans-serif'; ctx.fillStyle = GOLD;
-  ctx.fillText(badgeText, LEFT, 68);
-  ctx.strokeStyle = GOLD; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(LEFT, 77); ctx.lineTo(LEFT + ctx.measureText(badgeText).width, 77); ctx.stroke();
+  drawPremiumBadge(ctx, badgeText, LEFT, 26, GOLD);
 
   try {
     var lSrc = LOGO_WORDMARK_LIGHT || LOGO_CIRCLE_LIGHT;
     var lImg = await loadImageAsync(lSrc);
     var lH = 60, lW = lH * (lImg.width / lImg.height);
-    ctx.drawImage(lImg, W - LEFT - lW, 16, lW, lH);
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 3;
+    ctx.drawImage(lImg, W - LEFT - lW, 22, lW, lH);
+    ctx.restore();
   } catch(e) {}
 
   // ── BOTTOM CONTENT — drawn bottom → top with explicit textAlign ───────
@@ -2122,33 +2178,41 @@ async function drawCommExclusive(canvas, ctx, heading) {
   // Price — always reset textAlign to left before drawing
   ctx.textAlign = 'left';
   if (f.price) {
-    ctx.font = '300 52px "Montserrat", sans-serif'; ctx.fillStyle = GOLD;
-    ctx.fillText(f.price, LEFT, y); y -= 64;
+    withTextShadow(ctx, function() {
+      ctx.font = '300 52px "Montserrat", sans-serif'; ctx.fillStyle = GOLD;
+      ctx.fillText(f.price, LEFT, y);
+    });
+    y -= 64;
   }
 
   // Address — only show if different from property name
   ctx.textAlign = 'left';
   if (f.address && f.address !== f.propName) {
-    ctx.font = '500 22px "Montserrat", sans-serif'; ctx.fillStyle = BLUE;
-    ctx.fillText(f.address.toUpperCase(), LEFT, y); y -= 44;
+    withTextShadow(ctx, function() {
+      ctx.font = '500 22px "Montserrat", sans-serif'; ctx.fillStyle = BLUE;
+      ctx.fillText(f.address.toUpperCase(), LEFT, y);
+    });
+    y -= 44;
   }
 
   // Property name — serif italic, always textAlign = left
   var nameText = f.propName || f.address || 'Property Name';
   ctx.textAlign = 'left';
-  ctx.font = 'italic 600 60px "EB Garamond", Georgia, serif'; ctx.fillStyle = CREAM;
-  var nmW = W - LEFT * 2;
-  if (ctx.measureText(nameText).width > nmW) {
-    var words = nameText.split(' '), line = '';
-    words.forEach(function(w) {
-      var test = line + (line ? ' ' : '') + w;
-      if (ctx.measureText(test).width > nmW && line) { ctx.fillText(line, LEFT, y); line = w; y -= 70; }
-      else { line = test; }
-    });
-    ctx.fillText(line, LEFT, y);
-  } else {
-    ctx.fillText(nameText, LEFT, y);
-  }
+  withTextShadow(ctx, function() {
+    ctx.font = 'italic 600 60px "EB Garamond", Georgia, serif'; ctx.fillStyle = CREAM;
+    var nmW = W - LEFT * 2;
+    if (ctx.measureText(nameText).width > nmW) {
+      var words = nameText.split(' '), line = '';
+      words.forEach(function(w) {
+        var test = line + (line ? ' ' : '') + w;
+        if (ctx.measureText(test).width > nmW && line) { ctx.fillText(line, LEFT, y); line = w; y -= 70; }
+        else { line = test; }
+      });
+      ctx.fillText(line, LEFT, y);
+    } else {
+      ctx.fillText(nameText, LEFT, y);
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2178,28 +2242,29 @@ async function drawCommInvestmentAlert(canvas, ctx) {
     ctx.fillText('Property Photo', W/2, H/2);
   }
 
-  // ── Dark gradient — clears top, heavy bottom ───────────────────────────
+  // ── Dark gradient — keep building bright, ramp to scrim near the text ──
   var grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0,    'rgba(6,13,18,0.10)');
-  grad.addColorStop(0.28, 'rgba(6,13,18,0.22)');
-  grad.addColorStop(0.52, 'rgba(6,13,18,0.78)');
+  grad.addColorStop(0,    'rgba(6,13,18,0.00)');
+  grad.addColorStop(0.38, 'rgba(6,13,18,0.04)');
+  grad.addColorStop(0.52, 'rgba(6,13,18,0.34)');
+  grad.addColorStop(0.66, 'rgba(6,13,18,0.84)');
   grad.addColorStop(1,    'rgba(6,13,18,0.97)');
   ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
 
-  // ── TOP: gold accent bar + badge + logo ────────────────────────────────
+  // ── TOP: gold accent bar + top scrim + badge + logo ────────────────────
   ctx.fillStyle = GOLD; ctx.fillRect(0, 0, W, 6);
+  drawPremiumTopScrim(ctx, W, H, 'rgba(6,13,18,');
 
-  ctx.textAlign = 'left';
-  ctx.font = '800 34px "Montserrat", sans-serif'; ctx.fillStyle = GOLD;
-  ctx.fillText('INVESTMENT ALERT', LEFT, 66);
-  ctx.strokeStyle = GOLD; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(LEFT, 75); ctx.lineTo(LEFT + ctx.measureText('INVESTMENT ALERT').width, 75); ctx.stroke();
+  drawPremiumBadge(ctx, 'INVESTMENT ALERT', LEFT, 26, GOLD);
 
   try {
     var lSrc = LOGO_WORDMARK_LIGHT || LOGO_CIRCLE_LIGHT;
     var lImg = await loadImageAsync(lSrc);
     var lH = 60, lW = lH * (lImg.width / lImg.height);
-    ctx.drawImage(lImg, W - LEFT - lW, 14, lW, lH);
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 3;
+    ctx.drawImage(lImg, W - LEFT - lW, 22, lW, lH);
+    ctx.restore();
   } catch(e) {}
 
   // ── BOTTOM CONTENT — built bottom → top ───────────────────────────────
@@ -2299,32 +2364,40 @@ async function drawCommInvestmentAlert(canvas, ctx) {
   // ── Price ─────────────────────────────────────────────────────────────
   ctx.textAlign = 'left';
   if (f.price) {
-    ctx.font = '300 52px "Montserrat", sans-serif'; ctx.fillStyle = GOLD;
-    ctx.fillText(f.price, LEFT, y); y -= 66;
+    withTextShadow(ctx, function() {
+      ctx.font = '300 52px "Montserrat", sans-serif'; ctx.fillStyle = GOLD;
+      ctx.fillText(f.price, LEFT, y);
+    });
+    y -= 66;
   }
 
   // ── Address (if different from name) ──────────────────────────────────
   if (f.address && f.address !== f.propName) {
-    ctx.font = '500 22px "Montserrat", sans-serif'; ctx.fillStyle = BLUE;
-    ctx.fillText(f.address.toUpperCase(), LEFT, y); y -= 46;
+    withTextShadow(ctx, function() {
+      ctx.font = '500 22px "Montserrat", sans-serif'; ctx.fillStyle = BLUE;
+      ctx.fillText(f.address.toUpperCase(), LEFT, y);
+    });
+    y -= 46;
   }
 
   // ── Property name — large serif italic ────────────────────────────────
   var nameText = f.propName || f.address || 'Property Name';
   ctx.textAlign = 'left';
-  ctx.font = 'italic 600 60px "EB Garamond", Georgia, serif'; ctx.fillStyle = CREAM;
-  var nmW = W - LEFT * 2;
-  if (ctx.measureText(nameText).width > nmW) {
-    var words = nameText.split(' '), line = '';
-    words.forEach(function(w) {
-      var test = line + (line ? ' ' : '') + w;
-      if (ctx.measureText(test).width > nmW && line) { ctx.fillText(line, LEFT, y); line = w; y -= 70; }
-      else line = test;
-    });
-    ctx.fillText(line, LEFT, y);
-  } else {
-    ctx.fillText(nameText, LEFT, y);
-  }
+  withTextShadow(ctx, function() {
+    ctx.font = 'italic 600 60px "EB Garamond", Georgia, serif'; ctx.fillStyle = CREAM;
+    var nmW = W - LEFT * 2;
+    if (ctx.measureText(nameText).width > nmW) {
+      var words = nameText.split(' '), line = '';
+      words.forEach(function(w) {
+        var test = line + (line ? ' ' : '') + w;
+        if (ctx.measureText(test).width > nmW && line) { ctx.fillText(line, LEFT, y); line = w; y -= 70; }
+        else line = test;
+      });
+      ctx.fillText(line, LEFT, y);
+    } else {
+      ctx.fillText(nameText, LEFT, y);
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
