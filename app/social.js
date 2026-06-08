@@ -22,7 +22,7 @@ var SM_FIELD_IDS = [
   'sm-js-unit1-label','sm-js-unit1-units','sm-js-unit1-pct',
   'sm-js-unit2-label','sm-js-unit2-units','sm-js-unit2-pct',
   'sm-js-unit3-label','sm-js-unit3-units','sm-js-unit3-pct',
-  'sm-broker-record','sm-photo1-label','sm-qr-cta'
+  'sm-broker-record','sm-photo1-label','sm-qr-cta','sm-qr-pos'
 ];
 
 // Cache filter value per render cycle — avoids DOM query on every canvas draw call
@@ -2095,26 +2095,40 @@ async function drawQRPlaceholder(ctx, W, H) {
   var margin = Math.round(W * 0.045);
   var pad = Math.round(qr * 0.11);
   var cardSize = qr + pad * 2;
-  var x = W - margin - cardSize;
-  var y = H - margin - cardSize;
 
-  ctx.save();
-
-  // ── CTA pill above the card ───────────────────────────────────────────
+  // Position: bottom-right (default), bottom-left, top-right, top-left.
+  // CTA needs vertical room, so reserve space and flip it below the card up top.
+  var posEl = document.getElementById('sm-qr-pos');
+  var pos = (posEl && posEl.value) || 'br';
+  var isTop = (pos === 'tr' || pos === 'tl');
+  var isLeft = (pos === 'bl' || pos === 'tl');
+  // Compute CTA height first so top placement can leave room above the card.
   var fs = Math.max(13, Math.round(cardSize * 0.135));
   ctx.font = '800 ' + fs + 'px "Montserrat", sans-serif';
   var maxCtaW = cardSize + margin * 1.5;
   while (fs > 10 && ctx.measureText(cta).width > maxCtaW) {
     fs -= 1; ctx.font = '800 ' + fs + 'px "Montserrat", sans-serif';
   }
+  var ctaPadX = Math.round(fs * 0.75), ctaPadY = Math.round(fs * 0.42);
+  var ctaH = fs + ctaPadY * 2;
+  var ctaGap = 12;
+
+  var x = isLeft ? margin : W - margin - cardSize;
+  // Leave room for the CTA: at the top the CTA sits below the card, so the
+  // card itself drops by (ctaH + gap) to keep the CTA clear of the gold bar.
+  var topInset = margin + (isTop ? ctaH + ctaGap : 0);
+  var y = isTop ? topInset : H - margin - cardSize;
+
+  ctx.save();
+
+  // ── CTA pill (above the card for bottom positions, below for top) ─────
   var hasLS = ('letterSpacing' in ctx);
   if (hasLS) ctx.letterSpacing = '0.5px';
   ctx.font = '800 ' + fs + 'px "Montserrat", sans-serif';
   var ctaW = ctx.measureText(cta).width;
-  var ctaPadX = Math.round(fs * 0.75), ctaPadY = Math.round(fs * 0.42);
-  var ctaH = fs + ctaPadY * 2, ctaPillW = ctaW + ctaPadX * 2;
+  var ctaPillW = ctaW + ctaPadX * 2;
   var ctaCx = x + cardSize / 2;
-  var ctaY = y - 12 - ctaH;
+  var ctaY = isTop ? (y + cardSize + ctaGap) : (y - ctaGap - ctaH);
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 4;
   ctx.fillStyle = GOLD;
