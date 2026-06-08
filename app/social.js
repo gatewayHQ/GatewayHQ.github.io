@@ -390,9 +390,18 @@ function onTemplateChange() {
   var metricsValues = document.getElementById('sm-metrics-values');
   if (resFields) resFields.style.display = isResidential ? 'block' : 'none';
   if (commFields) commFields.style.display = isNewCommercial ? 'block' : 'none';
-  // Unit Mix is a Premium Commercial-only option
-  var umSection = document.getElementById('sm-unitmix-section');
-  if (umSection) umSection.style.display = isPremiumComm ? 'block' : 'none';
+  // Unit Mix chip lives inside the Metrics Selector and is Premium Commercial-only
+  var umChip = document.getElementById('sm-show-unitmix-chip');
+  if (umChip) umChip.style.display = isPremiumComm ? 'flex' : 'none';
+  if (!isPremiumComm) {
+    var umBody = document.getElementById('sm-unitmix-body');
+    if (umBody) umBody.style.display = 'none';
+  } else {
+    // Re-sync body visibility with the chip checkbox when switching back
+    var umTog = document.getElementById('sm-show-unitmix');
+    var umBody2 = document.getElementById('sm-unitmix-body');
+    if (umTog && umBody2) umBody2.style.display = umTog.checked ? 'block' : 'none';
+  }
   if (metricsSection) metricsSection.style.display = isResidential ? 'none' : '';
   if (metricsValues) metricsValues.style.display = isResidential ? 'none' : '';
   var jsSoldFields = document.getElementById('sm-just-sold-fields');
@@ -1771,15 +1780,24 @@ function smRenderUnitMix() {
   var c = document.getElementById('sm-unitmix-rows');
   if (!c) return;
   c.innerHTML = '';
+  // Inputs styled to match .form-row input — same bg, border, padding, radius
+  var inputCss = 'width:100%;padding:8px 10px;background:var(--input-bg);border:1px solid var(--input-border);' +
+                 'border-radius:8px;color:var(--brand-white);font-family:\'Montserrat\',sans-serif;font-size:13px;outline:none;box-sizing:border-box';
+  var removeBtnCss = 'background:transparent;border:1px solid var(--input-border);color:var(--brand-gray);' +
+                     'border-radius:8px;cursor:pointer;padding:6px 10px;line-height:1;font-size:16px;height:34px;' +
+                     'transition:border-color .15s,color .15s';
   smUnitMix.forEach(function(r, i) {
     var row = document.createElement('div');
     row.style.cssText = 'display:grid;grid-template-columns:1.6fr 0.8fr 0.9fr 1fr auto;gap:6px;margin-bottom:6px;align-items:center';
     row.innerHTML =
-      '<input type="text" placeholder="e.g. 2BR / 2BA" value="' + smEsc(r.type) + '" oninput="smUnitMix[' + i + '].type=this.value; updateSocialPreview()">' +
-      '<input type="text" placeholder="e.g. 12" value="' + smEsc(r.units) + '" oninput="smUnitMix[' + i + '].units=this.value; updateSocialPreview()">' +
-      '<input type="text" placeholder="e.g. 950" value="' + smEsc(r.size) + '" oninput="smUnitMix[' + i + '].size=this.value; updateSocialPreview()">' +
-      '<input type="text" placeholder="e.g. $1,450" value="' + smEsc(r.rent) + '" oninput="smUnitMix[' + i + '].rent=this.value; updateSocialPreview()">' +
-      '<button type="button" title="Remove" onclick="smRemoveUnitMixRow(' + i + ')" style="background:#1E3040;border:1px solid #7a3030;color:#e07070;border-radius:4px;cursor:pointer;padding:6px 9px;line-height:1">&times;</button>';
+      '<input type="text" style="' + inputCss + '" placeholder="e.g. 2BR / 2BA" value="' + smEsc(r.type) + '" oninput="smUnitMix[' + i + '].type=this.value; updateSocialPreview()">' +
+      '<input type="text" style="' + inputCss + '" placeholder="e.g. 12" value="' + smEsc(r.units) + '" oninput="smUnitMix[' + i + '].units=this.value; updateSocialPreview()">' +
+      '<input type="text" style="' + inputCss + '" placeholder="e.g. 950" value="' + smEsc(r.size) + '" oninput="smUnitMix[' + i + '].size=this.value; updateSocialPreview()">' +
+      '<input type="text" style="' + inputCss + '" placeholder="e.g. $1,450" value="' + smEsc(r.rent) + '" oninput="smUnitMix[' + i + '].rent=this.value; updateSocialPreview()">' +
+      '<button type="button" title="Remove unit type" onclick="smRemoveUnitMixRow(' + i + ')" ' +
+        'onmouseover="this.style.borderColor=\'#7a3030\';this.style.color=\'#e07070\'" ' +
+        'onmouseout="this.style.borderColor=\'\';this.style.color=\'\'" ' +
+        'style="' + removeBtnCss + '">&times;</button>';
     c.appendChild(row);
   });
 }

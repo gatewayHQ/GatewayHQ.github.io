@@ -279,6 +279,7 @@
           <div class="toggle-row"><input type="checkbox" id="sm-show-prop-class" onchange="smMetricToggle()"><label for="sm-show-prop-class">Property Class</label></div>
           <div class="toggle-row"><input type="checkbox" id="sm-show-financing" onchange="smMetricToggle()"><label for="sm-show-financing">Financing Available</label></div>
           <div class="toggle-row"><input type="checkbox" id="sm-show-sf" onchange="smMetricToggle()"><label for="sm-show-sf">SF / Acreage</label></div>
+          <div class="toggle-row" id="sm-show-unitmix-chip" style="display:none"><input type="checkbox" id="sm-show-unitmix" onchange="smToggleUnitMix()"><label for="sm-show-unitmix">Unit Mix</label></div>
         </div>
         <div id="sm-metrics-values" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px">
           <div class="form-row" id="sm-price-unit-row" style="display:none"><label style="font-size:11px">Price/Unit</label><input type="text" id="sm-price-unit" placeholder="e.g. $85,000" oninput="updateSocialPreview()"></div>
@@ -297,26 +298,16 @@
           <div class="form-row" id="sm-prop-class-row" style="display:none"><label style="font-size:11px">Property Class</label><select id="sm-prop-class" onchange="updateSocialPreview()"><option value="Class A">Class A</option><option value="Class B">Class B</option><option value="Class C">Class C</option><option value="Class D">Class D</option></select></div>
           <div class="form-row" id="sm-financing-row" style="display:none"><label style="font-size:11px">Financing</label><input type="text" id="sm-financing" placeholder="e.g. Assumable 5.5% Loan" oninput="updateSocialPreview()"></div>
           <div class="form-row" id="sm-sf-row" style="display:none"><label style="font-size:11px">SF / Acreage</label><input type="text" id="sm-sf" placeholder="e.g. ±70,100 NRSF" oninput="updateSocialPreview()"></div>
+          <div class="form-row" id="sm-unitmix-body" style="display:none;grid-column:1/-1;margin-bottom:0">
+            <label style="font-size:11px">Unit Mix Rows</label>
+            <div id="sm-unitmix-head" style="display:grid;grid-template-columns:1.6fr 0.8fr 0.9fr 1fr auto;gap:6px;margin:2px 0 6px;font-size:10px;color:var(--brand-gray);text-transform:uppercase;letter-spacing:.04em">
+              <span>Unit Type</span><span># Units</span><span>Avg SF</span><span>Rent</span><span></span>
+            </div>
+            <div id="sm-unitmix-rows"></div>
+            <button type="button" id="sm-unitmix-add" onclick="smAddUnitMixRow()" style="font-size:12px;padding:6px 14px;margin-top:6px;background:#1E3040;border:1px solid #C8A84B;color:#C8A84B;border-radius:6px;cursor:pointer;font-family:'Montserrat',sans-serif">+ Add Unit Type</button>
+          </div>
         </div>
         <div style="margin-top:6px"><label style="font-size:12px;cursor:pointer;color:var(--brand-gray)"><input type="checkbox" id="sm-condensed" onchange="updateSocialPreview()" style="margin-right:4px"> Condensed layout (smaller metrics)</label></div>
-      </div>
-
-      <!-- UNIT MIX (Premium Commercial templates only) -->
-      <div class="form-section" id="sm-unitmix-section" style="display:none">
-        <h4 style="margin-bottom:6px">
-          <label style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;font:inherit;color:inherit">
-            <input type="checkbox" id="sm-show-unitmix" onchange="smToggleUnitMix()" style="accent-color:#C8A84B;width:15px;height:15px">
-            Unit Mix <span style="font-size:11px;color:var(--brand-gray);font-weight:400">(Premium Commercial templates)</span>
-          </label>
-        </h4>
-        <div id="sm-unitmix-body" style="display:none">
-          <p style="font-size:11px;color:var(--brand-gray);margin:0 0 8px">Break down units by type. Text auto-shrinks to fit the graphic, so spacing stays clean no matter how many rows you add.</p>
-          <div id="sm-unitmix-head" style="display:grid;grid-template-columns:1.6fr 0.8fr 0.9fr 1fr auto;gap:6px;margin-bottom:4px;font-size:10px;color:var(--brand-gray);text-transform:uppercase;letter-spacing:.04em">
-            <span>Unit Type</span><span># Units</span><span>Avg SF</span><span>Rent</span><span></span>
-          </div>
-          <div id="sm-unitmix-rows"></div>
-          <button type="button" id="sm-unitmix-add" onclick="smAddUnitMixRow()" style="font-size:12px;padding:5px 12px;margin-top:4px;background:#1E3040;border:1px solid #C8A84B;color:#C8A84B;border-radius:4px;cursor:pointer">+ Add Unit Type</button>
-        </div>
       </div>
 
       <div class="form-section">
