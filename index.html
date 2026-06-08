@@ -259,6 +259,24 @@
         </div>
       </div>
 
+      <!-- UNIT MIX (Premium Commercial templates only) -->
+      <div class="form-section" id="sm-unitmix-section" style="display:none">
+        <h4 style="margin-bottom:6px">
+          <label style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;font:inherit;color:inherit">
+            <input type="checkbox" id="sm-show-unitmix" onchange="smToggleUnitMix()" style="accent-color:#C8A84B;width:15px;height:15px">
+            Unit Mix
+          </label>
+        </h4>
+        <div id="sm-unitmix-body" style="display:none">
+          <p style="font-size:11px;color:var(--brand-gray);margin:0 0 8px">Break down units by type. Text auto-shrinks to fit the graphic, so spacing stays clean no matter how many rows you add.</p>
+          <div id="sm-unitmix-head" style="display:grid;grid-template-columns:1.6fr 0.8fr 0.9fr 1fr auto;gap:6px;margin-bottom:4px;font-size:10px;color:var(--brand-gray);text-transform:uppercase;letter-spacing:.04em">
+            <span>Unit Type</span><span># Units</span><span>Avg SF</span><span>Rent</span><span></span>
+          </div>
+          <div id="sm-unitmix-rows"></div>
+          <button type="button" id="sm-unitmix-add" onclick="smAddUnitMixRow()" style="font-size:12px;padding:5px 12px;margin-top:4px;background:#1E3040;border:1px solid #C8A84B;color:#C8A84B;border-radius:4px;cursor:pointer">+ Add Unit Type</button>
+        </div>
+      </div>
+
       <div class="form-section">
         <h4>Metrics Selector <span id="sm-metrics-count" style="font-size:11px;color:var(--brand-gray);font-weight:400"></span></h4>
         <div id="sm-metrics-warn" style="display:none;margin-bottom:8px;padding:6px 10px;border-radius:6px;background:rgba(255,193,7,0.12);color:#FFC107;font-size:12px"></div>
