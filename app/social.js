@@ -7,6 +7,12 @@ var smAgents = [];
 var smPhotos = [null, null];
 var smUnitMix = [];
 var smQRImage = null;
+// QR placement state: anchor preset ('br'|'bl'|'tr'|'tl'|'custom'),
+// custom normalized center (cx,cy), and size scale. smQRRect is the last-drawn
+// grab area (canvas px) used for drag hit-testing; _smQRDrag is the live drag.
+var smQR = { anchor: 'br', cx: null, cy: null, scale: 1 };
+var smQRRect = null;
+var _smQRDrag = null;
 
 // ── Template Preset Save / Load / Delete ─────────────────────────────────
 var SM_PRESET_KEY = 'gw_template_presets';
@@ -53,6 +59,7 @@ function saveTemplatePreset() {
   var qrToggle = document.getElementById('sm-show-qr');
   var data = { name: name, palette: smPalette, fields: {}, metrics: {},
                qrOn: !!(qrToggle && qrToggle.checked),
+               qrAnchor: smQR.anchor, qrCx: smQR.cx, qrCy: smQR.cy, qrScale: smQR.scale,
                unitMixOn: !!(umToggle && umToggle.checked),
                unitMix: smUnitMix.map(function(r) {
                  return { type: r.type, units: r.units, size: r.size, rent: r.rent };
@@ -122,7 +129,19 @@ function loadTemplatePreset() {
     smToggleUnitMix();
   }
 
-  // Restore QR toggle (CTA text restored via fields; image not stored)
+  // Restore QR toggle + placement (CTA text restored via fields; image not stored)
+  smQR = {
+    anchor: preset.qrAnchor || 'br',
+    cx: (preset.qrCx == null ? null : preset.qrCx),
+    cy: (preset.qrCy == null ? null : preset.qrCy),
+    scale: preset.qrScale || 1
+  };
+  var qrPosSel = document.getElementById('sm-qr-pos');
+  if (qrPosSel) qrPosSel.value = smQR.anchor;
+  var qrSizeEl = document.getElementById('sm-qr-size');
+  if (qrSizeEl) qrSizeEl.value = Math.round(smQR.scale * 100);
+  var qrSizeLbl = document.getElementById('sm-qr-size-val');
+  if (qrSizeLbl) qrSizeLbl.textContent = Math.round(smQR.scale * 100) + '%';
   var qrToggle = document.getElementById('sm-show-qr');
   if (qrToggle) {
     qrToggle.checked = !!preset.qrOn;
@@ -161,9 +180,11 @@ function initSocialBuilder() {
   smUnitMix = [];
   smRenderUnitMix();
   smQRImage = null;
+  smQR = { anchor: 'br', cx: null, cy: null, scale: 1 };
   renderSocialAgents();
   smMetricToggle();
   renderTemplatePresetSelect();
+  smInitQRDrag();
   onTemplateChange();
 }
 
@@ -2084,25 +2105,20 @@ function drawQRMotif(ctx, x, y, size, color) {
 // Called as a final overlay after every template renders, so it works uniformly.
 async function drawQRPlaceholder(ctx, W, H) {
   var on = document.getElementById('sm-show-qr');
-  if (!on || !on.checked) return;
+  if (!on || !on.checked) { smQRRect = null; return; }
   var ctaEl = document.getElementById('sm-qr-cta');
   var cta = ((ctaEl && ctaEl.value) || 'Scan for Photos & Pricing').trim().toUpperCase();
 
   var GOLD = '#C8A84B', NAVY = '#0D1B22';
-  var isLandscape = W > H;
-  var qr = Math.round(Math.min(W, H) * (isLandscape ? 0.22 : 0.155));
-  qr = Math.max(92, Math.min(190, qr));
+  var base = Math.round(Math.min(W, H) * (W > H ? 0.22 : 0.155));
+  base = Math.max(92, Math.min(190, base));
+  var scale = smQR.scale || 1;
+  var qr = Math.round(base * scale);
   var margin = Math.round(W * 0.045);
   var pad = Math.round(qr * 0.11);
   var cardSize = qr + pad * 2;
 
-  // Position: bottom-right (default), bottom-left, top-right, top-left.
-  // CTA needs vertical room, so reserve space and flip it below the card up top.
-  var posEl = document.getElementById('sm-qr-pos');
-  var pos = (posEl && posEl.value) || 'br';
-  var isTop = (pos === 'tr' || pos === 'tl');
-  var isLeft = (pos === 'bl' || pos === 'tl');
-  // Compute CTA height first so top placement can leave room above the card.
+  // CTA font sizing (auto-shrinks to ~card width)
   var fs = Math.max(13, Math.round(cardSize * 0.135));
   ctx.font = '800 ' + fs + 'px "Montserrat", sans-serif';
   var maxCtaW = cardSize + margin * 1.5;
@@ -2110,25 +2126,42 @@ async function drawQRPlaceholder(ctx, W, H) {
     fs -= 1; ctx.font = '800 ' + fs + 'px "Montserrat", sans-serif';
   }
   var ctaPadX = Math.round(fs * 0.75), ctaPadY = Math.round(fs * 0.42);
-  var ctaH = fs + ctaPadY * 2;
-  var ctaGap = 12;
+  var ctaH = fs + ctaPadY * 2, ctaGap = 12;
 
-  var x = isLeft ? margin : W - margin - cardSize;
-  // Leave room for the CTA: at the top the CTA sits below the card, so the
-  // card itself drops by (ctaH + gap) to keep the CTA clear of the gold bar.
-  var topInset = margin + (isTop ? ctaH + ctaGap : 0);
-  var y = isTop ? topInset : H - margin - cardSize;
+  // Card top-left from anchor preset or custom drag center
+  var anchor = smQR.anchor || 'br';
+  var x, y;
+  if (anchor === 'custom' && smQR.cx != null) {
+    x = smQR.cx * W - cardSize / 2;
+    y = smQR.cy * H - cardSize / 2;
+  } else {
+    var isTop = (anchor === 'tr' || anchor === 'tl');
+    var isLeft = (anchor === 'bl' || anchor === 'tl');
+    x = isLeft ? margin : W - margin - cardSize;
+    y = isTop ? (margin + ctaH + ctaGap) : (H - margin - cardSize);
+  }
+  // Clamp so the card AND its CTA always stay on-canvas (reserve CTA room both sides)
+  x = Math.max(margin, Math.min(W - margin - cardSize, x));
+  y = Math.max(margin + ctaH + ctaGap, Math.min(H - margin - cardSize - ctaH - ctaGap, y));
+
+  // CTA above when the card sits in the lower half, below when in the upper half
+  var ctaBelow = (y + cardSize / 2) < H / 2;
+  var ctaY = ctaBelow ? (y + cardSize + ctaGap) : (y - ctaGap - ctaH);
+
+  // Record grab area (card + CTA) for drag hit-testing
+  var grabTop = Math.min(y, ctaY), grabBot = Math.max(y + cardSize, ctaY + ctaH);
+  smQRRect = { x: x, y: grabTop, w: cardSize, h: grabBot - grabTop,
+               cardX: x, cardY: y, cardSize: cardSize };
 
   ctx.save();
 
-  // ── CTA pill (above the card for bottom positions, below for top) ─────
+  // ── CTA pill ──────────────────────────────────────────────────────────
   var hasLS = ('letterSpacing' in ctx);
   if (hasLS) ctx.letterSpacing = '0.5px';
   ctx.font = '800 ' + fs + 'px "Montserrat", sans-serif';
   var ctaW = ctx.measureText(cta).width;
   var ctaPillW = ctaW + ctaPadX * 2;
   var ctaCx = x + cardSize / 2;
-  var ctaY = isTop ? (y + cardSize + ctaGap) : (y - ctaGap - ctaH);
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 4;
   ctx.fillStyle = GOLD;
@@ -2157,6 +2190,177 @@ async function drawQRPlaceholder(ctx, W, H) {
   }
 
   ctx.restore();
+}
+
+// Quick-position dropdown → anchor preset (clears any custom drag offset).
+function smQRPosChange(v) {
+  smQR.anchor = v || 'br';
+  if (v !== 'custom') { smQR.cx = null; smQR.cy = null; }
+  updateSocialPreview();
+}
+
+// Size slider (60–160%).
+function smQRSize(v) {
+  smQR.scale = (parseInt(v, 10) || 100) / 100;
+  var lbl = document.getElementById('sm-qr-size-val');
+  if (lbl) lbl.textContent = Math.round(smQR.scale * 100) + '%';
+  updateSocialPreview();
+}
+
+// Map a pointer event to canvas pixel coordinates (the canvas is CSS-scaled down).
+function smCanvasPoint(e) {
+  var canvas = document.getElementById('sm-canvas');
+  var r = canvas.getBoundingClientRect();
+  var src = (e.touches && e.touches[0]) ? e.touches[0] : e;
+  return {
+    x: (src.clientX - r.left) * (canvas.width / r.width),
+    y: (src.clientY - r.top) * (canvas.height / r.height)
+  };
+}
+function smQRHit(p) {
+  return !!smQRRect && p.x >= smQRRect.x && p.x <= smQRRect.x + smQRRect.w &&
+         p.y >= smQRRect.y && p.y <= smQRRect.y + smQRRect.h;
+}
+
+// Immediate (non-debounced) redraw for smooth dragging. Uses a cached snapshot
+// of the template-without-QR when available, otherwise re-renders.
+function smRenderQRNow() {
+  var canvas = document.getElementById('sm-canvas'); if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  if (_smQRDrag && _smQRDrag.snapshot) {
+    ctx.putImageData(_smQRDrag.snapshot, 0, 0);
+    drawQRPlaceholder(ctx, canvas.width, canvas.height);
+  } else {
+    renderSocialTemplate().then(function() { drawQRPlaceholder(ctx, canvas.width, canvas.height); });
+  }
+}
+
+// Bind drag-to-move handlers to the preview canvas (once).
+function smInitQRDrag() {
+  var canvas = document.getElementById('sm-canvas');
+  if (!canvas || canvas._qrDragBound) return;
+  canvas._qrDragBound = true;
+  var ctx = canvas.getContext('2d');
+
+  function hover(e) {
+    if (_smQRDrag) return;
+    var on = document.getElementById('sm-show-qr');
+    canvas.style.cursor = (on && on.checked && smQRHit(smCanvasPoint(e))) ? 'grab' : '';
+  }
+  function move(e) {
+    if (!_smQRDrag) return;
+    if (e.cancelable) e.preventDefault();
+    var p = smCanvasPoint(e);
+    smQR.cx = Math.min(1, Math.max(0, (p.x - _smQRDrag.offx) / canvas.width));
+    smQR.cy = Math.min(1, Math.max(0, (p.y - _smQRDrag.offy) / canvas.height));
+    smRenderQRNow();
+  }
+  function up() {
+    _smQRDrag = null;
+    canvas.style.cursor = 'grab';
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+    document.removeEventListener('touchmove', move);
+    document.removeEventListener('touchend', up);
+  }
+  function down(e) {
+    var on = document.getElementById('sm-show-qr');
+    if (!on || !on.checked || !smQRRect) return;
+    var p = smCanvasPoint(e);
+    if (!smQRHit(p)) return;
+    if (e.cancelable) e.preventDefault();
+    _smQRDrag = {
+      offx: p.x - (smQRRect.cardX + smQRRect.cardSize / 2),
+      offy: p.y - (smQRRect.cardY + smQRRect.cardSize / 2),
+      snapshot: null
+    };
+    smQR.anchor = 'custom';
+    var sel = document.getElementById('sm-qr-pos'); if (sel) sel.value = 'custom';
+    canvas.style.cursor = 'grabbing';
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+    document.addEventListener('touchmove', move, { passive: false });
+    document.addEventListener('touchend', up);
+    // Cache a QR-free snapshot so each drag frame is just putImageData + QR
+    renderSocialTemplate().then(function() {
+      try { _smQRDrag && (_smQRDrag.snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height)); }
+      catch (err) { if (_smQRDrag) _smQRDrag.snapshot = null; }
+      smRenderQRNow();
+    });
+  }
+  canvas.addEventListener('mousemove', hover);
+  canvas.addEventListener('mousedown', down);
+  canvas.addEventListener('touchstart', down, { passive: false });
+}
+
+// Luminance variance of a sampled region — high = busy (text/agents), low = calm.
+function smRegionBusyness(data, W, rx, ry, rw, rh) {
+  rx = Math.max(0, Math.round(rx)); ry = Math.max(0, Math.round(ry));
+  var x2 = Math.min(W, Math.round(rx + rw)), y2 = Math.round(ry + rh);
+  var step = 4, n = 0, sum = 0, sum2 = 0;
+  for (var yy = ry; yy < y2; yy += step) {
+    for (var xx = rx; xx < x2; xx += step) {
+      var i = (yy * W + xx) * 4;
+      var lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      sum += lum; sum2 += lum * lum; n++;
+    }
+  }
+  if (!n) return 0;
+  var mean = sum / n;
+  return (sum2 / n) - mean * mean;
+}
+
+// Auto-place the QR: render the flyer, then drop the code into the calmest
+// corner — shrinking it a step at a time if every corner is crowded.
+async function smAutoFitQR() {
+  var on = document.getElementById('sm-show-qr');
+  if (!on) return;
+  if (!on.checked) { on.checked = true; var b = document.getElementById('sm-qr-body'); if (b) b.style.display = 'block'; }
+  var canvas = document.getElementById('sm-canvas'); var ctx = canvas.getContext('2d');
+  await renderSocialTemplate(); // template only, no QR yet
+  var W = canvas.width, H = canvas.height, data;
+  try { data = ctx.getImageData(0, 0, W, H).data; }
+  catch (e) { showGlobalStatus('⚠ Auto-fit isn’t available for this image'); updateSocialPreview(); return; }
+
+  var base = Math.round(Math.min(W, H) * (W > H ? 0.22 : 0.155));
+  base = Math.max(92, Math.min(190, base));
+  var margin = Math.round(W * 0.045);
+
+  function calmestCorner(sc) {
+    var qr = Math.round(base * sc), pad = Math.round(qr * 0.11), card = qr + pad * 2;
+    var ctaRoom = Math.round(card * 0.135 * 2) + 14;
+    var cands = [
+      { a: 'br', x: W - margin - card, y: H - margin - card },
+      { a: 'bl', x: margin,            y: H - margin - card },
+      { a: 'tr', x: W - margin - card, y: margin + ctaRoom },
+      { a: 'tl', x: margin,            y: margin + ctaRoom }
+    ];
+    var best = null;
+    cands.forEach(function(c) {
+      var ry = (c.a.charAt(0) === 't') ? c.y - ctaRoom : c.y;
+      var v = smRegionBusyness(data, W, c.x, ry, card, card + ctaRoom);
+      if (!best || v < best.v) best = { a: c.a, v: v };
+    });
+    return best;
+  }
+
+  // Keep the QR as large as possible while landing in a clearly-calm corner.
+  var scales = [1, 0.85, 0.72, 0.6], chosen = null;
+  for (var i = 0; i < scales.length; i++) {
+    var r = calmestCorner(scales[i]);
+    chosen = { a: r.a, scale: scales[i] };
+    if (r.v < 1400 || i === scales.length - 1) break;
+  }
+
+  smQR.anchor = chosen.a; smQR.cx = null; smQR.cy = null; smQR.scale = chosen.scale;
+  var sel = document.getElementById('sm-qr-pos'); if (sel) sel.value = chosen.a;
+  var sizeEl = document.getElementById('sm-qr-size');
+  if (sizeEl) sizeEl.value = Math.round(chosen.scale * 100);
+  var lbl = document.getElementById('sm-qr-size-val');
+  if (lbl) lbl.textContent = Math.round(chosen.scale * 100) + '%';
+  updateSocialPreview();
+  var names = { br: 'bottom-right', bl: 'bottom-left', tr: 'top-right', tl: 'top-left' };
+  showGlobalStatus('✨ QR auto-placed — ' + names[chosen.a] + ', ' + Math.round(chosen.scale * 100) + '%');
 }
 
 // ── Collect commercial metric chips ──────────────────────────────────────
