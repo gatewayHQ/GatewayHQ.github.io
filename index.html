@@ -336,18 +336,25 @@
         <h4 style="margin-bottom:6px">
           <label style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;font:inherit;color:inherit">
             <input type="checkbox" id="sm-show-qr" onchange="smToggleQR()" style="accent-color:#C8A84B;width:15px;height:15px">
-            QR Code <span style="font-size:11px;color:var(--brand-gray);font-weight:400">(bottom-right, all templates)</span>
+            QR Code <span style="font-size:11px;color:var(--brand-gray);font-weight:400">(drag, resize &amp; auto-fit · all templates)</span>
           </label>
         </h4>
         <div id="sm-qr-body" style="display:none">
+          <button type="button" onclick="smAutoFitQR()" style="width:100%;margin-bottom:10px;font-size:13px;font-weight:600;padding:8px 12px;background:#1E3040;border:1px solid #C8A84B;color:#C8A84B;border-radius:6px;cursor:pointer">✨ Auto-fit (find the clearest spot)</button>
+          <div style="font-size:11px;color:var(--brand-gray);margin:-4px 0 10px;line-height:1.5">Tip: you can also <strong style="color:#C8D8E0">drag the QR right on the preview</strong> to place it exactly, then fine-tune the size below.</div>
           <div class="form-row">
             <label>Position <span style="font-size:11px;color:var(--brand-gray);font-weight:400">— move it to dodge agents or other content</span></label>
-            <select id="sm-qr-pos" onchange="updateSocialPreview()">
+            <select id="sm-qr-pos" onchange="smQRPosChange(this.value)">
               <option value="br">Bottom Right (default)</option>
               <option value="bl">Bottom Left</option>
               <option value="tr">Top Right</option>
               <option value="tl">Top Left</option>
+              <option value="custom">Custom (dragged on preview)</option>
             </select>
+          </div>
+          <div class="form-row">
+            <label>Size <span id="sm-qr-size-val" style="font-size:11px;color:#C8A84B;font-weight:600">100%</span></label>
+            <input type="range" id="sm-qr-size" min="60" max="160" step="5" value="100" oninput="smQRSize(this.value)" style="width:100%;accent-color:#C8A84B">
           </div>
           <div class="form-row">
             <label>Call-to-Action <span style="font-size:11px;color:var(--brand-gray);font-weight:400">— the text shown with the code</span></label>
