@@ -17,11 +17,14 @@ function addLocationOverviewSlide(pptx, data, config, _L, _U) {
   U.addSlideTitle(slide, 'Location Overview', config, L);
   U.addFooter(slide, config, L, '07');
 
-  // ── 2. Left column — full-height map ──────────────────────────────────────
+  // ── 2. Left column — map, natural aspect (4:3-ish), vertically centered ─
+  //     so the Google Static Maps PNG (640x520 native) isn't stretched to
+  //     full content-column height.  Matches the shorter hero photo on
+  //     the Offering Summary slide for visual consistency.
   var MAP_X = L.M;
-  var MAP_Y = L.CONTENT_Y;
   var MAP_W = L.snap(5.57);
-  var MAP_H = L.CONTENT_H;
+  var MAP_H = L.snap(4.30);
+  var MAP_Y = L.snap(L.CONTENT_Y + (L.CONTENT_H - MAP_H) / 2);
 
   U.addMapPlaceholder(slide, market.mapUrl || null, MAP_X, MAP_Y, MAP_W, MAP_H, config);
 

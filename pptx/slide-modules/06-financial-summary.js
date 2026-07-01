@@ -245,60 +245,21 @@ function addFinancialSummarySlide(pptx, data, config, _L, _U) {
   // Left label "NET OPERATING INCOME"
   slide.addText('NET OPERATING INCOME', {
     x: L.snap(L.M + 0.22), y: NOI_BAR_Y,
-    w: L.snap(L.CW * 0.40), h: NOI_BAR_H,
+    w: L.snap(L.CW * 0.60), h: NOI_BAR_H,
     fontFace: 'Calibri', fontSize: 16, bold: true,
     color: config.accentColor,
     valign: 'middle',
   });
 
-  // Separator label: "CURRENT" and "PRO FORMA"
-  var RIGHT_ZONE_X = L.snap(L.M + L.CW * 0.50);
-  var RIGHT_ZONE_W = L.snap(L.CW * 0.50 - 0.22);
-  var COL_VAL_W    = L.snap(RIGHT_ZONE_W / 2);
-
-  // Current NOI label header
-  slide.addText('CURRENT', {
-    x: RIGHT_ZONE_X, y: L.snap(NOI_BAR_Y + 0.04),
-    w: COL_VAL_W, h: L.snap(0.20),
-    fontFace: 'Calibri', fontSize: 8, bold: false,
-    color: '8899AA', align: 'center', valign: 'middle', charSpacing: 0.5,
-  });
-
-  // Pro Forma NOI label header
-  slide.addText('PRO FORMA', {
-    x: L.snap(RIGHT_ZONE_X + COL_VAL_W), y: L.snap(NOI_BAR_Y + 0.04),
-    w: COL_VAL_W, h: L.snap(0.20),
-    fontFace: 'Calibri', fontSize: 8, bold: false,
-    color: '8899AA', align: 'center', valign: 'middle', charSpacing: 0.5,
-  });
-
-  // Current NOI value
+  // Current NOI value — the Pro Forma NOI now lives on the dedicated slide
+  // 06b so slide 06 shows only the current-operations number, right-aligned.
   slide.addText(U.fmtCurrencyFull(rawNOI || (totalIncomeCur - totalExpCur)), {
-    x: RIGHT_ZONE_X, y: L.snap(NOI_BAR_Y + 0.22),
-    w: COL_VAL_W, h: L.snap(0.40),
-    fontFace: 'Georgia', fontSize: 18, bold: true,
-    color: config.white, align: 'center', valign: 'middle',
+    x: L.snap(L.M + L.CW * 0.60), y: NOI_BAR_Y,
+    w: L.snap(L.CW * 0.40 - 0.22), h: NOI_BAR_H,
+    fontFace: 'Georgia', fontSize: 22, bold: true,
+    color: config.white,
+    align: 'right', valign: 'middle',
     shrinkText: true,
-  });
-
-  // Pro Forma NOI value
-  var pfNOIDisplay = pfNOI || (totalIncomePF - totalExpPF);
-  slide.addText(U.fmtCurrencyFull(pfNOIDisplay), {
-    x: L.snap(RIGHT_ZONE_X + COL_VAL_W), y: L.snap(NOI_BAR_Y + 0.22),
-    w: COL_VAL_W, h: L.snap(0.40),
-    fontFace: 'Georgia', fontSize: 18, bold: true,
-    color: config.accentColor, align: 'center', valign: 'middle',
-    shrinkText: true,
-  });
-
-  // Divider between Current and Pro Forma
-  // Do NOT pass sub-grid widths through L.snap() — 0.02" < one grid unit (0.056")
-  // and snaps to zero, making the shape invisible.
-  slide.addShape('rect', {
-    x: L.snap(RIGHT_ZONE_X + COL_VAL_W), y: L.snap(NOI_BAR_Y + 0.10),
-    w: 0.02, h: L.snap(NOI_BAR_H - 0.20),
-    fill: { color: '2C5080' },
-    line: { color: '2C5080' },
   });
 
   return slide;

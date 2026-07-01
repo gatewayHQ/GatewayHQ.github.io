@@ -18,11 +18,15 @@ function addOfferingSummarySlide(pptx, data, config, _L, _U) {
   U.addSlideTitle(slide, 'Offering Summary', config, L);
   U.addFooter(slide, config, L, '02');
 
-  // ── 2. Left column — property photo fills content zone ───────────────────
+  // ── 2. Left column — property photo, sized to a natural 4:3 landscape
+  //     aspect ratio and vertically centered so wide listing photos don't
+  //     get stretched to fill the full content-column height.
   var heroUrl = imgs.hero || (imgs.photos && imgs.photos[0]) || null;
+  var PHOTO_H  = L.snap(4.20);                                // ≈4:3 in a 5.67"-wide box
+  var PHOTO_Y  = L.snap(L.CONTENT_Y + (L.CONTENT_H - PHOTO_H) / 2);
   U.addPhoto(slide, heroUrl,
-    L.COL_PHOTO.x, L.CONTENT_Y,
-    L.COL_PHOTO.w, L.CONTENT_H,
+    L.COL_PHOTO.x, PHOTO_Y,
+    L.COL_PHOTO.w, PHOTO_H,
     'cover');
 
   // ── 3. Right column ───────────────────────────────────────────────────────

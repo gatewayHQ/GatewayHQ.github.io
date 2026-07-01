@@ -49,9 +49,10 @@ function addPropertyDescriptionSlide(pptx, data, config, _L, _U) {
   // 3a. "ABOUT THE PROPERTY" section header
   U.addSectionHeader(slide, RX, L.CONTENT_Y, RW, 'About the Property', config, L);
 
-  // 3b. Description text
+  // Layout in the right column is stacked top-to-bottom with fixed clearances
+  // so the description text can never overrun the "Property Highlights" header.
   var DESC_Y = L.snap(L.CONTENT_Y + 0.52);
-  var DESC_H = L.snap(1.55);
+  var DESC_H = L.snap(2.10);                                  // was 1.55; fit ~6 lines at 13pt
   slide.addText(prop.description || '', {
     x: RX, y: DESC_Y, w: RW, h: DESC_H,
     fontFace: L.TYPE.body.fontFace, fontSize: L.TYPE.body.fontSize,
@@ -59,15 +60,30 @@ function addPropertyDescriptionSlide(pptx, data, config, _L, _U) {
     valign: 'top',
     lineSpacingMultiple: 1.45,
     wrap: true,
+    shrinkText: true,                                          // last-ditch: shrink to fit box
   });
 
-  // 3c. "PROPERTY HIGHLIGHTS" section header
-  var AMEN_HDR_Y = L.snap(L.CONTENT_Y + 2.20);
+  // 3c. "PROPERTY HIGHLIGHTS" section header — anchored below the description.
+  var AMEN_HDR_Y = L.snap(DESC_Y + DESC_H + 0.18);
   U.addSectionHeader(slide, RX, AMEN_HDR_Y, RW, 'Property Highlights', config, L);
 
-  // 3d. Amenity bullet list
-  var AMEN_Y = L.snap(L.CONTENT_Y + 2.60);
-  var AMEN_H = L.snap(1.80);
+  // ── 4. Property detail chips row (declared first so we can back-fill the
+  //     amenity list to touch its top edge — kills the big gap that used to
+  //     sit between highlights and the year-built / stories / parking chips).
+  var chipDefs = [];
+  if (prop.yearBuilt)     chipDefs.push({ label: 'Year Built',  value: String(prop.yearBuilt) });
+  if (prop.buildingSize)  chipDefs.push({ label: 'Sq Ft',       value: U.fmtNum(prop.buildingSize) });
+  if (prop.stories)       chipDefs.push({ label: 'Stories',     value: String(prop.stories) });
+  if (prop.parking)       chipDefs.push({ label: 'Parking',     value: String(prop.parking) });
+  chipDefs = chipDefs.slice(0, 4);
+
+  var CHIP_H = L.snap(0.45);
+  var CHIP_Y = L.snap(L.CONTENT_BOT - CHIP_H - 0.10);         // tight to footer clearance
+
+  // 3d. Amenity bullet list — fills the space from below the header down to
+  //     just above the chip row.
+  var AMEN_Y = L.snap(AMEN_HDR_Y + 0.44);
+  var AMEN_H = L.snap(CHIP_Y - AMEN_Y - 0.18);
 
   // Build rich-text bullet array
   var bulletItems = amenities.map(function (item) {
@@ -90,18 +106,7 @@ function addPropertyDescriptionSlide(pptx, data, config, _L, _U) {
     });
   }
 
-  // ── 4. Property detail chips row ─────────────────────────────────────────
-  // Up to 4 chips: Year Built, Building Size, Stories, Parking
-  var chipDefs = [];
-  if (prop.yearBuilt)     chipDefs.push({ label: 'Year Built',  value: String(prop.yearBuilt) });
-  if (prop.buildingSize)  chipDefs.push({ label: 'Sq Ft',       value: U.fmtNum(prop.buildingSize) });
-  if (prop.stories)       chipDefs.push({ label: 'Stories',     value: String(prop.stories) });
-  if (prop.parking)       chipDefs.push({ label: 'Parking',     value: String(prop.parking) });
-  chipDefs = chipDefs.slice(0, 4);
-
   if (chipDefs.length > 0) {
-    var CHIP_Y    = L.snap(L.CONTENT_BOT - 0.70);
-    var CHIP_H    = L.snap(0.45);
     var CHIP_W    = L.snap(1.40);
     var CHIP_GAP  = L.snap(0.10);
     var CHIP_X0   = RX;
