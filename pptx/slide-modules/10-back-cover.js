@@ -11,6 +11,7 @@ function addBackCoverSlide(pptx, data, config, _L, _U) {
 
   var brokerage = data.brokerage || {};
   var brokers   = brokerage.brokers || [];
+  var bio       = brokerage.bio || null;
 
   // ── 1. Full navy background ───────────────────────────────────────────────
   slide.background = { color: config.primaryColor };
@@ -82,6 +83,92 @@ function addBackCoverSlide(pptx, data, config, _L, _U) {
     color: config.white,
     valign: 'middle',
   });
+
+  // ── 4b. Gateway Bio — fills the previously-empty square between the
+  //         brokerage name (y≈2.25) and the disclaimer (y≈6.00).
+  var BIO_X      = LOGO_X;
+  var BIO_W      = L.snap(4.60);
+  var BIO_Y      = L.snap(2.45);
+  var BIO_END_Y  = L.snap(5.85);
+
+  // Ambient border-only card so the bio reads as a distinct block on the
+  // darker navy panel (matches the "square" in the user's back-cover mock-up).
+  slide.addShape('rect', {
+    x: BIO_X, y: BIO_Y, w: BIO_W, h: L.snap(BIO_END_Y - BIO_Y),
+    fill: { color: '162D47' },
+    line: { color: '2C4A6C', pt: 0.75 },
+  });
+
+  // Eyebrow — "GATEWAY BIO"
+  slide.addText((bio && bio.tagline) || 'GATEWAY BIO', {
+    x: L.snap(BIO_X + 0.16), y: L.snap(BIO_Y + 0.16),
+    w: L.snap(BIO_W - 0.32), h: L.snap(0.24),
+    fontFace: 'Calibri', fontSize: 9, bold: true,
+    color: config.accentColor,
+    valign: 'middle', charSpacing: 2,
+  });
+
+  // Heading — "Who We Are"
+  slide.addText((bio && bio.heading) || 'Who We Are', {
+    x: L.snap(BIO_X + 0.16), y: L.snap(BIO_Y + 0.42),
+    w: L.snap(BIO_W - 0.32), h: L.snap(0.34),
+    fontFace: 'Georgia', fontSize: 15, bold: true,
+    color: config.white,
+    valign: 'middle',
+  });
+
+  // Thin gold divider under the heading
+  slide.addShape('rect', {
+    x: L.snap(BIO_X + 0.16), y: L.snap(BIO_Y + 0.80),
+    w: L.snap(0.60), h: 0.03,
+    fill: { color: config.accentColor },
+    line: { color: config.accentColor },
+  });
+
+  // Body paragraphs — sized to fill the remaining card height above stats.
+  var STATS_H = (bio && bio.stats && bio.stats.length) ? L.snap(0.70) : 0;
+  var BIO_TEXT_Y = L.snap(BIO_Y + 0.95);
+  var BIO_TEXT_H = L.snap(BIO_END_Y - BIO_TEXT_Y - STATS_H - 0.15);
+
+  var bioPara1 = (bio && bio.para1) || 'Gateway Real Estate Advisors is a boutique commercial real estate brokerage specializing in investment sales across the Midwest.';
+  var bioPara2 = (bio && bio.para2) || 'Our team combines deep local market knowledge with institutional-grade analysis to deliver superior results for our clients.';
+
+  slide.addText([
+    { text: bioPara1, options: { color: 'D8E1EC', bold: false, breakLine: true } },
+    { text: ' ',      options: { color: 'D8E1EC', breakLine: true, fontSize: 6 } },
+    { text: bioPara2, options: { color: 'B0C0D0', bold: false } },
+  ], {
+    x: L.snap(BIO_X + 0.16), y: BIO_TEXT_Y,
+    w: L.snap(BIO_W - 0.32), h: BIO_TEXT_H,
+    fontFace: 'Calibri', fontSize: 10,
+    valign: 'top',
+    lineSpacingMultiple: 1.35,
+    wrap: true,
+    shrinkText: true,
+  });
+
+  // Compact 3-stat strip at the bottom of the bio card (only when populated).
+  if (bio && bio.stats && bio.stats.length) {
+    var STATS_Y = L.snap(BIO_END_Y - STATS_H - 0.06);
+    var statW   = L.snap((BIO_W - 0.32) / Math.max(bio.stats.length, 1));
+    bio.stats.slice(0, 3).forEach(function (s, i) {
+      var sx = L.snap(BIO_X + 0.16 + i * statW);
+      slide.addText(s.value || '—', {
+        x: sx, y: STATS_Y,
+        w: statW, h: L.snap(0.36),
+        fontFace: 'Georgia', fontSize: 14, bold: true,
+        color: config.accentColor,
+        align: 'center', valign: 'bottom',
+      });
+      slide.addText((s.label || '').toUpperCase(), {
+        x: sx, y: L.snap(STATS_Y + 0.38),
+        w: statW, h: L.snap(0.24),
+        fontFace: 'Calibri', fontSize: 8, bold: false,
+        color: '8AA3BC',
+        align: 'center', valign: 'top', charSpacing: 1,
+      });
+    });
+  }
 
   // Disclaimer text
   var disclaimer = brokerage.disclaimer ||
