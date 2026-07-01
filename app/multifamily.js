@@ -113,6 +113,12 @@ function refreshMapPreview() {
       if (saved) el.value = saved;
       refreshMapPreview();
     }
+    // Same treatment for the Census API key — persist across sessions.
+    var censusEl = document.getElementById('mktCensusKey');
+    if (censusEl) {
+      var savedCensus = localStorage.getItem('gw_census_key') || '';
+      if (savedCensus) censusEl.value = savedCensus;
+    }
     var addrEl = document.getElementById('address');
     var cityEl = document.getElementById('mktCity');
     var stateEl = document.getElementById('mktState');
@@ -520,7 +526,21 @@ renderAgents();
 // Pulls county-level ACS 5-Year Estimates from the U.S. Census Bureau.
 // We try the newest vintage first (2023 as of 2026-01) then walk back through
 // prior years so a single missing release doesn't break the market fetch.
-var CENSUS_VINTAGES = ['2023', '2022', '2021'];
+// An optional Census API key (localStorage: gw_census_key) lifts the anonymous
+// 500-req-per-IP-per-day throttle that shared office IPs blow through quickly.
+var CENSUS_VINTAGES = ['2023', '2022', '2021', '2020'];
+
+function getCensusKey() {
+  var el = document.getElementById('mktCensusKey');
+  if (el && el.value.trim()) return el.value.trim();
+  return localStorage.getItem('gw_census_key') || (window.CONFIG && window.CONFIG.censusApiKey) || '';
+}
+function saveCensusKey() {
+  var el = document.getElementById('mktCensusKey');
+  var k = el ? el.value.trim() : '';
+  if (k) localStorage.setItem('gw_census_key', k);
+  else   localStorage.removeItem('gw_census_key');
+}
 
 function fetchMarketData() {
   var city = document.getElementById('mktCity').value.trim();
@@ -541,26 +561,55 @@ function fetchMarketData() {
 
   var stateName = STATE_NAMES[stateFips] || '';
   var displayCity = city || county;
+  var apiKey = getCensusKey();
 
   var vars = 'NAME,B01003_001E,B19013_001E,B01002_001E,B25001_001E,B25003_001E,B25003_002E,B25003_003E,B25064_001E,B25010_001E,B23025_003E,B23025_005E';
 
-  // Walk vintages newest → oldest until one responds successfully.
+  // Record every vintage attempt so the UI can surface the real reason on total failure.
+  var attempts = [];
+
   function tryVintage(idx) {
     if (idx >= CENSUS_VINTAGES.length) {
       statusEl.className = 'fetch-status error';
-      statusEl.textContent = 'Census ACS endpoint is unavailable right now. Enter data manually or try again later.';
+      // Show the specific HTTP status per vintage so we can diagnose (rate limit,
+      // key required, 404 not yet published, network error, etc.).
+      var summary = attempts.map(function(a){ return a.vintage + ':' + a.err; }).join(' · ');
+      var hint = '';
+      if (attempts.some(function(a){ return /^(4|5)\d\d$/.test(a.err); }) && !apiKey) {
+        hint = ' Add a free Census API key below to bypass the 500-request/day anonymous throttle.';
+      } else if (attempts.every(function(a){ return a.err === 'network'; })) {
+        hint = ' Looks like a network/CORS error — check the browser Console for details.';
+      }
+      statusEl.innerHTML = 'Census ACS endpoint is unavailable right now. Enter data manually or try again later.' +
+        '<div style="margin-top:6px;font-size:11px;opacity:0.75">' + summary + hint + '</div>';
       btn.disabled = false;
       return;
     }
     var vintage = CENSUS_VINTAGES[idx];
-    var url = 'https://api.census.gov/data/' + vintage + '/acs/acs5?get=' + vars + '&for=county:*&in=state:' + stateFips;
+    var url = 'https://api.census.gov/data/' + vintage + '/acs/acs5' +
+              '?get=' + vars +
+              '&for=county:*' +
+              '&in=state:' + stateFips +
+              (apiKey ? ('&key=' + encodeURIComponent(apiKey)) : '');
     fetch(url)
       .then(function(r) {
-        if (!r.ok) throw new Error('Vintage ' + vintage + ' → HTTP ' + r.status);
+        if (!r.ok) { attempts.push({ vintage: vintage, err: String(r.status) }); throw new Error('HTTP ' + r.status); }
         return r.json();
       })
-      .then(function(data) { handleMarketRows(data, vintage); })
-      .catch(function() { tryVintage(idx + 1); });
+      .then(function(data) {
+        if (!Array.isArray(data) || data.length < 2) {
+          attempts.push({ vintage: vintage, err: 'empty' });
+          throw new Error('empty response');
+        }
+        handleMarketRows(data, vintage);
+      })
+      .catch(function(err) {
+        // Only tag "network" if we didn't already record an HTTP status.
+        if (!attempts.length || attempts[attempts.length-1].vintage !== vintage) {
+          attempts.push({ vintage: vintage, err: 'network' });
+        }
+        tryVintage(idx + 1);
+      });
   }
   tryVintage(0);
 

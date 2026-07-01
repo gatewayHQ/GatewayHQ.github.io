@@ -683,6 +683,15 @@
       <div class="form-group"><label>County</label><input id="mktCounty" placeholder="Clay"></div>
       <button class="btn-fetch" id="fetchBtn" onclick="fetchMarketData()">Fetch Market Data</button>
     </div>
+    <div style="margin-top:10px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end">
+      <div class="form-group" style="margin:0">
+        <label style="display:flex;justify-content:space-between;align-items:center">
+          <span>Census API Key <span style="font-size:10px;color:var(--brand-gray)">(optional — bypasses the 500/day anonymous throttle; free registration)</span></span>
+          <a href="https://api.census.gov/data/key_signup.html" target="_blank" rel="noopener" style="font-size:10px;color:var(--brand-blue);text-decoration:none">Request a key ↗</a>
+        </label>
+        <input id="mktCensusKey" type="password" placeholder="Paste your 40-char key here" oninput="saveCensusKey()" autocomplete="off">
+      </div>
+    </div>
     <div id="fetchStatus" class="fetch-status"></div>
 
     <div class="section-title">Location Map</div>
