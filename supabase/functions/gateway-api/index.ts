@@ -9,8 +9,10 @@
 // no CORS breakage.
 //
 // Supabase secrets to set (dashboard → Edge Functions → Secrets):
-//   CLAUDE_API_KEY        = sk-ant-...
-//   BUFFER_ACCESS_TOKEN   = (optional, for social scheduling)
+//   CLAUDE_API_KEY           = sk-ant-...
+//   BUFFER_ACCESS_TOKEN      = (optional, for social scheduling)
+//   CENSUS_API_KEY           = 40-char Census Bureau key (bypasses 500/day anonymous throttle)
+//   GOOGLE_MAPS_STATIC_KEY   = Google Cloud Maps Static API key (Location Overview map pin)
 //
 // SUPABASE_URL and SUPABASE_ANON_KEY are injected automatically.
 //
@@ -23,6 +25,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') || 'https://gatewayhq.github.io';
 const CLAUDE_API_KEY = Deno.env.get('CLAUDE_API_KEY') || '';
 const BUFFER_TOKEN   = Deno.env.get('BUFFER_ACCESS_TOKEN') || '';
+const CENSUS_KEY     = Deno.env.get('CENSUS_API_KEY') || '';
+const GMAPS_KEY      = Deno.env.get('GOOGLE_MAPS_STATIC_KEY') || '';
 
 const ANTHROPIC_VER  = '2023-06-01';
 const DEFAULT_MODEL  = 'claude-sonnet-4-6';
@@ -263,6 +267,137 @@ async function handleBuffer(req: Request): Promise<Response> {
   return json({ results, errors, success: errors.length === 0 });
 }
 
+// ── Route: /api/census ───────────────────────────────────────────
+// Proxies U.S. Census Bureau ACS 5-Year queries with the server-side
+// CENSUS_API_KEY appended.  Client never sees the key, and we're no longer
+// throttled at 500/req/day per office IP.
+//
+//   GET /api/census?state=<FIPS>&year=<YYYY>&vars=<CSV>
+//
+// Response: raw Census ACS JSON (array of arrays).
+
+const CENSUS_STATE_RE = /^\d{2}$/;
+const CENSUS_YEAR_RE  = /^(20)\d{2}$/;
+// Only alphanumeric, underscore, comma — matches the Census variable-code grammar.
+const CENSUS_VARS_RE  = /^[A-Za-z0-9_,]{1,600}$/;
+
+async function handleCensus(req: Request, userId: string): Promise<Response> {
+  if (!checkRateLimit(userId)) {
+    return new Response(JSON.stringify({ error: 'Rate limit exceeded — try again in 60s' }), {
+      status: 429,
+      headers: { ...CORS, 'Content-Type': 'application/json', 'Retry-After': '60' },
+    });
+  }
+
+  const u     = new URL(req.url);
+  const state = u.searchParams.get('state') ?? '';
+  const year  = u.searchParams.get('year')  ?? '2023';
+  const vars  = u.searchParams.get('vars')  ?? 'NAME';
+
+  if (!CENSUS_STATE_RE.test(state)) return json({ error: 'Invalid state FIPS (expected 2 digits)' }, 400);
+  if (!CENSUS_YEAR_RE.test(year))   return json({ error: 'Invalid year' }, 400);
+  if (!CENSUS_VARS_RE.test(vars))   return json({ error: 'Invalid vars (letters/digits/underscore/comma only)' }, 400);
+
+  const upstream =
+    'https://api.census.gov/data/' + year + '/acs/acs5' +
+    '?get='  + vars +
+    '&for=county:*' +
+    '&in=state:' + state +
+    (CENSUS_KEY ? '&key=' + encodeURIComponent(CENSUS_KEY) : '');
+
+  let resp: Response;
+  try {
+    resp = await fetch(upstream, { signal: AbortSignal.timeout(FETCH_TIMEOUT) });
+  } catch (err: unknown) {
+    return json({ error: err instanceof Error ? err.message : 'Census request failed' }, 502);
+  }
+
+  if (!resp.ok) {
+    const body = await resp.text();
+    return json({
+      error: 'Census upstream HTTP ' + resp.status,
+      upstreamStatus: resp.status,
+      upstreamBody:   body.slice(0, 400),
+    }, resp.status);
+  }
+
+  // Pass through as JSON so the existing client parser keeps working.
+  // deno-lint-ignore no-explicit-any
+  const data: any = await resp.json();
+  return json(data);
+}
+
+// ── Route: /api/staticmap ────────────────────────────────────────
+// Proxies Google Maps Static API so the API key never touches the
+// browser (and can't be scraped from an <img src>).  Streams the PNG
+// bytes back — client fetches, converts to a base64 data URI, embeds
+// it in the PPTX (or renders as an <img>).
+//
+//   GET /api/staticmap?address=<url-encoded>&zoom=<1-20>&size=<WxH>
+
+const STATICMAP_SIZE_RE = /^\d{2,4}x\d{2,4}$/;
+
+async function handleStaticMap(req: Request, userId: string): Promise<Response> {
+  if (!GMAPS_KEY) {
+    return json({ error: 'Google Maps key not configured. Set GOOGLE_MAPS_STATIC_KEY in Supabase secrets.' }, 503);
+  }
+  if (!checkRateLimit(userId)) {
+    return new Response(JSON.stringify({ error: 'Rate limit exceeded — try again in 60s' }), {
+      status: 429,
+      headers: { ...CORS, 'Content-Type': 'application/json', 'Retry-After': '60' },
+    });
+  }
+
+  const u       = new URL(req.url);
+  const address = (u.searchParams.get('address') ?? '').trim();
+  const zoomRaw = parseInt(u.searchParams.get('zoom') ?? '15', 10);
+  const size    = u.searchParams.get('size') ?? '640x520';
+
+  if (!address || address.length > 500)  return json({ error: 'Missing or too-long address' }, 400);
+  if (!STATICMAP_SIZE_RE.test(size))     return json({ error: 'Invalid size (WxH)' }, 400);
+  const zoom = Math.min(20, Math.max(1, Number.isFinite(zoomRaw) ? zoomRaw : 15));
+
+  const q = encodeURIComponent(address);
+  // Gold pin (#C9A84C) matches the OM brand palette exactly.
+  const upstream =
+    'https://maps.googleapis.com/maps/api/staticmap' +
+    '?center=' + q +
+    '&zoom='   + zoom +
+    '&size='   + size +
+    '&scale=2' +
+    '&maptype=roadmap' +
+    '&markers=color:0xC9A84C%7Clabel:P%7C' + q +
+    '&key='    + encodeURIComponent(GMAPS_KEY);
+
+  let resp: Response;
+  try {
+    resp = await fetch(upstream, { signal: AbortSignal.timeout(FETCH_TIMEOUT) });
+  } catch (err: unknown) {
+    return json({ error: err instanceof Error ? err.message : 'Static map request failed' }, 502);
+  }
+
+  if (!resp.ok) {
+    const body = await resp.text();
+    return json({
+      error:          'Google Maps upstream HTTP ' + resp.status,
+      upstreamStatus: resp.status,
+      upstreamBody:   body.slice(0, 400),
+    }, resp.status);
+  }
+
+  const bytes = await resp.arrayBuffer();
+  return new Response(bytes, {
+    status: 200,
+    headers: {
+      ...CORS,
+      'Content-Type':  resp.headers.get('Content-Type') || 'image/png',
+      // Short private cache lets a preview + PPTX-export within the same
+      // session avoid a second Google call for the same address.
+      'Cache-Control': 'private, max-age=3600',
+    },
+  });
+}
+
 // ── Route: /api/health ───────────────────────────────────────────
 // Public — no auth required. Used by health-monitor workflow and
 // the app's AI status badge on startup.
@@ -270,12 +405,14 @@ async function handleBuffer(req: Request): Promise<Response> {
 function handleHealth(): Response {
   return json({
     ok:        true,
-    version:   '2.2.0',          // 2.2.0 = vision/image support for /api/claude
-    vision:    true,             // present only on builds with photo auto-caption support
+    version:   '2.3.0',          // 2.3.0 = adds /api/census and /api/staticmap
+    vision:    true,
     ts:        new Date().toISOString(),
     services: {
-      claude: !!CLAUDE_API_KEY,
-      buffer: !!BUFFER_TOKEN,
+      claude:    !!CLAUDE_API_KEY,
+      buffer:    !!BUFFER_TOKEN,
+      census:    !!CENSUS_KEY,
+      staticmap: !!GMAPS_KEY,
     },
   });
 }
@@ -302,6 +439,8 @@ Deno.serve(async (req: Request) => {
   if (path.endsWith('/api/claude')          && req.method === 'POST') return handleClaude(req, user.id);
   if (path.endsWith('/api/buffer-profiles'))                           return handleBufferProfiles();
   if (path.endsWith('/api/buffer')          && req.method === 'POST') return handleBuffer(req);
+  if (path.endsWith('/api/census')          && req.method === 'GET')  return handleCensus(req, user.id);
+  if (path.endsWith('/api/staticmap')       && req.method === 'GET')  return handleStaticMap(req, user.id);
 
   return json({ error: 'Not found' }, 404);
 });
