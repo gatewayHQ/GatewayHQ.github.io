@@ -229,8 +229,13 @@ function addBackCoverSlide(pptx, data, config, _L, _U) {
   });
 
   // ── 6. Broker cards ───────────────────────────────────────────────────────
+  // PHOTO_H:CARD_W is a portrait ratio (≈1.16:1 h:w) matching a natural
+  // headshot crop.  The old 1.80" height against a 3.44" width was landscape
+  // (≈1.91:1 w:h) — 'cover' fit still crops correctly, but slicing a
+  // portrait headshot into a wide box crops away most of the vertical
+  // extent, leaving a cramped, badly-framed sliver of the face/shoulders.
   var PHOTO_Y   = L.snap(1.30);
-  var PHOTO_H   = L.snap(1.80);
+  var PHOTO_H   = L.snap(4.00);
   var CARD_W    = L.snap(3.44);
 
   if (brokers.length === 0) {

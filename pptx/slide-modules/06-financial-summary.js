@@ -1,6 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// SLIDE 06 — FINANCIAL SUMMARY
-// KPI strip + two-column proforma table (income / expenses) + NOI summary bar.
+// SLIDE 06 — FINANCIAL SUMMARY (CURRENT OPERATIONS)
+// KPI strip + current-only income/expense schedule + NOI summary bar.
+// Pro Forma figures live exclusively on slide 06b (06b-financial-proforma.js).
 // ─────────────────────────────────────────────────────────────────────────────
 
 function addFinancialSummarySlide(pptx, data, config, _L, _U) {
@@ -65,11 +66,12 @@ function addFinancialSummarySlide(pptx, data, config, _L, _U) {
   var LEFT_X     = L.M;                              // 0.50"
   var RIGHT_X    = L.snap(6.79);
 
-  // Column widths for each sub-table: Item | Current | Pro Forma
-  var COL_W_ITEM    = 3.0;
-  var COL_W_CURRENT = 1.5;
-  var COL_W_PF      = 1.5;
-  var COL_WIDTHS    = [COL_W_ITEM, COL_W_CURRENT, COL_W_PF];
+  // Column widths for each sub-table: Item | Current.
+  // Pro Forma now lives exclusively on slide 06b — showing it twice invited
+  // the reader to compare mismatched numbers side-by-side on two different
+  // pages.  Matches 06b's [3.8, 2.24] split for visual consistency between
+  // the two financial slides.
+  var COL_WIDTHS = [3.8, 2.24];
 
   var HDR_H  = L.snap(0.38);
   var ROW_H  = L.snap(0.36);
@@ -82,7 +84,6 @@ function addFinancialSummarySlide(pptx, data, config, _L, _U) {
   var rawNOI     = Number(fin.noi)          || 0;
   var pfGrossRev = Number(pf.grossRevenue)  || 0;
   var pfExp      = Number(pf.totalExpenses) || 0;
-  var pfNOI      = Number(pf.noi)           || 0;
 
   // Derive vacancy assumption (5 % if not provided)
   var occNum = parseFloat(String(fin.occupancy || '').replace('%', '')) || 95;
@@ -112,8 +113,11 @@ function addFinancialSummarySlide(pptx, data, config, _L, _U) {
         { label: 'Management Fee',         current: Math.round(rawExp * 0.22), proforma: Math.round((pfExp || rawExp) * 0.22) },
       ];
 
-  // ── 5. Helper: build a two-column proforma pptxgenjs table ───────────────
-  function buildTable(headerLabel, items, totLabel, totCurrent, totProforma) {
+  // ── 5. Helper: build a single-value (current-only) pptxgenjs table ───────
+  // Pro Forma figures live on slide 06b; this table shows current operations
+  // only, so the two schedules don't visually double as an accidental
+  // side-by-side comparison across two different slides.
+  function buildTable(headerLabel, items, totLabel, totCurrent) {
     var rows = [];
 
     // Header row
@@ -128,7 +132,6 @@ function addFinancialSummarySlide(pptx, data, config, _L, _U) {
     rows.push([
       { text: headerLabel, options: Object.assign({}, hdrBase, { align: 'left'  }) },
       { text: 'CURRENT',   options: Object.assign({}, hdrBase, { align: 'right' }) },
-      { text: 'PRO FORMA', options: Object.assign({}, hdrBase, { align: 'right' }) },
     ]);
 
     // Data rows
@@ -137,8 +140,7 @@ function addFinancialSummarySlide(pptx, data, config, _L, _U) {
       var isAlt = i % 2 === 1;
       var rowBg = isAlt ? config.tableAlt : config.lightBg;
       var cur   = Number(item.current)  || 0;
-      var pf2   = Number(item.proforma) || 0;
-      var isNeg = cur < 0 || pf2 < 0;
+      var isNeg = cur < 0;
 
       var cellBase = {
         fill:    { color: rowBg },
@@ -153,10 +155,6 @@ function addFinancialSummarySlide(pptx, data, config, _L, _U) {
         { text: item.label || '', options: Object.assign({}, cellBase, { color: config.bodyText, align: 'left' }) },
         {
           text: cur !== 0 ? (cur < 0 ? '(' + U.fmtCurrencyFull(-cur) + ')' : U.fmtCurrencyFull(cur)) : '—',
-          options: Object.assign({}, cellBase, { align: 'right', color: isNeg ? 'A0190F' : config.bodyText }),
-        },
-        {
-          text: pf2 !== 0 ? (pf2 < 0 ? '(' + U.fmtCurrencyFull(-pf2) + ')' : U.fmtCurrencyFull(pf2)) : '—',
           options: Object.assign({}, cellBase, { align: 'right', color: isNeg ? 'A0190F' : config.bodyText }),
         },
       ]);
@@ -174,20 +172,17 @@ function addFinancialSummarySlide(pptx, data, config, _L, _U) {
     rows.push([
       { text: totLabel,                      options: Object.assign({}, totBase, { align: 'left'  }) },
       { text: U.fmtCurrencyFull(totCurrent), options: Object.assign({}, totBase, { align: 'right' }) },
-      { text: U.fmtCurrencyFull(totProforma),options: Object.assign({}, totBase, { align: 'right' }) },
     ]);
 
     return rows;
   }
 
-  // Compute totals
+  // Compute totals (current only — pro forma totals are computed on 06b)
   var totalIncomeCur = egi     || incomeItems.reduce(function (s, r) { return s + (Number(r.current) || 0); }, 0);
-  var totalIncomePF  = pfEgi   || incomeItems.reduce(function (s, r) { return s + (Number(r.proforma) || 0); }, 0);
   var totalExpCur    = rawExp  || expenseItems.reduce(function (s, r) { return s + (Number(r.current) || 0); }, 0);
-  var totalExpPF     = pfExp   || expenseItems.reduce(function (s, r) { return s + (Number(r.proforma) || 0); }, 0);
 
-  // Strip rows where both current and pro forma are zero — removes "— | —" phantom rows.
-  function rowHasValue(r) { return (Number(r.current) || 0) !== 0 || (Number(r.proforma) || 0) !== 0; }
+  // Strip rows with no current-side value — removes "—" phantom rows.
+  function rowHasValue(r) { return (Number(r.current) || 0) !== 0; }
   var incFiltered = incomeItems.filter(rowHasValue);
   var expFiltered = expenseItems.filter(rowHasValue);
 
@@ -195,11 +190,11 @@ function addFinancialSummarySlide(pptx, data, config, _L, _U) {
   // Pad the shorter array so tables have equal height
   var incPadded = incFiltered.slice();
   var expPadded = expFiltered.slice();
-  while (incPadded.length < numDataRows) { incPadded.push({ label: '', current: 0, proforma: 0 }); }
-  while (expPadded.length < numDataRows) { expPadded.push({ label: '', current: 0, proforma: 0 }); }
+  while (incPadded.length < numDataRows) { incPadded.push({ label: '', current: 0 }); }
+  while (expPadded.length < numDataRows) { expPadded.push({ label: '', current: 0 }); }
 
-  var incomeRows  = buildTable('INCOME SCHEDULE',  incPadded, 'TOTAL INCOME',   totalIncomeCur, totalIncomePF);
-  var expenseRows = buildTable('EXPENSE SCHEDULE', expPadded, 'TOTAL EXPENSES',  totalExpCur,   totalExpPF);
+  var incomeRows  = buildTable('INCOME SCHEDULE',  incPadded, 'TOTAL INCOME',   totalIncomeCur);
+  var expenseRows = buildTable('EXPENSE SCHEDULE', expPadded, 'TOTAL EXPENSES',  totalExpCur);
 
   // Row heights: 1 header + N data rows + 1 totals row
   var tableRowHeights = [HDR_H];
