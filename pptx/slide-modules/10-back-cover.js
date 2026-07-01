@@ -133,16 +133,38 @@ function addBackCoverSlide(pptx, data, config, _L, _U) {
   var bioPara1 = (bio && bio.para1) || 'Gateway Real Estate Advisors is a boutique commercial real estate brokerage specializing in investment sales across the Midwest.';
   var bioPara2 = (bio && bio.para2) || 'Our team combines deep local market knowledge with institutional-grade analysis to deliver superior results for our clients.';
 
+  // Hard cap the combined length so the two paragraphs can never spill into
+  // the stat strip below, even at 10pt with a 1.30 line-height on a
+  // ~4-inch wide card.  ~360 chars ≈ 8 lines of body copy inside the card.
+  var BIO_CHAR_LIMIT = 360;
+  function _clampBio(a, b, limit) {
+    var aLen = (a || '').length;
+    var bLen = (b || '').length;
+    var total = aLen + bLen;
+    if (total <= limit) return [a, b];
+    // Trim the longer paragraph first, keep the other intact when possible.
+    if (aLen >= bLen) {
+      var newALen = Math.max(0, limit - bLen);
+      return [ (a || '').slice(0, Math.max(0, newALen - 1)).replace(/\s+\S*$/, '') + '…', b ];
+    } else {
+      var newBLen = Math.max(0, limit - aLen);
+      return [ a, (b || '').slice(0, Math.max(0, newBLen - 1)).replace(/\s+\S*$/, '') + '…' ];
+    }
+  }
+  var _clamped = _clampBio(bioPara1, bioPara2, BIO_CHAR_LIMIT);
+  bioPara1 = _clamped[0];
+  bioPara2 = _clamped[1];
+
   slide.addText([
     { text: bioPara1, options: { color: 'D8E1EC', bold: false, breakLine: true } },
-    { text: ' ',      options: { color: 'D8E1EC', breakLine: true, fontSize: 6 } },
+    { text: ' ',      options: { color: 'D8E1EC', breakLine: true, fontSize: 5 } },
     { text: bioPara2, options: { color: 'B0C0D0', bold: false } },
   ], {
     x: L.snap(BIO_X + 0.16), y: BIO_TEXT_Y,
     w: L.snap(BIO_W - 0.32), h: BIO_TEXT_H,
     fontFace: 'Calibri', fontSize: 10,
     valign: 'top',
-    lineSpacingMultiple: 1.35,
+    lineSpacingMultiple: 1.30,
     wrap: true,
     shrinkText: true,
   });

@@ -24,11 +24,12 @@
     var s06 = require('./slide-modules/06-financial-summary');
     var s06b = require('./slide-modules/06b-financial-proforma');
     var s07 = require('./slide-modules/07-location-overview');
+    var s07b = require('./slide-modules/07b-property-gallery');
     var s08 = require('./slide-modules/08-market-overview');
     var s09 = require('./slide-modules/09-section-divider');
     var s10 = require('./slide-modules/10-back-cover');
     module.exports = factory(PptxGenJS, BRAND_CONFIG, LAYOUT, OMUtils,
-      s01, s02, s03, s04, s05, s06, s06b, s07, s08, s09, s10);
+      s01, s02, s03, s04, s05, s06, s06b, s07, s07b, s08, s09, s10);
   } else {
     // Browser — all deps are globals already loaded via <script> tags
     root.generateOfferingMemorandum = factory(
@@ -41,6 +42,7 @@
       root.addFinancialSummarySlide,
       root.addFinancialProformaSlide,
       root.addLocationOverviewSlide,
+      root.addPropertyGallerySlide,
       root.addMarketOverviewSlide,
       root.addSectionDividerSlide,
       root.addBackCoverSlide
@@ -51,7 +53,7 @@
   addCoverSlide, addOfferingSummarySlide, addInvestmentHighlightsSlide,
   addPropertyDescriptionSlide, addUnitMixSlide, addFinancialSummarySlide,
   addFinancialProformaSlide,
-  addLocationOverviewSlide, addMarketOverviewSlide,
+  addLocationOverviewSlide, addPropertyGallerySlide, addMarketOverviewSlide,
   addSectionDividerSlide, addBackCoverSlide
 ) {
 
@@ -113,6 +115,10 @@
 
     // Dedicated Pro Forma page — same layout, driven purely by financials.proforma.
     addFinancialProformaSlide(pptx, data, config, L, OMUtils);
+
+    // Property Gallery — 3×2 grid of photos 4-9.  The module returns null and
+    // renders nothing when the deck has ≤3 photos, so short decks stay tight.
+    addPropertyGallerySlide(pptx, data, config, L, OMUtils);
 
     addLocationOverviewSlide(pptx, data, config, L, OMUtils);
 

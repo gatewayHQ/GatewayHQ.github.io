@@ -1691,20 +1691,64 @@ function generateOM() {
     });
 
     // ── Broker profiles ────────────────────────────────────────────────────
+    // WYSIWYG: walk the Contact tab's DOM in on-screen order, read each
+    // agent-bio card's inputs directly, and merge in any saved profile for
+    // that email.  Falls back to a localStorage scan when the Contact tab
+    // has no cards yet (e.g. a freshly-restored past OM from before the
+    // Contact rebuild).  This is scope-safe from generateOM even though the
+    // `_agentBioCards` array lives inside the overlay IIFE.
     var brokers = [];
     try {
-      var _apRaw  = (window.GW && GW.getAgentProfiles) ? GW.getAgentProfiles() : {};
       var _agSeen = {};
-      Object.keys(_apRaw).forEach(function(k) {
+
+      // Every rendered card has id `abc<idx>` and hosts inputs `abc<idx>_name`,
+      // `_email`, `_photoData`, etc.  #agentBioList is the container in tab 6.
+      var listEl = document.getElementById('agentBioList');
+      var cardEls = listEl ? Array.prototype.slice.call(listEl.children) : [];
+      cardEls.forEach(function (cardEl) {
         if (brokers.length >= 2) return;
-        var ap = _apRaw[k];
-        var an = (ap && ap.name || '').trim();
-        if (an && !_agSeen[an]) {
-          _agSeen[an] = 1;
-          brokers.push({name:ap.name||'', title:ap.title||'', phone:ap.phone||'', email:ap.email||'', photoUrl:ap.photo||null});
+        var id = cardEl.id;
+        if (!id) return;
+        var elVal = function (suffix) {
+          var el = document.getElementById(id + '_' + suffix);
+          return el ? (el.value || '').trim() : '';
+        };
+        var name  = elVal('name');
+        var email = elVal('email').toLowerCase();
+        if (!name && !email) return;                                  // truly empty slot
+        var saved = {};
+        if (email) {
+          try { saved = JSON.parse(localStorage.getItem('gateway_agent_profile_' + email) || '{}') || {}; } catch (e) {}
         }
+        var photo = elVal('photoData') || saved.photo || null;
+        var dedupeKey = (email || name).toLowerCase();
+        if (_agSeen[dedupeKey]) return;
+        _agSeen[dedupeKey] = 1;
+        brokers.push({
+          name:     name || saved.name || '',
+          title:    elVal('title') || saved.title || '',
+          phone:    elVal('phone') || saved.phone || '',
+          email:    email || saved.email || '',
+          photoUrl: photo,
+          bio:      elVal('bio')   || saved.bio   || '',
+        });
       });
-    } catch(e2) {}
+
+      // Fallback for legacy state (past OMs restored from before the Contact
+      // rebuild) — scan localStorage for saved profiles.
+      if (brokers.length === 0) {
+        var _apRaw = (window.GW && GW.getAgentProfiles) ? GW.getAgentProfiles() : {};
+        Object.keys(_apRaw).forEach(function (k) {
+          if (brokers.length >= 2) return;
+          var ap = _apRaw[k];
+          var an = (ap && ap.name || '').trim();
+          if (an && !_agSeen[an.toLowerCase()]) {
+            _agSeen[an.toLowerCase()] = 1;
+            brokers.push({ name: ap.name || '', title: ap.title || '', phone: ap.phone || '', email: ap.email || '', photoUrl: ap.photo || null, bio: ap.bio || '' });
+          }
+        });
+      }
+    } catch (e2) {}
 
     // ── Market state name ──────────────────────────────────────────────────
     var stateFips = v('mktState');
@@ -1847,7 +1891,44 @@ function generateOM() {
 
 
 // ==== PAST OMs (localStorage) ====
-function gatherOMData() {
+// gatherOMData() collects EVERY field the builder cares about, including the
+// Contact tab's headshot-included agent cards.  Photos + headshots are data
+// URIs and can blow past the 5 MB per-domain localStorage quota; we save
+// slim by default (no image bytes) and let the caller opt into the heavier
+// full snapshot when the user is on a fast desktop with plenty of quota.
+function _readAgentBioCardsForSave() {
+  var listEl = document.getElementById('agentBioList');
+  if (!listEl) return [];
+  var out = [];
+  var kids = Array.prototype.slice.call(listEl.children);
+  kids.forEach(function (cardEl) {
+    var id = cardEl.id;
+    if (!id) return;
+    var g = function (suffix) {
+      var el = document.getElementById(id + '_' + suffix);
+      return el ? (el.value || '') : '';
+    };
+    // Skip completely empty slots so restore doesn't rebuild ghost cards.
+    var hasAny = ['name','title','phone','email','license','bio','photoData'].some(function(f){ return g(f).trim() !== ''; });
+    if (!hasAny) return;
+    out.push({
+      name:            g('name'),
+      title:           g('title'),
+      phone:           g('phone'),
+      email:           g('email'),
+      license:         g('license'),
+      qrurl:           g('qrurl'),
+      bio:             g('bio'),
+      accomplishments: g('accomplishments'),
+      affiliations:    g('affiliations'),
+      photo:           g('photoData'),
+    });
+  });
+  return out;
+}
+
+function gatherOMData(includePhotos) {
+  if (includePhotos === undefined) includePhotos = true;
   var data = {};
   var fields = ['propName1','propName2','address','askingPrice','totalUnits','downPayment',
     'execDesc','callout','noi','grm','propType','yearBuilt','lotSize','parking',
@@ -1869,7 +1950,17 @@ function gatherOMData() {
   data._pfOtherIncome = JSON.parse(JSON.stringify(pfOtherIncome));
   data._agents = JSON.parse(JSON.stringify(agents));
   data._showSqFt = showSqFt;
-  data._photos = photos.map(function(p){ return p || null; });
+  // Contact tab — headshot + bio cards (this is where past-OM save used to
+  // silently drop everything Daniel entered in the Contact tab).
+  var bioCards = _readAgentBioCardsForSave();
+  if (!includePhotos) {
+    bioCards = bioCards.map(function (c) { var d = Object.assign({}, c); d.photo = ''; return d; });
+  }
+  data._agentBioCards = bioCards;
+  // Property photos — the biggest quota consumer; strip when saving slim.
+  data._photos = includePhotos
+    ? photos.map(function(p){ return p || null; })
+    : photos.map(function(){ return null; });
   return data;
 }
 function restoreOMData(data) {
@@ -1894,21 +1985,108 @@ function restoreOMData(data) {
   if (data._agents) { agents = data._agents; renderAgents(); }
   if (data._photos) { photos = data._photos; renderPhotos(); }
   if (data._showSqFt !== undefined) { showSqFt = data._showSqFt; document.getElementById('showSqFt').checked = showSqFt; toggleSqFt(); }
+  // Contact tab — clear existing bio cards and rebuild from saved state.
+  if (Array.isArray(data._agentBioCards) && typeof window.addAgentBioCard === 'function') {
+    var listEl = document.getElementById('agentBioList');
+    if (listEl) listEl.innerHTML = '';
+    // Reset the module-scoped counter so id numbering restarts at 0.
+    if (typeof window._resetAgentBioCards === 'function') window._resetAgentBioCards();
+    data._agentBioCards.forEach(function (savedCard) {
+      window.addAgentBioCard();
+      // The card just appended is the last in the list.
+      var listNow = document.getElementById('agentBioList');
+      var last = listNow && listNow.lastElementChild;
+      if (!last) return;
+      var id = last.id;
+      var setVal = function (suffix, val) {
+        var el = document.getElementById(id + '_' + suffix);
+        if (el && val !== undefined && val !== null) el.value = val;
+      };
+      ['name','title','phone','email','license','qrurl','bio','accomplishments','affiliations'].forEach(function (f) {
+        setVal(f, savedCard[f]);
+      });
+      if (savedCard.photo) {
+        var preview = document.getElementById(id + '_photoPreview');
+        if (preview) preview.innerHTML = '<img src="' + savedCard.photo + '" style="width:100%;height:100%;object-fit:cover">';
+        var pd = document.getElementById(id + '_photoData');
+        if (!pd) {
+          pd = document.createElement('input');
+          pd.type = 'hidden';
+          pd.id   = id + '_photoData';
+          last.appendChild(pd);
+        }
+        pd.value = savedCard.photo;
+      }
+    });
+  }
   calcNOI('cur'); calcNOI('pf');
 }
 function getSavedOMs() { try { return JSON.parse(localStorage.getItem('gatewayOMs') || '{}'); } catch(e) { return {}; } }
+
+// Save with three tiers so the button never silently fails:
+//   1. Full snapshot (property photos + agent headshots as base64 data URIs).
+//   2. On quota error, retry without property photos (still keeps agent bios
+//      + headshots — those are much smaller).
+//   3. On quota error again, retry stripped of ALL image bytes.  If even that
+//      fails, surface a clear error so Daniel sees exactly what broke.
 function saveCurrentOM() {
-  var nameInput = document.getElementById('saveOmName');
-  var name = nameInput.value.trim();
-  if (!name) { alert('Please enter a name for this OM.'); return; }
-  var saved = getSavedOMs();
-  var key = name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-  var city = document.getElementById('address').value.split(',').pop().trim() || 'Unknown';
-  saved[key] = { name: name, city: city, date: new Date().toLocaleDateString(), data: gatherOMData() };
-  localStorage.setItem('gatewayOMs', JSON.stringify(saved));
-  nameInput.value = '';
-  renderPastOMs();
-  alert('OM saved: ' + name);
+  try {
+    var nameInput = document.getElementById('saveOmName');
+    var name = nameInput ? nameInput.value.trim() : '';
+    if (!name) { alert('Please enter a name for this OM.'); return; }
+
+    var key = name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+    var city = (document.getElementById('address').value.split(',').pop() || '').trim() || 'Unknown';
+
+    function _try(includePhotos, includeHeadshots) {
+      var saved = getSavedOMs();
+      var entry = {
+        name: name,
+        city: city,
+        date: new Date().toLocaleDateString(),
+        data: gatherOMData(includePhotos),
+      };
+      // gatherOMData(false) already stripped photos; strip headshots too when asked.
+      if (!includeHeadshots && Array.isArray(entry.data._agentBioCards)) {
+        entry.data._agentBioCards = entry.data._agentBioCards.map(function (c) {
+          var d = Object.assign({}, c); d.photo = ''; return d;
+        });
+      }
+      saved[key] = entry;
+      localStorage.setItem('gatewayOMs', JSON.stringify(saved));
+      return true;
+    }
+
+    var mode = 'full';
+    try {
+      _try(true, true);
+    } catch (e1) {
+      if (!(e1 && (e1.name === 'QuotaExceededError' || e1.name === 'NS_ERROR_DOM_QUOTA_REACHED'))) throw e1;
+      try {
+        _try(false, true);
+        mode = 'no-property-photos';
+      } catch (e2) {
+        if (!(e2 && (e2.name === 'QuotaExceededError' || e2.name === 'NS_ERROR_DOM_QUOTA_REACHED'))) throw e2;
+        _try(false, false);
+        mode = 'text-only';
+      }
+    }
+
+    if (nameInput) nameInput.value = '';
+    renderPastOMs();
+
+    if (mode === 'full') {
+      alert('OM saved: ' + name);
+    } else if (mode === 'no-property-photos') {
+      alert('OM saved: ' + name + '\n\nHeads up — property photos were dropped to fit browser storage limits. The rest of the deck (data, agent headshots, bios) saved fine. Re-upload photos on next load.');
+    } else {
+      alert('OM saved: ' + name + '\n\nHeads up — all images were dropped to fit browser storage limits. Text data saved fine; re-upload property photos and agent headshots on next load, or clear old saved OMs.');
+    }
+  } catch (err) {
+    console.error('[SaveOM] failed:', err);
+    alert('Save failed: ' + ((err && err.message) || err) +
+          '\n\nOpen DevTools → Console for details.  Common cause: browser storage full — try deleting older saved OMs from the Past OMs tab.');
+  }
 }
 function loadOM(key) {
   var saved = getSavedOMs();
@@ -4306,6 +4484,9 @@ renderPastOMs();
   }
 
   var _agentBioCards = [];
+  // Exposed so restoreOMData can wipe the id-counter when hydrating a saved
+  // OM's Contact-tab cards from scratch.
+  window._resetAgentBioCards = function () { _agentBioCards = []; };
 
   window.addAgentBioCard = function() {
     if (_agentBioCards.length >= 4) { showGlobalStatus('Maximum 4 agents supported'); return; }
