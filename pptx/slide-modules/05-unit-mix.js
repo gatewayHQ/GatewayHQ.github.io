@@ -12,16 +12,28 @@ function addUnitMixSlide(pptx, data, config, _L, _U) {
 
   var unitMix  = data.unitMix    || [];
   var fin      = data.financials || {};
+  var opts     = data.options    || {};
+  var showSF   = opts.showSqFt !== false;  // default: true
 
   // ── 1. Title + footer ─────────────────────────────────────────────────────
   U.addSlideTitle(slide, 'Unit Mix & Rent Roll', config, L);
   U.addFooter(slide, config, L, '05');
 
   // ── 2. Table geometry ────────────────────────────────────────────────────
-  // 7 columns, widths summing to L.CW = 12.33"
-  var COL_WIDTHS = [2.25, 1.10, 1.20, 1.75, 1.75, 2.14, 2.14];
-  // Verify they sum to CW (floating point safe check)
-  // [2.25+1.10+1.20+1.75+1.75+2.14+2.14 = 12.33 ✓]
+  // Column set depends on the builder's "Include Sq Ft columns" toggle.
+  // Widths (in inches) sum to L.CW = 12.33 in either mode.
+  //   With SF:  Type, # Units, Avg SF, Market Rent, In-Place Rent, Monthly, Annual
+  //   No SF:    Type, # Units,          Market Rent, In-Place Rent, Monthly, Annual
+  var COL_WIDTHS, COL_LABELS, COL_ALIGNS;
+  if (showSF) {
+    COL_WIDTHS = [2.25, 1.10, 1.20, 1.75, 1.75, 2.14, 2.14];
+    COL_LABELS = ['Unit Type', '# Units', 'Avg SF', 'Market Rent', 'In-Place Rent', 'Monthly Rev', 'Annual Rev'];
+    COL_ALIGNS = ['left', 'center', 'center', 'right', 'right', 'right', 'right'];
+  } else {
+    COL_WIDTHS = [2.83, 1.30, 2.00, 2.00, 2.10, 2.10];
+    COL_LABELS = ['Unit Type', '# Units', 'Market Rent', 'In-Place Rent', 'Monthly Rev', 'Annual Rev'];
+    COL_ALIGNS = ['left', 'center', 'right', 'right', 'right', 'right'];
+  }
 
   var TABLE_X  = L.M;
   var TABLE_Y  = L.CONTENT_Y;
@@ -40,20 +52,6 @@ function addUnitMixSlide(pptx, data, config, _L, _U) {
 
   var HDR_H = dynRowH;
   var ROW_H = dynRowH;
-
-  // Column header labels (uppercase in render)
-  var COL_LABELS = [
-    'Unit Type',
-    '# Units',
-    'Avg SF',
-    'Market Rent',
-    'In-Place Rent',
-    'Monthly Rev',
-    'Annual Rev',
-  ];
-
-  // Column alignments: left, center, center, right, right, right, right
-  var COL_ALIGNS = ['left', 'center', 'center', 'right', 'right', 'right', 'right'];
 
   // ── 3. Compute totals ─────────────────────────────────────────────────────
   var sumCount   = 0;
@@ -137,32 +135,34 @@ function addUnitMixSlide(pptx, data, config, _L, _U) {
         text: cnt2 ? String(cnt2) : '—',
         options: Object.assign({}, baseCellOpts, { align: 'center' }),
       },
+    ];
+    if (showSF) {
       // Avg SF — center, dash if zero
-      {
+      cells.push({
         text: sf ? U.fmtNum(sf) : '—',
         options: Object.assign({}, baseCellOpts, { align: 'center' }),
-      },
-      // Market Rent — right
-      {
-        text: mktRent ? ('$' + Math.round(mktRent).toLocaleString()) : '—',
-        options: Object.assign({}, baseCellOpts, { align: 'right' }),
-      },
-      // In-Place Rent — right
-      {
-        text: iprRent ? ('$' + Math.round(iprRent).toLocaleString()) : '—',
-        options: Object.assign({}, baseCellOpts, { align: 'right' }),
-      },
-      // Monthly Rev — right
-      {
-        text: monthRev ? ('$' + Math.round(monthRev).toLocaleString()) : '—',
-        options: Object.assign({}, baseCellOpts, { align: 'right' }),
-      },
-      // Annual Rev — right
-      {
-        text: annRev ? ('$' + Math.round(annRev).toLocaleString()) : '—',
-        options: Object.assign({}, baseCellOpts, { align: 'right' }),
-      },
-    ];
+      });
+    }
+    // Market Rent — right
+    cells.push({
+      text: mktRent ? ('$' + Math.round(mktRent).toLocaleString()) : '—',
+      options: Object.assign({}, baseCellOpts, { align: 'right' }),
+    });
+    // In-Place Rent — right
+    cells.push({
+      text: iprRent ? ('$' + Math.round(iprRent).toLocaleString()) : '—',
+      options: Object.assign({}, baseCellOpts, { align: 'right' }),
+    });
+    // Monthly Rev — right
+    cells.push({
+      text: monthRev ? ('$' + Math.round(monthRev).toLocaleString()) : '—',
+      options: Object.assign({}, baseCellOpts, { align: 'right' }),
+    });
+    // Annual Rev — right
+    cells.push({
+      text: annRev ? ('$' + Math.round(annRev).toLocaleString()) : '—',
+      options: Object.assign({}, baseCellOpts, { align: 'right' }),
+    });
 
     tableRows.push(cells);
   }
@@ -181,12 +181,14 @@ function addUnitMixSlide(pptx, data, config, _L, _U) {
   var totalsRow = [
     { text: 'TOTAL',                                                    options: Object.assign({}, totCellBase, { align: 'left'   }) },
     { text: sumCount ? String(sumCount) : '—',                          options: Object.assign({}, totCellBase, { align: 'center' }) },
-    { text: '—',                                                        options: Object.assign({}, totCellBase, { align: 'center' }) },
-    { text: '—',                                                        options: Object.assign({}, totCellBase, { align: 'right'  }) },
-    { text: '—',                                                        options: Object.assign({}, totCellBase, { align: 'right'  }) },
-    { text: sumMonthly ? ('$' + Math.round(sumMonthly).toLocaleString()) : '—', options: Object.assign({}, totRevenueOpts, { align: 'right' }) },
-    { text: sumAnnual  ? ('$' + Math.round(sumAnnual).toLocaleString())  : '—', options: Object.assign({}, totRevenueOpts, { align: 'right' }) },
   ];
+  if (showSF) {
+    totalsRow.push({ text: '—', options: Object.assign({}, totCellBase, { align: 'center' }) });
+  }
+  totalsRow.push({ text: '—', options: Object.assign({}, totCellBase, { align: 'right' }) });
+  totalsRow.push({ text: '—', options: Object.assign({}, totCellBase, { align: 'right' }) });
+  totalsRow.push({ text: sumMonthly ? ('$' + Math.round(sumMonthly).toLocaleString()) : '—', options: Object.assign({}, totRevenueOpts, { align: 'right' }) });
+  totalsRow.push({ text: sumAnnual  ? ('$' + Math.round(sumAnnual).toLocaleString())  : '—', options: Object.assign({}, totRevenueOpts, { align: 'right' }) });
   tableRows.push(totalsRow);
 
   // ── 5. Build row height array ─────────────────────────────────────────────

@@ -13,7 +13,7 @@ function showTab(i) {
 }
 
 // ==== UNIT MIX ====
-var unitData = [{ type:'', units:0, sqft:0, rent:0 }];
+var unitData = [{ type:'', units:0, sqft:0, rent:0, mrent:0 }];
 var showSqFt = true;
 function toggleSqFt() {
   showSqFt = document.getElementById('showSqFt').checked;
@@ -22,7 +22,9 @@ function toggleSqFt() {
 }
 function renderUnits() {
   var tbody = document.getElementById('unitRows');
+  if (!tbody) return;
   tbody.innerHTML = '';
+  var censusMrent = (typeof _censusMarketRent === 'function') ? _censusMarketRent() : 0;
   unitData.forEach(function(u,i){
     var rentSqft = u.sqft > 0 ? (u.rent / u.sqft).toFixed(2) : '0.00';
     var totalRent = u.units * u.rent;
@@ -30,11 +32,13 @@ function renderUnits() {
     var pct = totalAllRent > 0 ? ((totalRent/totalAllRent)*100).toFixed(0) : '0';
     var tr = document.createElement('tr');
     var sqftDisplay = showSqFt ? '' : 'display:none';
+    var mrentPlaceholder = censusMrent ? ('$' + censusMrent.toLocaleString() + ' (Census)') : '—';
     tr.innerHTML =
       '<td><input value="'+u.type+'" onchange="unitData['+i+'].type=this.value"></td>'+
       '<td><input type="number" value="'+u.units+'" onchange="unitData['+i+'].units=+this.value;renderUnits()"></td>'+
       '<td class="sqft-col" style="'+sqftDisplay+'"><input type="number" value="'+(u.sqft||'')+'" placeholder="—" onchange="unitData['+i+'].sqft=+this.value;renderUnits()"></td>'+
       '<td><input type="number" value="'+u.rent+'" onchange="unitData['+i+'].rent=+this.value;renderUnits()"></td>'+
+      '<td><input type="number" value="'+(u.mrent||'')+'" placeholder="'+mrentPlaceholder+'" onchange="unitData['+i+'].mrent=+this.value;renderUnits()"></td>'+
       '<td class="sqft-col" style="'+sqftDisplay+'"><input value="$'+rentSqft+'" readonly style="color:var(--brand-blue);border:none"></td>'+
       '<td><input value="$'+totalRent.toLocaleString()+'" readonly style="color:var(--brand-blue);border:none"></td>'+
       '<td><input value="'+pct+'%" readonly style="color:var(--brand-blue);border:none"></td>'+
@@ -42,8 +46,121 @@ function renderUnits() {
     tbody.appendChild(tr);
   });
 }
-function addUnitRow() { unitData.push({type:'',units:0,sqft:0,rent:0}); renderUnits(); }
+function addUnitRow() { unitData.push({type:'',units:0,sqft:0,rent:0,mrent:0}); renderUnits(); }
 renderUnits();
+
+// ==== LOCATION MAP — Google Static Maps auto-generator ======================
+// The key is stored client-side in localStorage (gw_gmaps_key) so every agent
+// on the same machine keeps using their own key. It is NEVER committed and the
+// input renders as a password field. Falls back gracefully to a placeholder
+// when no key is set so the OM still generates without maps.
+function getGmapsKey() {
+  var el = document.getElementById('mktGmapsKey');
+  if (el && el.value.trim()) return el.value.trim();
+  return localStorage.getItem('gw_gmaps_key') || (window.CONFIG && window.CONFIG.googleMapsApiKey) || '';
+}
+function saveGmapsKey() {
+  var el = document.getElementById('mktGmapsKey');
+  var k  = el ? el.value.trim() : '';
+  if (k) localStorage.setItem('gw_gmaps_key', k);
+  else   localStorage.removeItem('gw_gmaps_key');
+  refreshMapPreview();
+}
+function _addressForMap() {
+  var explicit = ((document.getElementById('mktMapUrl') || {}).value || '').trim();
+  if (explicit) return { url: explicit, source: 'custom' };
+  var addr = ((document.getElementById('address') || {}).value || '').trim();
+  var city = ((document.getElementById('mktCity') || {}).value || '').trim();
+  var stateSel = document.getElementById('mktState');
+  var stateFips = stateSel ? stateSel.value : '';
+  var stateName = STATE_NAMES[stateFips] || '';
+  var composed = addr || [city, stateName].filter(Boolean).join(', ');
+  return { address: composed };
+}
+function buildStaticMapUrl() {
+  var info = _addressForMap();
+  if (info.url) return info.url;
+  var addr = info.address;
+  if (!addr) return '';
+  var key = getGmapsKey();
+  if (!key) return '';
+  var q = encodeURIComponent(addr);
+  return 'https://maps.googleapis.com/maps/api/staticmap' +
+    '?center=' + q +
+    '&zoom=15' +
+    '&size=640x520' +
+    '&scale=2' +
+    '&maptype=roadmap' +
+    '&markers=color:0xC9A84C%7Clabel:P%7C' + q +
+    '&key=' + encodeURIComponent(key);
+}
+function refreshMapPreview() {
+  var wrap = document.getElementById('mapPreviewWrap');
+  var img  = document.getElementById('mapPreviewImg');
+  if (!wrap || !img) return;
+  var url = buildStaticMapUrl();
+  if (!url) { wrap.style.display = 'none'; img.removeAttribute('src'); return; }
+  img.onerror = function() { wrap.style.display = 'none'; };
+  img.onload  = function() { wrap.style.display = 'block'; };
+  img.src = url;
+}
+// Restore the saved key on page load so agents see their preview immediately.
+(function initGmapsKey() {
+  document.addEventListener('DOMContentLoaded', function () {
+    var el = document.getElementById('mktGmapsKey');
+    if (el) {
+      var saved = localStorage.getItem('gw_gmaps_key') || '';
+      if (saved) el.value = saved;
+      refreshMapPreview();
+    }
+    var addrEl = document.getElementById('address');
+    var cityEl = document.getElementById('mktCity');
+    var stateEl = document.getElementById('mktState');
+    var mapUrlEl = document.getElementById('mktMapUrl');
+    [addrEl, cityEl, stateEl, mapUrlEl].forEach(function (e) {
+      if (e) e.addEventListener('input', refreshMapPreview);
+      if (e && e.tagName === 'SELECT') e.addEventListener('change', refreshMapPreview);
+    });
+  });
+})();
+
+// ==== GATEWAY BIO — shared helper (used by generateOM + back-cover slide) ====
+// Reads from the same "About Gateway" admin panel (localStorage: gateway_about_company).
+function _gatewayBioData() {
+  var d = {};
+  try { d = JSON.parse(localStorage.getItem('gateway_about_company') || '{}') || {}; } catch (e) {}
+  return {
+    tagline: 'GATEWAY BIO',
+    heading: 'Who We Are',
+    para1:   d.para1 || 'Gateway Real Estate Advisors is a boutique commercial real estate brokerage specializing in investment sales across the Midwest.',
+    para2:   d.para2 || 'Our team combines deep local market knowledge with institutional-grade analysis to deliver superior results for our clients.',
+    stats: [
+      d.stat1v ? { value: d.stat1v, label: d.stat1l || 'Total Volume' } : null,
+      d.stat2v ? { value: d.stat2v, label: d.stat2l || 'Transactions' } : null,
+      d.stat3v ? { value: d.stat3v, label: d.stat3l || 'Years' } : null,
+    ].filter(Boolean),
+  };
+}
+
+// ==== MARKET RENT AUTO-FILL (from Market tab / Census median gross rent) ====
+function _censusMarketRent() {
+  var el = document.getElementById('avgRent');
+  if (!el) return 0;
+  return parseInt(String(el.value || '').replace(/[^0-9]/g, ''), 10) || 0;
+}
+function autoFillMarketRent() {
+  var mkt = _censusMarketRent();
+  if (!mkt) {
+    if (typeof showGlobalStatus === 'function') showGlobalStatus('Fetch Market Data on the Market tab first.');
+    return;
+  }
+  var filled = 0;
+  unitData.forEach(function(u){ if (!u.mrent) { u.mrent = mkt; filled++; } });
+  renderUnits();
+  if (typeof showGlobalStatus === 'function') {
+    showGlobalStatus(filled ? ('Filled ' + filled + ' row' + (filled === 1 ? '' : 's') + ' with $' + mkt.toLocaleString() + '/mo market rent.') : 'All rows already have a Market Rent set.');
+  }
+}
 
 // ==== DYNAMIC EXPENSES (v5 NEW) ====
 var curExpenses = [
@@ -400,32 +517,54 @@ function deleteOMSavedAgent(selId) {
 renderAgents();
 
 // ==== MARKET DATA AUTO-FILL ====
+// Pulls county-level ACS 5-Year Estimates from the U.S. Census Bureau.
+// We try the newest vintage first (2023 as of 2026-01) then walk back through
+// prior years so a single missing release doesn't break the market fetch.
+var CENSUS_VINTAGES = ['2023', '2022', '2021'];
+
 function fetchMarketData() {
   var city = document.getElementById('mktCity').value.trim();
   var stateFips = document.getElementById('mktState').value;
   var county = document.getElementById('mktCounty').value.trim();
   var statusEl = document.getElementById('fetchStatus');
   var btn = document.getElementById('fetchBtn');
-  
+
   if (!stateFips || !county) {
     statusEl.className = 'fetch-status error';
     statusEl.textContent = 'Please select a State and enter a County name.';
     return;
   }
-  
+
   statusEl.className = 'fetch-status loading';
-  statusEl.textContent = 'Fetching data from U.S. Census Bureau...';
+  statusEl.textContent = 'Fetching data from U.S. Census Bureau (ACS 5-Year)…';
   btn.disabled = true;
-  
+
   var stateName = STATE_NAMES[stateFips] || '';
   var displayCity = city || county;
-  
+
   var vars = 'NAME,B01003_001E,B19013_001E,B01002_001E,B25001_001E,B25003_001E,B25003_002E,B25003_003E,B25064_001E,B25010_001E,B23025_003E,B23025_005E';
-  var url = 'https://api.census.gov/data/2022/acs/acs5?get=' + vars + '&for=county:*&in=state:' + stateFips;
-  
-  fetch(url)
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
+
+  // Walk vintages newest → oldest until one responds successfully.
+  function tryVintage(idx) {
+    if (idx >= CENSUS_VINTAGES.length) {
+      statusEl.className = 'fetch-status error';
+      statusEl.textContent = 'Census ACS endpoint is unavailable right now. Enter data manually or try again later.';
+      btn.disabled = false;
+      return;
+    }
+    var vintage = CENSUS_VINTAGES[idx];
+    var url = 'https://api.census.gov/data/' + vintage + '/acs/acs5?get=' + vars + '&for=county:*&in=state:' + stateFips;
+    fetch(url)
+      .then(function(r) {
+        if (!r.ok) throw new Error('Vintage ' + vintage + ' → HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function(data) { handleMarketRows(data, vintage); })
+      .catch(function() { tryVintage(idx + 1); });
+  }
+  tryVintage(0);
+
+  function handleMarketRows(data, vintage) {
       var countyLower = county.toLowerCase().replace(/\s+county$/i, '');
       var match = null;
       for (var i = 1; i < data.length; i++) {
@@ -481,15 +620,14 @@ function fetchMarketData() {
       document.getElementById('drv3Title').value = 'Affordable Market';
       document.getElementById('drv3Desc').value = 'Median rent of $' + medRent.toLocaleString() + '/month and median income of $' + medIncome.toLocaleString() + ' create a balanced rental market with room for growth.';
       
+      // Re-render the unit-mix table so the Census median rent flows through
+      // as the "Market Rent" placeholder + auto-fill source.
+      if (typeof renderUnits === 'function') renderUnits();
+
       statusEl.className = 'fetch-status success';
-      statusEl.textContent = '\u2705 Market data loaded for ' + match[0] + ' (ACS 2022 5-Year Estimates)';
+      statusEl.textContent = '\u2705 Market data loaded for ' + match[0] + ' (ACS ' + vintage + ' 5-Year Estimates)';
       btn.disabled = false;
-    })
-    .catch(function(err) {
-      statusEl.className = 'fetch-status error';
-      statusEl.textContent = 'Error fetching data: ' + err.message + '. You can enter data manually.';
-      btn.disabled = false;
-    });
+  }
 }
 
 // ==== STATUS ====
@@ -1564,7 +1702,10 @@ function generateOM() {
       unitMix: (unitData || [])
         .filter(function(u){ return u.type || u.units > 0; })
         .map(function(u) {
-          return {type:u.type||'', count:u.units||0, sf:u.sqft||0, marketRent:u.rent||0, inPlaceRent:u.rent||0};
+          // marketRent falls back to Census median gross rent (avgRent field)
+          // so this column reflects real market data — never a duplicate of in-place rent.
+          var mkt = (+u.mrent) || _censusMarketRent() || (+u.rent) || 0;
+          return {type:u.type||'', count:u.units||0, sf:u.sqft||0, marketRent:mkt, inPlaceRent:u.rent||0};
         }),
       market: {
         submarket:    v('mktCity') + (stateName ? ', ' + stateName : ''),
@@ -1578,7 +1719,7 @@ function generateOM() {
         households:   v('households'),
         renterOcc:    v('renterOcc'),
         ownerOcc:     v('ownerOcc'),
-        mapUrl:       null,
+        mapUrl:       (typeof buildStaticMapUrl === 'function' ? buildStaticMapUrl() : '') || null,
         description:  v('mktDesc'),
         drivers: [
           {title:v('drv1Title'), description:v('drv1Desc')},
@@ -1589,7 +1730,7 @@ function generateOM() {
       },
       location: {
         description: v('mktDesc'),
-        mapUrl:      null,
+        mapUrl:      (typeof buildStaticMapUrl === 'function' ? buildStaticMapUrl() : '') || null,
         demographics:[],
       },
       brokerage: {
@@ -1602,6 +1743,12 @@ function generateOM() {
         logoUrl:      typeof LOGO_PRIMARY_DARK  !== 'undefined' ? LOGO_PRIMARY_DARK  : null,
         logoLightUrl: typeof LOGO_PRIMARY_LIGHT !== 'undefined' ? LOGO_PRIMARY_LIGHT : null,
         brokers:      brokers,
+        bio:          _gatewayBioData(),
+      },
+      options: {
+        // Drives conditional slide behaviour (e.g. hide the Sq Ft column when
+        // the builder's "Include Sq Ft columns" checkbox is off).
+        showSqFt: (typeof showSqFt !== 'undefined') ? !!showSqFt : true,
       },
     };
 
@@ -2047,19 +2194,18 @@ renderPastOMs();
     analysisTab.className = 'tab';
     analysisTab.onclick = function() { showTab(9); };
     analysisTab.textContent = '\u{1F4CA} Investment Analysis';
-    var agentBioTab = document.createElement('div');
-    agentBioTab.className = 'tab';
-    agentBioTab.onclick = function() { showTab(10); };
-    agentBioTab.textContent = '\u{1F464} Agent Bio';
-    agentBioTab.style.borderLeft = '2px solid var(--brand-gold,#C8A84B)';
+    // NOTE: Agent Bio tab (tab 10) is no longer injected.  The Contact tab
+    // (tab 6) now hosts the headshot-included agent cards directly, so a
+    // separate "Agent Bio" tab would be a redundant surface.
+    // "About Gateway" is the 11th tab button (index 10) after Comparable Sales
+    // and Investment Analysis, now that the Agent Bio tab lives inside Contact.
     var gatewayTab = document.createElement('div');
     gatewayTab.className = 'tab';
-    gatewayTab.onclick = function() { showTab(11); };
+    gatewayTab.onclick = function() { showTab(10); };
     gatewayTab.textContent = '\u{1F3E2} About Gateway';
     gatewayTab.style.borderLeft = '2px solid var(--brand-gold,#C8A84B)';
     tabBar.appendChild(compTab);
     tabBar.appendChild(analysisTab);
-    tabBar.appendChild(agentBioTab);
     tabBar.appendChild(gatewayTab);
   }
 
@@ -4063,22 +4209,28 @@ renderPastOMs();
     setTimeout(function() { generateOM(); }, 200);
   };
 
-  // ---- INJECT AGENT BIO PANEL (TAB 10) ----
+  // ---- CONTACT TAB — headshot-included agent cards ----
+  // The Contact tab (tab 6) already ships an #agentBioList container in the
+  // HTML; we just seed the first card and, if the container isn't there yet
+  // (e.g. a stale build), inject the same UI as a fallback so nothing breaks.
   function injectAgentBioPanel() {
-    var container = document.querySelector('#page-multifamily');
-    if (!container) return;
-    var panel = document.createElement('div');
-    panel.className = 'panel';
-    panel.id = 'tab10';
-    panel.style.cssText = 'display:none';
-    panel.innerHTML =
-      '<div class="section-title">About the Agent(s)</div>' +
-      '<p style="color:var(--brand-gray);font-size:13px;margin-bottom:16px">Build detailed agent bio pages for the OM. Profiles save locally by email address.</p>' +
-      '<div id="agentBioList"></div>' +
-      '<button class="btn-sm" onclick="addAgentBioCard()" style="margin-top:8px">+ Add Agent Bio</button>';
-    container.appendChild(panel);
-    // Render one blank card to start
-    setTimeout(function() { addAgentBioCard(); }, 50);
+    var mount = document.getElementById('agentBioList');
+    if (!mount) {
+      var container = document.querySelector('#page-multifamily');
+      if (!container) return;
+      var panel = document.createElement('div');
+      panel.className = 'panel';
+      panel.id = 'tab10-fallback';
+      panel.style.cssText = 'display:none';
+      panel.innerHTML =
+        '<div class="section-title">About the Agent(s)</div>' +
+        '<p style="color:var(--brand-gray);font-size:13px;margin-bottom:16px">Build detailed agent contact cards for the OM. Profiles save locally by email address.</p>' +
+        '<div id="agentBioList"></div>' +
+        '<button class="btn-sm" onclick="addAgentBioCard()" style="margin-top:8px">+ Add Agent</button>';
+      container.appendChild(panel);
+    }
+    // Seed one blank card so agents see the shape of the form immediately.
+    setTimeout(function() { if (typeof addAgentBioCard === 'function') addAgentBioCard(); }, 50);
   }
 
   var _agentBioCards = [];
@@ -4430,7 +4582,7 @@ renderPastOMs();
     });
   };
 
-  // ---- INJECT ABOUT GATEWAY PANEL (TAB 11) ----
+  // ---- INJECT ABOUT GATEWAY PANEL (TAB 10 — shifted down after removing Agent Bio tab) ----
   var _gwAdminUnlocked = false;
   // Password reads from config.js (adminPassword field) → localStorage → fallback
   var GW_ADMIN_PASS = localStorage.getItem('gw_admin_pass') || (window.CONFIG && window.CONFIG.adminPassword) || 'gateway2025';
@@ -4440,7 +4592,7 @@ renderPastOMs();
     if (!container) return;
     var panel = document.createElement('div');
     panel.className = 'panel';
-    panel.id = 'tab11';
+    panel.id = 'tab10';
     panel.style.cssText = 'display:none';
 
     // Try loading saved data

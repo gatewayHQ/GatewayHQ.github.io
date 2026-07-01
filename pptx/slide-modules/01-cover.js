@@ -36,9 +36,11 @@ function addCoverSlide(pptx, data, config, _L, _U) {
     line: { type: 'none' },
   });
 
-  // ── 3. Solid navy strip — bottom 2.0" (no transparency) ──────────────────
-  var STRIP_Y = L.snap(5.50);
-  var STRIP_H = L.snap(2.00);
+  // ── 3. Solid navy strip — bottom (no transparency).  Raised so the 2×2 KPI
+  //     grid (Asking / Units / Cap Rate / Price Per Unit) sits fully above
+  //     the footer branding strip.
+  var STRIP_Y = L.snap(5.15);
+  var STRIP_H = L.snap(2.35);
   slide.addShape('rect', {
     x: 0, y: STRIP_Y, w: L.W, h: STRIP_H,
     fill: { color: config.primaryColor },
@@ -66,7 +68,7 @@ function addCoverSlide(pptx, data, config, _L, _U) {
   });
 
   // ── 6. Gold horizontal rule above property name ───────────────────────────
-  U.addGoldRule(slide, L.snap(0.60), L.snap(5.55), L.snap(4.00), config);
+  U.addGoldRule(slide, L.snap(0.60), L.snap(5.20), L.snap(4.00), config);
 
   // ── 7. Property name ──────────────────────────────────────────────────────
   // Width ends 0.25" before KPI_ORIGIN_X (9.00") so long names never clip.
@@ -74,7 +76,7 @@ function addCoverSlide(pptx, data, config, _L, _U) {
   var propName = prop.name || 'PROPERTY NAME';
   var titleFontSize = propName.length > 28 ? 26 : propName.length > 22 ? 30 : 36;
   slide.addText(propName, {
-    x: L.snap(0.60), y: L.snap(5.65), w: L.snap(8.10), h: L.snap(1.05),
+    x: L.snap(0.60), y: L.snap(5.30), w: L.snap(8.10), h: L.snap(1.05),
     fontFace: L.TYPE.hero.fontFace,
     fontSize: titleFontSize,
     bold: L.TYPE.hero.bold,
@@ -85,20 +87,20 @@ function addCoverSlide(pptx, data, config, _L, _U) {
 
   // ── 8. Address ────────────────────────────────────────────────────────────
   slide.addText(prop.address || '', {
-    x: L.snap(0.60), y: L.snap(6.77), w: L.snap(7.00), h: L.snap(0.30),
+    x: L.snap(0.60), y: L.snap(6.45), w: L.snap(8.10), h: L.snap(0.30),
     fontFace: 'Calibri', fontSize: 13,
     color: 'C0CCDA',
     valign: 'middle',
   });
 
   // ── 9. KPI boxes — 2×2 grid at bottom-right ──────────────────────────────
-  // Grid origin: x=9.0, y=5.65 (row 1), y=6.55 (row 2). Each box w=1.77, h=0.80, gap=0.25
+  // Both rows fit above the footer branding strip (BSTRIP_Y = 7.20).
   var KPI_ORIGIN_X = L.snap(9.00);
   var KPI_BOX_W    = L.snap(1.77);
-  var KPI_BOX_H    = L.snap(0.80);
+  var KPI_BOX_H    = L.snap(0.78);
   var KPI_GAP      = L.snap(0.25);
-  var KPI_ROW1_Y   = L.snap(5.65);
-  var KPI_ROW2_Y   = L.snap(6.55);
+  var KPI_ROW1_Y   = L.snap(5.25);
+  var KPI_ROW2_Y   = L.snap(6.18);
 
   // Shared box options for cover KPIs
   var kpiOpts = {

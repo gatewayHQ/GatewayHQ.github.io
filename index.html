@@ -599,10 +599,14 @@
       </label>
     </div>
     <table class="unit-table" id="unitTable">
-      <thead><tr><th>Unit Type</th><th>Units</th><th class="sqft-col">Sq Ft</th><th>Rent/Mo</th><th class="sqft-col">Rent/SqFt</th><th>Total Rent</th><th>% of Total</th><th></th></tr></thead>
+      <thead><tr><th>Unit Type</th><th>Units</th><th class="sqft-col">Sq Ft</th><th>In-Place Rent</th><th>Market Rent</th><th class="sqft-col">Rent/SqFt</th><th>Total Rent</th><th>% of Total</th><th></th></tr></thead>
       <tbody id="unitRows"></tbody>
     </table>
-    <button class="btn-sm" style="margin-top:8px" onclick="addUnitRow()">+ Add Row</button>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap">
+      <button class="btn-sm" onclick="addUnitRow()">+ Add Row</button>
+      <button class="btn-sm" onclick="autoFillMarketRent()" title="Copy the county median gross rent from the Market tab into every unit row that doesn't already have a Market Rent set" style="background:rgba(200,168,75,0.12);border-color:rgba(200,168,75,0.35);color:#C8A84B">✦ Auto-fill Market Rent from Census</button>
+      <span id="marketRentHint" style="font-size:11px;color:var(--brand-gray)">Market Rent defaults to the county median gross rent fetched on the Market tab.</span>
+    </div>
     <div class="section-title">Property Features</div>
     <div class="form-group full"><label>Features (comma-separated)</label><input id="features" placeholder="In-unit laundry, Central HVAC, Private entries"></div>
   </div>
@@ -680,6 +684,25 @@
       <button class="btn-fetch" id="fetchBtn" onclick="fetchMarketData()">Fetch Market Data</button>
     </div>
     <div id="fetchStatus" class="fetch-status"></div>
+
+    <div class="section-title">Location Map</div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label style="display:flex;justify-content:space-between;align-items:center">
+          <span>Google Maps Static API Key <span style="font-size:10px;color:var(--brand-gray)">(saved locally — used to auto-generate the Location Overview map)</span></span>
+          <a href="https://developers.google.com/maps/documentation/maps-static/get-api-key" target="_blank" rel="noopener" style="font-size:10px;color:var(--brand-blue);text-decoration:none">Get a key ↗</a>
+        </label>
+        <input id="mktGmapsKey" type="password" placeholder="AIza…" oninput="saveGmapsKey()" autocomplete="off">
+      </div>
+      <div class="form-group full">
+        <label>Custom Map Image URL <span style="font-size:10px;color:var(--brand-gray)">(optional — overrides the auto-generated map)</span></label>
+        <input id="mktMapUrl" placeholder="Paste a public image URL, or leave blank to auto-generate from the address">
+      </div>
+    </div>
+    <div id="mapPreviewWrap" style="margin-top:10px;display:none">
+      <div style="font-size:11px;color:var(--brand-gray);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Map Preview</div>
+      <img id="mapPreviewImg" alt="Location map preview" style="max-width:100%;border-radius:8px;border:1px solid rgba(162,182,192,0.25)">
+    </div>
     
     <div class="section-title">Market Overview</div>
     <div class="form-group full"><label>Market Description</label><textarea id="mktDesc" rows="3" placeholder="Auto-filled or type your own..."></textarea></div>
@@ -721,11 +744,18 @@
     </p>
   </div>
 
-  <!-- TAB 6: Contact -->
+  <!-- TAB 6: Contact — headshot-included agent cards (same shape as the social media generator) -->
   <div class="panel" id="tab6">
-    <div class="section-title">Agents</div>
-    <div id="agentCards"></div>
-    <button class="btn-sm" style="margin-top:8px" onclick="addAgent()">+ Add Agent</button>
+    <div class="section-title">Contact / Listing Agents</div>
+    <p style="color:var(--brand-gray);font-size:13px;margin-bottom:12px;line-height:1.55">
+      Upload a headshot, add name / title / phone / email / bio, and save to the roster.
+      Profiles are keyed by <strong>email</strong> and shared with the Social Media Generator so
+      every OM and post pulls the same photo &amp; contact info.
+    </p>
+    <div id="agentBioList"></div>
+    <button class="btn-sm" style="margin-top:8px" onclick="addAgentBioCard()">+ Add Agent</button>
+    <!-- Legacy in-memory contact list, kept hidden so past-OM state restore doesn't break -->
+    <div id="agentCards" style="display:none"></div>
     <div class="section-title">Disclaimer</div>
     <div class="form-group full"><label>Disclaimer Text</label><textarea id="disclaimer" rows="3">This Offering Memorandum has been prepared by Gateway Real Estate Advisors for informational purposes only. The information contained herein has been obtained from sources believed reliable but has been compiled from the property owner's records and other sources deemed reliable. All projections are estimates and should be independently verified by the prospective buyer.</textarea></div>
   </div>
@@ -1653,6 +1683,7 @@
 <script src="pptx/slide-modules/04-property-description.js" defer></script>
 <script src="pptx/slide-modules/05-unit-mix.js" defer></script>
 <script src="pptx/slide-modules/06-financial-summary.js" defer></script>
+<script src="pptx/slide-modules/06b-financial-proforma.js" defer></script>
 <script src="pptx/slide-modules/07-location-overview.js" defer></script>
 <script src="pptx/slide-modules/08-market-overview.js" defer></script>
 <script src="pptx/slide-modules/09-section-divider.js" defer></script>

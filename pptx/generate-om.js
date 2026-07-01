@@ -22,12 +22,13 @@
     var s04 = require('./slide-modules/04-property-description');
     var s05 = require('./slide-modules/05-unit-mix');
     var s06 = require('./slide-modules/06-financial-summary');
+    var s06b = require('./slide-modules/06b-financial-proforma');
     var s07 = require('./slide-modules/07-location-overview');
     var s08 = require('./slide-modules/08-market-overview');
     var s09 = require('./slide-modules/09-section-divider');
     var s10 = require('./slide-modules/10-back-cover');
     module.exports = factory(PptxGenJS, BRAND_CONFIG, LAYOUT, OMUtils,
-      s01, s02, s03, s04, s05, s06, s07, s08, s09, s10);
+      s01, s02, s03, s04, s05, s06, s06b, s07, s08, s09, s10);
   } else {
     // Browser — all deps are globals already loaded via <script> tags
     root.generateOfferingMemorandum = factory(
@@ -38,6 +39,7 @@
       root.addPropertyDescriptionSlide,
       root.addUnitMixSlide,
       root.addFinancialSummarySlide,
+      root.addFinancialProformaSlide,
       root.addLocationOverviewSlide,
       root.addMarketOverviewSlide,
       root.addSectionDividerSlide,
@@ -48,6 +50,7 @@
   PptxGenJS, BRAND_CONFIG, LAYOUT, OMUtils,
   addCoverSlide, addOfferingSummarySlide, addInvestmentHighlightsSlide,
   addPropertyDescriptionSlide, addUnitMixSlide, addFinancialSummarySlide,
+  addFinancialProformaSlide,
   addLocationOverviewSlide, addMarketOverviewSlide,
   addSectionDividerSlide, addBackCoverSlide
 ) {
@@ -107,6 +110,9 @@
     }, config, L, OMUtils);
 
     addFinancialSummarySlide(pptx, data, config, L, OMUtils);
+
+    // Dedicated Pro Forma page — same layout, driven purely by financials.proforma.
+    addFinancialProformaSlide(pptx, data, config, L, OMUtils);
 
     addLocationOverviewSlide(pptx, data, config, L, OMUtils);
 
