@@ -49,23 +49,18 @@ function renderUnits() {
 function addUnitRow() { unitData.push({type:'',units:0,sqft:0,rent:0,mrent:0}); renderUnits(); }
 renderUnits();
 
-// ==== LOCATION MAP — Google Static Maps auto-generator ======================
-// The key is stored client-side in localStorage (gw_gmaps_key) so every agent
-// on the same machine keeps using their own key. It is NEVER committed and the
-// input renders as a password field. Falls back gracefully to a placeholder
-// when no key is set so the OM still generates without maps.
-function getGmapsKey() {
-  var el = document.getElementById('mktGmapsKey');
-  if (el && el.value.trim()) return el.value.trim();
-  return localStorage.getItem('gw_gmaps_key') || (window.CONFIG && window.CONFIG.googleMapsApiKey) || '';
-}
-function saveGmapsKey() {
-  var el = document.getElementById('mktGmapsKey');
-  var k  = el ? el.value.trim() : '';
-  if (k) localStorage.setItem('gw_gmaps_key', k);
-  else   localStorage.removeItem('gw_gmaps_key');
-  refreshMapPreview();
-}
+// ==== LOCATION MAP — Google Static Maps via server proxy =====================
+// The Google Maps Static API key lives ONLY in Supabase secrets
+// (GOOGLE_MAPS_STATIC_KEY).  The client asks the proxy, which fetches the
+// image with the key attached and streams the PNG bytes back.  We convert
+// those bytes to a base64 data URI so:
+//   1. pptxgenjs can embed the image directly (no fetch-during-render, so
+//      the key never leaks into the .pptx OOXML either).
+//   2. Preview <img> can render it inline without a second HTTP round-trip.
+// A tiny in-memory cache dedupes the address→dataURI hit within one session.
+var _mapDataCache = {};   // address → dataURI
+var _mapInFlight  = {};   // address → Promise<dataURI>
+
 function _addressForMap() {
   var explicit = ((document.getElementById('mktMapUrl') || {}).value || '').trim();
   if (explicit) return { url: explicit, source: 'custom' };
@@ -77,50 +72,65 @@ function _addressForMap() {
   var composed = addr || [city, stateName].filter(Boolean).join(', ');
   return { address: composed };
 }
+
+// Async — resolves to a data URI (string) or '' when no map is available.
 function buildStaticMapUrl() {
   var info = _addressForMap();
-  if (info.url) return info.url;
+  if (info.url) return Promise.resolve(info.url);
   var addr = info.address;
-  if (!addr) return '';
-  var key = getGmapsKey();
-  if (!key) return '';
-  var q = encodeURIComponent(addr);
-  return 'https://maps.googleapis.com/maps/api/staticmap' +
-    '?center=' + q +
-    '&zoom=15' +
-    '&size=640x520' +
-    '&scale=2' +
-    '&maptype=roadmap' +
-    '&markers=color:0xC9A84C%7Clabel:P%7C' + q +
-    '&key=' + encodeURIComponent(key);
+  if (!addr) return Promise.resolve('');
+
+  if (_mapDataCache[addr])  return Promise.resolve(_mapDataCache[addr]);
+  if (_mapInFlight[addr])   return _mapInFlight[addr];
+
+  var proxy = _proxyBase();
+  var auth  = _proxyAuthHeader();
+  if (!proxy || !auth.Authorization) return Promise.resolve('');
+
+  var url = proxy + '/api/staticmap?address=' + encodeURIComponent(addr);
+  var p = fetch(url, { headers: auth })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+    .then(function (blob) {
+      return new Promise(function (resolve, reject) {
+        var fr = new FileReader();
+        fr.onload  = function () { resolve(String(fr.result || '')); };
+        fr.onerror = function () { reject(fr.error || new Error('read failed')); };
+        fr.readAsDataURL(blob);
+      });
+    })
+    .then(function (dataUri) { _mapDataCache[addr] = dataUri; return dataUri; })
+    .catch(function () { return ''; })
+    .then(function (v) { delete _mapInFlight[addr]; return v; });
+
+  _mapInFlight[addr] = p;
+  return p;
 }
+
 function refreshMapPreview() {
   var wrap = document.getElementById('mapPreviewWrap');
   var img  = document.getElementById('mapPreviewImg');
   if (!wrap || !img) return;
-  var url = buildStaticMapUrl();
-  if (!url) { wrap.style.display = 'none'; img.removeAttribute('src'); return; }
-  img.onerror = function() { wrap.style.display = 'none'; };
-  img.onload  = function() { wrap.style.display = 'block'; };
-  img.src = url;
+  buildStaticMapUrl().then(function (dataUri) {
+    if (!dataUri) { wrap.style.display = 'none'; img.removeAttribute('src'); return; }
+    img.onerror = function () { wrap.style.display = 'none'; };
+    img.onload  = function () { wrap.style.display = 'block'; };
+    img.src = dataUri;
+  });
 }
-// Restore the saved key on page load so agents see their preview immediately.
-(function initGmapsKey() {
+
+// Rebuild the preview when the address inputs change.
+(function initMapPreview() {
   document.addEventListener('DOMContentLoaded', function () {
-    var el = document.getElementById('mktGmapsKey');
-    if (el) {
-      var saved = localStorage.getItem('gw_gmaps_key') || '';
-      if (saved) el.value = saved;
-      refreshMapPreview();
-    }
     var addrEl = document.getElementById('address');
     var cityEl = document.getElementById('mktCity');
     var stateEl = document.getElementById('mktState');
     var mapUrlEl = document.getElementById('mktMapUrl');
     [addrEl, cityEl, stateEl, mapUrlEl].forEach(function (e) {
-      if (e) e.addEventListener('input', refreshMapPreview);
-      if (e && e.tagName === 'SELECT') e.addEventListener('change', refreshMapPreview);
+      if (!e) return;
+      if (e.tagName === 'SELECT') e.addEventListener('change', refreshMapPreview);
+      else                        e.addEventListener('input',  refreshMapPreview);
     });
+    refreshMapPreview();
   });
 })();
 
@@ -517,10 +527,24 @@ function deleteOMSavedAgent(selId) {
 renderAgents();
 
 // ==== MARKET DATA AUTO-FILL ====
-// Pulls county-level ACS 5-Year Estimates from the U.S. Census Bureau.
-// We try the newest vintage first (2023 as of 2026-01) then walk back through
-// prior years so a single missing release doesn't break the market fetch.
-var CENSUS_VINTAGES = ['2023', '2022', '2021'];
+// Pulls county-level ACS 5-Year Estimates from the U.S. Census Bureau via
+// the Supabase Edge Function proxy (/api/census).  The Census API key
+// lives ONLY in Supabase secrets — agents never see or manage it.
+// We walk newest → oldest vintages so a single missing annual release
+// doesn't break the fetch.
+var CENSUS_VINTAGES = ['2023', '2022', '2021', '2020'];
+
+function _proxyBase() {
+  // Same resolution the rest of the API layer uses.
+  var ai  = window.AI_CONFIG || {};
+  var cfg = window.CONFIG    || {};
+  return ((ai.proxyUrl || cfg.proxyUrl || '')).replace(/\/$/, '');
+}
+function _proxyAuthHeader() {
+  var sync = window.GatewaySync;
+  var jwt  = sync && sync._session && sync._session.access_token;
+  return jwt ? { Authorization: 'Bearer ' + jwt } : {};
+}
 
 function fetchMarketData() {
   var city = document.getElementById('mktCity').value.trim();
@@ -535,6 +559,19 @@ function fetchMarketData() {
     return;
   }
 
+  var proxy = _proxyBase();
+  if (!proxy) {
+    statusEl.className = 'fetch-status error';
+    statusEl.textContent = 'Team API proxy not configured. Ask your admin to set proxyUrl in ai-config.js.';
+    return;
+  }
+  var authHeaders = _proxyAuthHeader();
+  if (!authHeaders.Authorization) {
+    statusEl.className = 'fetch-status error';
+    statusEl.textContent = 'Sign in via ☁ Sync in the top nav to fetch shared market data.';
+    return;
+  }
+
   statusEl.className = 'fetch-status loading';
   statusEl.textContent = 'Fetching data from U.S. Census Bureau (ACS 5-Year)…';
   btn.disabled = true;
@@ -544,23 +581,41 @@ function fetchMarketData() {
 
   var vars = 'NAME,B01003_001E,B19013_001E,B01002_001E,B25001_001E,B25003_001E,B25003_002E,B25003_003E,B25064_001E,B25010_001E,B23025_003E,B23025_005E';
 
-  // Walk vintages newest → oldest until one responds successfully.
+  // Record every vintage attempt so the UI can surface the real reason on total failure.
+  var attempts = [];
+
   function tryVintage(idx) {
     if (idx >= CENSUS_VINTAGES.length) {
       statusEl.className = 'fetch-status error';
-      statusEl.textContent = 'Census ACS endpoint is unavailable right now. Enter data manually or try again later.';
+      var summary = attempts.map(function(a){ return a.vintage + ':' + a.err; }).join(' · ');
+      statusEl.innerHTML = 'Census ACS endpoint is unavailable right now. Enter data manually or try again later.' +
+        '<div style="margin-top:6px;font-size:11px;opacity:0.75">' + summary + '</div>';
       btn.disabled = false;
       return;
     }
     var vintage = CENSUS_VINTAGES[idx];
-    var url = 'https://api.census.gov/data/' + vintage + '/acs/acs5?get=' + vars + '&for=county:*&in=state:' + stateFips;
-    fetch(url)
+    var url = proxy + '/api/census' +
+              '?state=' + encodeURIComponent(stateFips) +
+              '&year='  + encodeURIComponent(vintage) +
+              '&vars='  + encodeURIComponent(vars);
+    fetch(url, { headers: authHeaders })
       .then(function(r) {
-        if (!r.ok) throw new Error('Vintage ' + vintage + ' → HTTP ' + r.status);
+        if (!r.ok) { attempts.push({ vintage: vintage, err: String(r.status) }); throw new Error('HTTP ' + r.status); }
         return r.json();
       })
-      .then(function(data) { handleMarketRows(data, vintage); })
-      .catch(function() { tryVintage(idx + 1); });
+      .then(function(data) {
+        if (!Array.isArray(data) || data.length < 2) {
+          attempts.push({ vintage: vintage, err: 'empty' });
+          throw new Error('empty response');
+        }
+        handleMarketRows(data, vintage);
+      })
+      .catch(function() {
+        if (!attempts.length || attempts[attempts.length-1].vintage !== vintage) {
+          attempts.push({ vintage: vintage, err: 'network' });
+        }
+        tryVintage(idx + 1);
+      });
   }
   tryVintage(0);
 
@@ -1655,6 +1710,14 @@ function generateOM() {
     var stateFips = v('mktState');
     var stateName = typeof STATE_NAMES !== 'undefined' ? (STATE_NAMES[stateFips] || stateFips) : stateFips;
 
+    // ── Kick off the Google Static Maps fetch in parallel with the rest of
+    //     the payload build.  The proxy resolves to a base64 data URI so
+    //     pptxgenjs can embed the image without a live HTTP call at render
+    //     time — and the Google Maps key never leaves Supabase.
+    var mapPromise = (typeof buildStaticMapUrl === 'function')
+      ? buildStaticMapUrl().catch(function () { return ''; })
+      : Promise.resolve('');
+
     // ── Assemble data object ───────────────────────────────────────────────
     var data = {
       property: {
@@ -1719,7 +1782,7 @@ function generateOM() {
         households:   v('households'),
         renterOcc:    v('renterOcc'),
         ownerOcc:     v('ownerOcc'),
-        mapUrl:       (typeof buildStaticMapUrl === 'function' ? buildStaticMapUrl() : '') || null,
+        mapUrl:       null, // filled from mapPromise below just before render
         description:  v('mktDesc'),
         drivers: [
           {title:v('drv1Title'), description:v('drv1Desc')},
@@ -1730,7 +1793,7 @@ function generateOM() {
       },
       location: {
         description: v('mktDesc'),
-        mapUrl:      (typeof buildStaticMapUrl === 'function' ? buildStaticMapUrl() : '') || null,
+        mapUrl:      null, // filled from mapPromise below just before render
         demographics:[],
       },
       brokerage: {
@@ -1754,18 +1817,27 @@ function generateOM() {
 
     if (window.GW) GW.showLoading('Building Offering Memorandum…');
 
-    var promise = generateOfferingMemorandum(data, {});
-    if (promise && typeof promise.then === 'function') {
-      promise.then(function() {
+    // Wait for the map data URI (or empty on failure) before rendering, so
+    // the Location Overview slide gets the image embedded inline.  A failed
+    // map fetch never blocks — the slide falls back to its "MAP" placeholder.
+    mapPromise.then(function (mapDataUri) {
+      if (mapDataUri) {
+        data.market.mapUrl   = mapDataUri;
+        data.location.mapUrl = mapDataUri;
+      }
+      var promise = generateOfferingMemorandum(data, {});
+      if (promise && typeof promise.then === 'function') {
+        promise.then(function() {
+          if (window.GW) GW.hideLoading();
+          showStatus('OM generated: ' + data.property.name + ' — Offering Memorandum.pptx');
+        }).catch(function(e) {
+          if (window.GW) GW.hideLoading();
+          alert('Error generating OM: ' + (e && e.message || e));
+        });
+      } else {
         if (window.GW) GW.hideLoading();
-        showStatus('OM generated: ' + data.property.name + ' — Offering Memorandum.pptx');
-      }).catch(function(e) {
-        if (window.GW) GW.hideLoading();
-        alert('Error generating OM: ' + (e && e.message || e));
-      });
-    } else {
-      if (window.GW) GW.hideLoading();
-    }
+      }
+    });
 
   } catch (e) {
     if (window.GW) GW.hideLoading();

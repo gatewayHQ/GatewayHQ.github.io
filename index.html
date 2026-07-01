@@ -686,14 +686,11 @@
     <div id="fetchStatus" class="fetch-status"></div>
 
     <div class="section-title">Location Map</div>
+    <p style="color:var(--brand-gray);font-size:12px;margin:-4px 0 8px;line-height:1.55">
+      Maps are auto-generated from the property address using the Gateway team key on the server — no setup required.
+      Optionally paste a custom image URL below to override it.
+    </p>
     <div class="form-grid">
-      <div class="form-group full">
-        <label style="display:flex;justify-content:space-between;align-items:center">
-          <span>Google Maps Static API Key <span style="font-size:10px;color:var(--brand-gray)">(saved locally — used to auto-generate the Location Overview map)</span></span>
-          <a href="https://developers.google.com/maps/documentation/maps-static/get-api-key" target="_blank" rel="noopener" style="font-size:10px;color:var(--brand-blue);text-decoration:none">Get a key ↗</a>
-        </label>
-        <input id="mktGmapsKey" type="password" placeholder="AIza…" oninput="saveGmapsKey()" autocomplete="off">
-      </div>
       <div class="form-group full">
         <label>Custom Map Image URL <span style="font-size:10px;color:var(--brand-gray)">(optional — overrides the auto-generated map)</span></label>
         <input id="mktMapUrl" placeholder="Paste a public image URL, or leave blank to auto-generate from the address">
