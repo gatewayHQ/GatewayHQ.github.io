@@ -13,7 +13,10 @@ export const FORMATS = {
 const DUR = { hero: 4.0, photo: 3.2, stats: 3.0, agent: 4.0 };
 
 /**
- * @param {Object} data   { address, price, beds, baths, sqft, eyebrow,
+ * @param {Object} data   { address, price, eyebrow, propertyType,
+ *                          beds, baths, sqft,                          // residential
+ *                          units, buildingSqft, capRate, noi,          // commercial
+ *                          occupancy, pricePerUnit, unitMix,           // commercial
  *                          agent, brokerage, cta, format }
  * @param {Array}  photos [{ image (drawable), caption (string) }] in order.
  *                        First photo is the hero; captions apply to photos 2+.
@@ -45,13 +48,33 @@ export function buildModel(data, photos, brand, anim = 'kenburns') {
     }
   });
 
-  // Stats card (only if we have at least one stat).
-  const cols = compact([
-    data.beds  && { value: data.beds,  label: 'Beds' },
-    data.baths && { value: data.baths, label: 'Baths' },
-    data.sqft  && { value: data.sqft,  label: 'Sq Ft' },
-  ]);
-  if (cols.length) scenes.push({ kind: 'card', durationSec: DUR.stats, columns: cols, texts: [] });
+  // Stats card(s). Columns depend on property type. Commercial listings can
+  // carry more stats than fit in one row, so we chunk into cards of up to 3
+  // and give the first commercial card a Unit Mix subtitle when provided.
+  const commercial = data.propertyType === 'commercial';
+  const cols = commercial
+    ? compact([
+        data.units        && { value: data.units,        label: 'Units' },
+        data.buildingSqft && { value: data.buildingSqft, label: 'Building SF' },
+        data.capRate      && { value: data.capRate,      label: 'Cap Rate' },
+        data.noi          && { value: data.noi,          label: 'NOI' },
+        data.occupancy    && { value: data.occupancy,    label: 'Occupancy' },
+        data.pricePerUnit && { value: data.pricePerUnit, label: 'Price / Unit' },
+      ])
+    : compact([
+        data.beds  && { value: data.beds,  label: 'Beds' },
+        data.baths && { value: data.baths, label: 'Baths' },
+        data.sqft  && { value: data.sqft,  label: 'Sq Ft' },
+      ]);
+
+  const unitMix = commercial ? (data.unitMix || '').trim() : '';
+  chunk(cols, 3).forEach((group, gi) => {
+    const texts = (gi === 0 && unitMix)
+      ? [{ text: unitMix, x: 0.5, y: 0.64, size: 0.024, weight: 300, align: 'center',
+           color: 'rgba(245,245,243,0.75)', delay: 0.6, maxWidth: 0.86 }]
+      : [];
+    scenes.push({ kind: 'card', durationSec: DUR.stats, columns: group, texts });
+  });
 
   // Agent close. A headshot (if uploaded) takes the top slot; else the logo.
   const headshot = brand.headshot || null;
@@ -74,3 +97,8 @@ export function buildModel(data, photos, brand, anim = 'kenburns') {
 }
 
 function compact(arr) { return arr.filter(Boolean); }
+function chunk(arr, n) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+  return out;
+}
