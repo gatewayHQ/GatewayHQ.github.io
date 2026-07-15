@@ -5,7 +5,7 @@
 // where WebCodecs (or H.264 encode) isn't available.
 
 import { Muxer, ArrayBufferTarget } from '../../lib/mp4-muxer.mjs';
-import { drawFrame, totalDuration } from './renderer.js';
+import { drawFrame, totalDuration } from './renderer.js?v=4';
 
 const AVC_CANDIDATES = ['avc1.42E01F', 'avc1.4D401F', 'avc1.640028', 'avc1.42001f'];
 
