@@ -189,19 +189,38 @@ function drawStatColumns(cols, localT, ctx, W, H, model) {
   const totalW = colW * n;
   const startX = (W - totalW) / 2;
   ctx.textAlign = 'center';
+  // Leave a gutter so neighbouring columns never touch. Commercial values like
+  // "$210,975" are far wider than short residential ones ("3"), so each value's
+  // font auto-shrinks to fit its column instead of overflowing into the next.
+  const fit = W * 0.02;                 // horizontal padding inside each column
+  const maxTextW = colW - fit * 2;
   cols.forEach((c, i) => {
     const cx = startX + colW * (i + 0.5);
     const reveal = easeOut(clamp01((localT - 0.3 - i * 0.18) / 0.7));
     if (reveal <= 0) return;
     ctx.globalAlpha = reveal;
-    // value
-    setFont(ctx, model, Math.round(H * 0.085), 200);
+    // value — start at the display size, shrink to fit the column width.
+    const valStr = String(c.value || '—');
+    let vfs = Math.round(H * 0.085);
+    setFont(ctx, model, vfs, 200);
+    let vw = ctx.measureText(valStr).width;
+    if (vw > maxTextW) {
+      vfs = Math.max(Math.round(H * 0.03), Math.floor(vfs * maxTextW / vw));
+      setFont(ctx, model, vfs, 200);
+    }
     ctx.fillStyle = '#F5F5F3';
-    ctx.fillText(String(c.value || '—'), cx, cy);
-    // label
-    setFont(ctx, model, Math.round(H * 0.016), 400, 4);
+    ctx.fillText(valStr, cx, cy);
+    // label — also fit, dropping letter-spacing first if it would overflow.
+    const labStr = String(c.label || '').toUpperCase();
+    let lfs = Math.round(H * 0.016), ls = 4;
+    setFont(ctx, model, lfs, 400, ls);
+    if (ctx.measureText(labStr).width > maxTextW) { ls = 1; setFont(ctx, model, lfs, 400, ls); }
+    if (ctx.measureText(labStr).width > maxTextW) {
+      lfs = Math.max(Math.round(H * 0.011), Math.floor(lfs * maxTextW / ctx.measureText(labStr).width));
+      setFont(ctx, model, lfs, 400, ls);
+    }
     ctx.fillStyle = 'rgba(162,182,192,0.6)';
-    ctx.fillText(String(c.label || '').toUpperCase(), cx, cy + H * 0.07);
+    ctx.fillText(labStr, cx, cy + H * 0.07);
     ctx.globalAlpha = 1;
     if (i > 0) { // divider
       ctx.fillStyle = 'rgba(162,182,192,0.2)';
@@ -209,6 +228,7 @@ function drawStatColumns(cols, localT, ctx, W, H, model) {
     }
   });
   ctx.textAlign = 'left';
+  try { ctx.letterSpacing = '0px'; } catch { /* older engines */ }
 }
 
 // Generic text layers. Each text: {text, x, y, size, weight, color, align,
