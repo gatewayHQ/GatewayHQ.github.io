@@ -1411,6 +1411,10 @@
     .v2-status{font-size:12px;color:var(--brand-gray);margin-top:6px}
     .v2-done{background:rgba(46,160,67,0.12);border:1px solid rgba(46,160,67,0.4);border-radius:10px;padding:12px;color:var(--brand-cream);font-size:14px}
     .v2-err{background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.4);border-radius:10px;padding:12px;color:#ffd7d2;font-size:13px}
+    .v2-seg{display:flex;border:1px solid rgba(162,182,192,0.25);border-radius:8px;overflow:hidden;margin-bottom:10px}
+    .v2-seg-btn{flex:1;background:rgba(255,255,255,0.03);border:none;color:var(--brand-gray);padding:10px 8px;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s,color .15s}
+    .v2-seg-btn+.v2-seg-btn{border-left:1px solid rgba(162,182,192,0.25)}
+    .v2-seg-btn.active{background:linear-gradient(135deg,#C8A84B,#a8893a);color:#0D1117}
     @media(max-width:820px){#v2-grid{grid-template-columns:1fr!important}}
   </style>
 
@@ -1433,17 +1437,45 @@
           <span id="v2-ai-note" style="font-size:11px;color:var(--brand-gray);margin-left:8px"></span>
         </div>
 
-        <label class="v2-label" style="margin-top:18px">Listing details</label>
+        <label class="v2-label" style="margin-top:18px">Property type</label>
+        <div class="v2-seg" id="v2-proptype" role="tablist">
+          <button type="button" class="v2-seg-btn active" data-type="residential" aria-selected="true">🏠 Residential</button>
+          <button type="button" class="v2-seg-btn" data-type="commercial" aria-selected="false">🏢 Commercial</button>
+        </div>
+
+        <label class="v2-label">Listing details</label>
         <input id="v2-address" class="v2-in" placeholder="Address — 123 Main St, Lincoln NE">
         <div class="v2-row">
           <input id="v2-price" class="v2-in" placeholder="Price — $450,000">
           <input id="v2-eyebrow" class="v2-in" placeholder="Badge — Just Listed">
         </div>
-        <div class="v2-row">
-          <input id="v2-beds" class="v2-in" placeholder="Beds">
-          <input id="v2-baths" class="v2-in" placeholder="Baths">
-          <input id="v2-sqft" class="v2-in" placeholder="Sq Ft">
+
+        <!-- Residential stat fields -->
+        <div id="v2-fields-residential">
+          <div class="v2-row">
+            <input id="v2-beds" class="v2-in" placeholder="Beds">
+            <input id="v2-baths" class="v2-in" placeholder="Baths">
+            <input id="v2-sqft" class="v2-in" placeholder="Sq Ft">
+          </div>
         </div>
+
+        <!-- Commercial stat fields -->
+        <div id="v2-fields-commercial" style="display:none">
+          <div class="v2-row">
+            <input id="v2-units" class="v2-in" placeholder="Units — 12">
+            <input id="v2-building-sqft" class="v2-in" placeholder="Building SF — 14,500">
+          </div>
+          <div class="v2-row">
+            <input id="v2-cap-rate" class="v2-in" placeholder="Cap Rate — 6.5%">
+            <input id="v2-noi" class="v2-in" placeholder="NOI — $185,000">
+          </div>
+          <div class="v2-row">
+            <input id="v2-occupancy" class="v2-in" placeholder="Occupancy — 95%">
+            <input id="v2-price-unit" class="v2-in" placeholder="Price / Unit — $210,000">
+          </div>
+          <input id="v2-unit-mix" class="v2-in" placeholder="Unit Mix — 6× 2BR · 4× 1BR · 2× Studio">
+        </div>
+
         <div class="v2-row">
           <input id="v2-agent" class="v2-in" placeholder="Agent name">
           <input id="v2-cta" class="v2-in" placeholder="Call to action — Schedule a Showing">

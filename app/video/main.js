@@ -13,6 +13,7 @@ const state = {
   musicName: '',
   logo: null,          // HTMLImageElement | null
   headshot: null,      // drawable | null — agent headshot for the closing card
+  propertyType: 'residential', // 'residential' | 'commercial'
   model: null,
   playing: false,
   rafId: 0,
@@ -51,11 +52,13 @@ async function init() {
 
   wirePhotos();
   wireHeadshot();
+  wirePropertyType();
   wireMusic();
   loadMusicLibrary();
   wirePreview();
   $('v2-generate').addEventListener('click', generate);
-  ['v2-address','v2-price','v2-eyebrow','v2-beds','v2-baths','v2-sqft','v2-agent','v2-cta','v2-brokerage']
+  ['v2-address','v2-price','v2-eyebrow','v2-beds','v2-baths','v2-sqft','v2-agent','v2-cta','v2-brokerage',
+   'v2-units','v2-building-sqft','v2-cap-rate','v2-noi','v2-occupancy','v2-price-unit','v2-unit-mix']
     .forEach((id) => $(id) && $(id).addEventListener('input', debounce(rebuild, 250)));
   fmt.addEventListener('change', rebuild);
   $('v2-anim') && $('v2-anim').addEventListener('change', () => { stopPlay(); rebuild(); });
@@ -73,14 +76,17 @@ async function aiCaptionPhotos() {
   if (state.photos.length < 2) { alert('Add at least 2 photos — the first is the hero, captions apply to the rest.'); return; }
   const btn = $('v2-ai-caption'); const orig = btn.textContent; btn.disabled = true;
   showCaptionNote('');
-  const system = 'You are a real-estate marketing assistant writing short on-screen captions for a listing video.';
+  const commercial = state.propertyType === 'commercial';
+  const system = `You are a real-estate marketing assistant writing short on-screen captions for a ${commercial ? 'commercial' : 'residential'} listing video.`;
   const total = state.photos.length - 1;
   let ok = 0, failed = 0, lastErr = '', serverStale = false;
   for (let i = 1; i < state.photos.length; i++) {
     btn.textContent = `✨ Captioning ${i}/${total}…`;
     try {
       const jpeg = toJpegDataUrl(state.photos[i].bitmap, 512);
-      const prompt = 'Look at this real-estate photo and write a punchy caption (2 to 5 words, Title Case, no quotes, no period) naming the room or feature shown — e.g. "Renovated Kitchen", "Spa-Like Primary Bath", "Backyard Oasis", "Open-Concept Living". Reply with ONLY the caption.';
+      const prompt = commercial
+        ? 'Look at this commercial real-estate photo and write a punchy caption (2 to 5 words, Title Case, no quotes, no period) naming the space or feature shown — e.g. "Modern Lobby", "Ground-Floor Retail", "Secure Parking", "Renovated Common Area", "Rooftop Amenity". Reply with ONLY the caption.'
+        : 'Look at this real-estate photo and write a punchy caption (2 to 5 words, Title Case, no quotes, no period) naming the room or feature shown — e.g. "Renovated Kitchen", "Spa-Like Primary Bath", "Backyard Oasis", "Open-Concept Living". Reply with ONLY the caption.';
       const text = await api.claude(system, prompt, { images: [jpeg], max_tokens: 40 });
       const caption = cleanCaption(text);
       if (!caption) {
@@ -163,6 +169,30 @@ function wireHeadshot() {
   $('v2-headshot-clear') && $('v2-headshot-clear').addEventListener('click', () => {
     state.headshot = null; inp.value = ''; $('v2-headshot-label').textContent = ''; rebuild();
   });
+}
+
+// ── Property type toggle (residential ⇄ commercial) ─────────────────────────
+// Swaps which stat-field group is visible and which stats feed the video.
+function wirePropertyType() {
+  const seg = $('v2-proptype'); if (!seg) return;
+  seg.querySelectorAll('.v2-seg-btn').forEach((btn) => {
+    btn.addEventListener('click', () => setPropertyType(btn.dataset.type));
+  });
+  setPropertyType(state.propertyType);
+}
+
+function setPropertyType(type) {
+  state.propertyType = type === 'commercial' ? 'commercial' : 'residential';
+  const seg = $('v2-proptype');
+  if (seg) seg.querySelectorAll('.v2-seg-btn').forEach((btn) => {
+    const on = btn.dataset.type === state.propertyType;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  const res = $('v2-fields-residential'), com = $('v2-fields-commercial');
+  if (res) res.style.display = state.propertyType === 'commercial' ? 'none' : '';
+  if (com) com.style.display = state.propertyType === 'commercial' ? '' : 'none';
+  rebuild();
 }
 
 async function addPhotos(files) {
@@ -300,8 +330,14 @@ function readData() {
   return {
     format: $('v2-format')?.value || 'reels',
     anim: $('v2-anim')?.value || 'kenburns',
+    propertyType: state.propertyType,
     address: v('v2-address'), price: v('v2-price'), eyebrow: v('v2-eyebrow'),
+    // Residential stats
     beds: v('v2-beds'), baths: v('v2-baths'), sqft: v('v2-sqft'),
+    // Commercial stats
+    units: v('v2-units'), buildingSqft: v('v2-building-sqft'), capRate: v('v2-cap-rate'),
+    noi: v('v2-noi'), occupancy: v('v2-occupancy'), pricePerUnit: v('v2-price-unit'),
+    unitMix: v('v2-unit-mix'),
     agent: v('v2-agent'), brokerage: v('v2-brokerage') || 'Gateway Real Estate Advisors',
     cta: v('v2-cta') || 'Schedule a Showing',
   };
