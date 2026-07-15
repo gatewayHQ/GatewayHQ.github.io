@@ -3,9 +3,9 @@
 // #page-video form to the render engine: photos + details -> live canvas
 // preview -> WebCodecs MP4 download. No server, no GitHub Actions.
 
-import { buildModel, FORMATS } from './scene-model.js?v=3';
-import { encode, detectSupport } from './encoder.js?v=3';
-import { drawFrame, totalDuration } from './renderer.js?v=3';
+import { buildModel, FORMATS } from './scene-model.js?v=4';
+import { encode, detectSupport } from './encoder.js?v=4';
+import { drawFrame, totalDuration } from './renderer.js?v=4';
 
 const state = {
   photos: [],          // [{ bitmap, name }]

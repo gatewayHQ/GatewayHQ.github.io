@@ -1415,7 +1415,13 @@
     .v2-seg-btn{flex:1;background:rgba(255,255,255,0.03);border:none;color:var(--brand-gray);padding:10px 8px;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s,color .15s}
     .v2-seg-btn+.v2-seg-btn{border-left:1px solid rgba(162,182,192,0.25)}
     .v2-seg-btn.active{background:linear-gradient(135deg,#C8A84B,#a8893a);color:#0D1117}
+    .v2-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin-bottom:8px}
+    .v2-fld{display:flex;flex-direction:column;gap:3px}
+    .v2-fld--full{grid-column:1 / -1}
+    .v2-fld>label{font-size:10px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--brand-gray)}
+    .v2-fld>.v2-in{margin-bottom:0}
     @media(max-width:820px){#v2-grid{grid-template-columns:1fr!important}}
+    @media(max-width:420px){.v2-fields{grid-template-columns:1fr}}
   </style>
 
   <div style="max-width:1100px;margin:0 auto;padding:8px 0 48px">
@@ -1438,49 +1444,89 @@
         </div>
 
         <label class="v2-label" style="margin-top:18px">Property type</label>
-        <div class="v2-seg" id="v2-proptype" role="tablist">
-          <button type="button" class="v2-seg-btn active" data-type="residential" aria-selected="true">🏠 Residential</button>
-          <button type="button" class="v2-seg-btn" data-type="commercial" aria-selected="false">🏢 Commercial</button>
+        <div class="v2-seg" id="v2-proptype" role="tablist" aria-label="Property type">
+          <button type="button" role="tab" class="v2-seg-btn active" data-type="residential" aria-selected="true" aria-controls="v2-fields-residential">🏠 Residential</button>
+          <button type="button" role="tab" class="v2-seg-btn" data-type="commercial" aria-selected="false" aria-controls="v2-fields-commercial">🏢 Commercial</button>
         </div>
 
         <label class="v2-label">Listing details</label>
-        <input id="v2-address" class="v2-in" placeholder="Address — 123 Main St, Lincoln NE">
-        <div class="v2-row">
-          <input id="v2-price" class="v2-in" placeholder="Price — $450,000">
-          <input id="v2-eyebrow" class="v2-in" placeholder="Badge — Just Listed">
+        <div class="v2-fields">
+          <div class="v2-fld v2-fld--full">
+            <label for="v2-address">Address</label>
+            <input id="v2-address" class="v2-in" placeholder="123 Main St, Lincoln NE" aria-label="Address">
+          </div>
+          <div class="v2-fld">
+            <label for="v2-price">Price</label>
+            <input id="v2-price" class="v2-in" placeholder="$450,000" aria-label="Price">
+          </div>
+          <div class="v2-fld">
+            <label for="v2-eyebrow">Badge</label>
+            <input id="v2-eyebrow" class="v2-in" placeholder="Just Listed" aria-label="Badge">
+          </div>
         </div>
 
         <!-- Residential stat fields -->
-        <div id="v2-fields-residential">
-          <div class="v2-row">
-            <input id="v2-beds" class="v2-in" placeholder="Beds">
-            <input id="v2-baths" class="v2-in" placeholder="Baths">
-            <input id="v2-sqft" class="v2-in" placeholder="Sq Ft">
+        <div id="v2-fields-residential" class="v2-fields">
+          <div class="v2-fld">
+            <label for="v2-beds">Beds</label>
+            <input id="v2-beds" class="v2-in" inputmode="numeric" placeholder="e.g. 3" aria-label="Beds">
+          </div>
+          <div class="v2-fld">
+            <label for="v2-baths">Baths</label>
+            <input id="v2-baths" class="v2-in" inputmode="decimal" placeholder="e.g. 2" aria-label="Baths">
+          </div>
+          <div class="v2-fld v2-fld--full">
+            <label for="v2-sqft">Sq Ft</label>
+            <input id="v2-sqft" class="v2-in" placeholder="e.g. 1,800" aria-label="Square feet">
           </div>
         </div>
 
         <!-- Commercial stat fields -->
-        <div id="v2-fields-commercial" style="display:none">
-          <div class="v2-row">
-            <input id="v2-units" class="v2-in" placeholder="Units — 12">
-            <input id="v2-building-sqft" class="v2-in" placeholder="Building SF — 14,500">
+        <div id="v2-fields-commercial" class="v2-fields" style="display:none">
+          <div class="v2-fld">
+            <label for="v2-units">Units</label>
+            <input id="v2-units" class="v2-in" inputmode="numeric" placeholder="e.g. 12" aria-label="Number of units">
           </div>
-          <div class="v2-row">
-            <input id="v2-cap-rate" class="v2-in" placeholder="Cap Rate — 6.5%">
-            <input id="v2-noi" class="v2-in" placeholder="NOI — $185,000">
+          <div class="v2-fld">
+            <label for="v2-building-sqft">Building SF</label>
+            <input id="v2-building-sqft" class="v2-in" placeholder="e.g. 14,500" aria-label="Building square feet">
           </div>
-          <div class="v2-row">
-            <input id="v2-occupancy" class="v2-in" placeholder="Occupancy — 95%">
-            <input id="v2-price-unit" class="v2-in" placeholder="Price / Unit — $210,000">
+          <div class="v2-fld">
+            <label for="v2-cap-rate">Cap Rate</label>
+            <input id="v2-cap-rate" class="v2-in" placeholder="e.g. 6.5%" aria-label="Cap rate">
           </div>
-          <input id="v2-unit-mix" class="v2-in" placeholder="Unit Mix — 6× 2BR · 4× 1BR · 2× Studio">
+          <div class="v2-fld">
+            <label for="v2-noi">NOI</label>
+            <input id="v2-noi" class="v2-in" placeholder="e.g. $185,000" aria-label="Net operating income">
+          </div>
+          <div class="v2-fld">
+            <label for="v2-occupancy">Occupancy</label>
+            <input id="v2-occupancy" class="v2-in" placeholder="e.g. 95%" aria-label="Occupancy">
+          </div>
+          <div class="v2-fld">
+            <label for="v2-price-unit">Price / Unit</label>
+            <input id="v2-price-unit" class="v2-in" placeholder="e.g. $210,000" aria-label="Price per unit">
+          </div>
+          <div class="v2-fld v2-fld--full">
+            <label for="v2-unit-mix">Unit Mix</label>
+            <input id="v2-unit-mix" class="v2-in" placeholder="e.g. 6× 2BR · 4× 1BR · 2× Studio" aria-label="Unit mix">
+          </div>
         </div>
 
-        <div class="v2-row">
-          <input id="v2-agent" class="v2-in" placeholder="Agent name">
-          <input id="v2-cta" class="v2-in" placeholder="Call to action — Schedule a Showing">
+        <div class="v2-fields">
+          <div class="v2-fld">
+            <label for="v2-agent">Agent name</label>
+            <input id="v2-agent" class="v2-in" placeholder="e.g. Jordan Rivera" aria-label="Agent name">
+          </div>
+          <div class="v2-fld">
+            <label for="v2-cta">Call to action</label>
+            <input id="v2-cta" class="v2-in" placeholder="Schedule a Showing" aria-label="Call to action">
+          </div>
+          <div class="v2-fld v2-fld--full">
+            <label for="v2-brokerage">Brokerage</label>
+            <input id="v2-brokerage" class="v2-in" value="Gateway Real Estate Advisors" aria-label="Brokerage">
+          </div>
         </div>
-        <input id="v2-brokerage" class="v2-in" value="Gateway Real Estate Advisors">
 
         <label class="v2-label" style="margin-top:14px">Agent headshot <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional — shown on the closing card)</span></label>
         <div class="v2-row" style="align-items:center">
@@ -1737,7 +1783,7 @@
 <script src="app/invoice.js" defer></script>
 <script src="app/home-valuation.js" defer></script>
 <!-- Video Generator: client-side renderer (ES module graph; no build step) -->
-<script type="module" src="app/video/main.js?v=3"></script>
+<script type="module" src="app/video/main.js?v=4"></script>
 <!-- Social & Mailer Graphics: client-side renderer (ES module graph) -->
 <script type="module" src="app/social/main.js"></script>
 

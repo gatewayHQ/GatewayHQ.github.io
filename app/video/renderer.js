@@ -189,38 +189,28 @@ function drawStatColumns(cols, localT, ctx, W, H, model) {
   const totalW = colW * n;
   const startX = (W - totalW) / 2;
   ctx.textAlign = 'center';
-  // Leave a gutter so neighbouring columns never touch. Commercial values like
-  // "$210,975" are far wider than short residential ones ("3"), so each value's
-  // font auto-shrinks to fit its column instead of overflowing into the next.
-  const fit = W * 0.02;                 // horizontal padding inside each column
-  const maxTextW = colW - fit * 2;
+  // Each column gets an inner gutter so neighbours never touch. Text is fit to
+  // that budget by fitText() — shrink first, hard-truncate as a last resort —
+  // so no value (however long, e.g. a mistyped "Occupancy - 75%") can ever
+  // overflow into the next column.
+  const maxTextW = colW - W * 0.02 * 2;
   cols.forEach((c, i) => {
     const cx = startX + colW * (i + 0.5);
     const reveal = easeOut(clamp01((localT - 0.3 - i * 0.18) / 0.7));
     if (reveal <= 0) return;
     ctx.globalAlpha = reveal;
-    // value — start at the display size, shrink to fit the column width.
-    const valStr = String(c.value || '—');
-    let vfs = Math.round(H * 0.085);
-    setFont(ctx, model, vfs, 200);
-    let vw = ctx.measureText(valStr).width;
-    if (vw > maxTextW) {
-      vfs = Math.max(Math.round(H * 0.03), Math.floor(vfs * maxTextW / vw));
-      setFont(ctx, model, vfs, 200);
-    }
+    // Value — big display size, shrunk/truncated to the column budget.
+    const val = fitText(ctx, model, String(c.value || '—'), maxTextW,
+      { px: Math.round(H * 0.085), minPx: Math.round(H * 0.028), weight: 200 });
+    setFont(ctx, model, val.px, 200);
     ctx.fillStyle = '#F5F5F3';
-    ctx.fillText(valStr, cx, cy);
-    // label — also fit, dropping letter-spacing first if it would overflow.
-    const labStr = String(c.label || '').toUpperCase();
-    let lfs = Math.round(H * 0.016), ls = 4;
-    setFont(ctx, model, lfs, 400, ls);
-    if (ctx.measureText(labStr).width > maxTextW) { ls = 1; setFont(ctx, model, lfs, 400, ls); }
-    if (ctx.measureText(labStr).width > maxTextW) {
-      lfs = Math.max(Math.round(H * 0.011), Math.floor(lfs * maxTextW / ctx.measureText(labStr).width));
-      setFont(ctx, model, lfs, 400, ls);
-    }
+    ctx.fillText(val.text, cx, cy);
+    // Label — uppercase with letter-spacing; drop spacing before shrinking.
+    const lab = fitText(ctx, model, String(c.label || '').toUpperCase(), maxTextW,
+      { px: Math.round(H * 0.016), minPx: Math.round(H * 0.011), weight: 400, letterSpacing: 4, dropSpacingAt: 1 });
+    setFont(ctx, model, lab.px, 400, lab.letterSpacing);
     ctx.fillStyle = 'rgba(162,182,192,0.6)';
-    ctx.fillText(labStr, cx, cy + H * 0.07);
+    ctx.fillText(lab.text, cx, cy + H * 0.07);
     ctx.globalAlpha = 1;
     if (i > 0) { // divider
       ctx.fillStyle = 'rgba(162,182,192,0.2)';
@@ -229,6 +219,30 @@ function drawStatColumns(cols, localT, ctx, W, H, model) {
   });
   ctx.textAlign = 'left';
   try { ctx.letterSpacing = '0px'; } catch { /* older engines */ }
+}
+
+// Fit `text` into `maxW` using the model font. Strategy: (1) shrink the font
+// from `px` toward `minPx`; (2) if a wide letter-spacing was requested and the
+// text still doesn't fit at full size, drop spacing to `dropSpacingAt`; (3) if
+// it STILL overflows at the minimum size, hard-truncate with an ellipsis.
+// Returns { text, px, letterSpacing } ready to draw. Guarantees width <= maxW.
+function fitText(ctx, model, text, maxW, opts) {
+  const { px, minPx = px, weight = 400 } = opts;
+  let ls = opts.letterSpacing || 0;
+  const measure = (s, size, sp) => { setFont(ctx, model, size, weight, sp); return ctx.measureText(s).width; };
+
+  if (measure(text, px, ls) <= maxW) return { text, px, letterSpacing: ls };
+  // Drop letter-spacing first (only for spaced labels).
+  if (ls > (opts.dropSpacingAt ?? ls)) { ls = opts.dropSpacingAt; if (measure(text, px, ls) <= maxW) return { text, px, letterSpacing: ls }; }
+  // Shrink font proportionally, clamped to minPx.
+  const w = measure(text, px, ls);
+  let size = Math.max(minPx, Math.floor(px * maxW / w));
+  if (measure(text, size, ls) <= maxW) return { text, px: size, letterSpacing: ls };
+  // Last resort: truncate to fit at the minimum size.
+  size = minPx;
+  let s = text;
+  while (s.length > 1 && measure(s + '…', size, ls) > maxW) s = s.slice(0, -1);
+  return { text: s.length > 1 ? s + '…' : s, px: size, letterSpacing: ls };
 }
 
 // Generic text layers. Each text: {text, x, y, size, weight, color, align,
