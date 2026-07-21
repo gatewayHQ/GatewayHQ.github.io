@@ -26,3 +26,13 @@ Thumbs.db
 # Build folders
 dist/
 build/
+
+# Photo Enhancer backend (Python service)
+photo-enhancer/.env
+photo-enhancer/output/
+photo-enhancer/_e2e_out/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/

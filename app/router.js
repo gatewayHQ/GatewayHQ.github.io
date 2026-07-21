@@ -11,7 +11,8 @@ var pageNames = {
   invoice: 'Invoice Generator',
   'home-valuation': 'Home Valuation Generator',
   'video': 'Video Generator',
-  'graphics': 'Social & Mailer Graphics'
+  'graphics': 'Social & Mailer Graphics',
+  'photo-enhancer': 'Professional Photo Enhancer'
 };
 
 // Cache page element references — avoids repeated getElementById on every nav
@@ -48,6 +49,7 @@ function navigateTo(page) {
   if (page === 'leasing'  && !leasingInitialized)  initLeasing();
   if (page === 'invoice'  && !invoiceInitialized)  { initInvoice(); invoiceInitialized = true; }
   if (page === 'video'    && !videoInitialized)    { videoInitialized = true; }
+  if (page === 'photo-enhancer' && !photoEnhancerInitialized) initPhotoEnhancer();
   if (page === 'home-valuation') {
     if (!homeValuationInitialized) { initHomeValuation(); homeValuationInitialized = true; }
     renderSavedHVs();

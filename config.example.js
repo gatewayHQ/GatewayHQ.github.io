@@ -28,6 +28,12 @@ const CONFIG = {
   // When proxyUrl is set above, this is ignored.
   bufferAccessToken: '',
 
+  // ── Photo Enhancer backend ───────────────────────────────────────
+  // URL of the deployed photo-enhancer/ FastAPI service (see its README).
+  // Leave blank until deployed; the Photo Enhancer tool shows setup help
+  // when unset. e.g. 'https://gateway-photo-enhancer.onrender.com'
+  photoEnhancerUrl: '',
+
   // ── Cloud Sync (cross-device) ────────────────────────────────────
   // Enables agents to log in and access their saved templates, OMs,
   // invoices, API keys, and agent profiles from any device.
