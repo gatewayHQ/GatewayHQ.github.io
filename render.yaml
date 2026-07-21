@@ -1,0 +1,38 @@
+# Render Blueprint for the Photo Enhancer backend.
+#
+# Deploy (≈5 min, free):
+#   1. Push this repo to GitHub (already done).
+#   2. In Render → New → Blueprint → connect this repo. Render reads this file.
+#   3. It builds photo-enhancer/ from its Dockerfile and starts the service.
+#   4. Fill in any provider keys in the Render dashboard (they're marked
+#      sync:false below, so you enter them there — never committed).
+#   5. Copy the service URL Render gives you into ai-config.js →
+#      photoEnhancerUrl, then push. The tool goes live.
+#
+# The free plan spins down after ~15 min idle (first request after that is a
+# slow cold start) — fine for occasional office use. GENERATIVE_PROVIDER is
+# "none" by default so corrections work immediately with no keys; switch it to
+# imagen / replicate / fal once you add that provider's key.
+services:
+  - type: web
+    name: gateway-photo-enhancer
+    runtime: docker
+    dockerfilePath: ./photo-enhancer/Dockerfile
+    dockerContext: ./photo-enhancer
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: ALLOWED_ORIGIN
+        value: https://gatewayhq.github.io
+      - key: GENERATIVE_PROVIDER
+        value: none
+      - key: CLAUDE_API_KEY
+        sync: false
+      - key: IMAGEN_API_KEY
+        sync: false
+      - key: IMAGEN_PROFILE_KEY
+        sync: false
+      - key: REPLICATE_API_TOKEN
+        sync: false
+      - key: FAL_API_KEY
+        sync: false

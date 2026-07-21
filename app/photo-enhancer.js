@@ -25,24 +25,47 @@ function initPhotoEnhancer() {
   if (!root) return;
 
   var backend = _peBackend();
-  if (!backend) {
-    root.innerHTML =
-      '<div class="pe-setup">' +
-      '<h3>⚙️ Backend not configured</h3>' +
-      '<p>The Photo Enhancer runs on a small Python service. Deploy <code>photo-enhancer/</code> ' +
-      '(see its README), then set <code>photoEnhancerUrl</code> in <code>ai-config.js</code> ' +
-      'or your local <code>config.js</code>.</p>' +
-      '<p style="color:var(--brand-gray);font-size:12px">Corrections run without any AI keys. ' +
-      'Sky replacement, declutter, and virtual staging require a generative provider ' +
-      '(Imagen AI recommended) configured in the backend.</p>' +
-      '</div>';
-    return;
-  }
 
-  root.innerHTML = _peTemplate();
+  // Always render the full UI. Without a backend it renders as a disabled
+  // preview behind a setup banner, so agents can see exactly what the tool
+  // looks like before the Python service is deployed.
+  root.innerHTML = (backend ? '' : _peSetupBanner()) + _peTemplate();
   _peWireEvents();
-  _peLoadStyles(backend);
-  _peCheckHealth(backend);
+  if (backend) {
+    _peLoadStyles(backend);
+    _peCheckHealth(backend);
+  } else {
+    _peDisablePreview();
+  }
+}
+
+function _peSetupBanner() {
+  return '' +
+  '<div class="pe-setup">' +
+    '<h3>⚙️ Backend not deployed yet — this is a preview</h3>' +
+    '<p>The controls below are disabled. To turn them on, deploy the ' +
+    '<code>photo-enhancer/</code> Python service (a free Render deploy takes ~5 min — ' +
+    'see <code>photo-enhancer/README.md</code>), then set <code>photoEnhancerUrl</code> ' +
+    'in <code>ai-config.js</code>.</p>' +
+    '<p style="color:var(--brand-gray);font-size:12px;margin-bottom:0">Corrections ' +
+    '(perspective, HDR, color, sharpen) run free once deployed. Sky replacement, ' +
+    'declutter, and virtual staging additionally need a generative provider key.</p>' +
+  '</div>';
+}
+
+function _peDisablePreview() {
+  var drop = document.getElementById('pe-drop');
+  if (drop) { drop.style.opacity = '0.5'; drop.style.pointerEvents = 'none'; }
+  var go = document.getElementById('pe-go');
+  if (go) { go.disabled = true; go.textContent = 'Deploy backend to enable'; }
+  ['pe-style', 'pe-sky', 'pe-staging_style', 'pe-perspective_correction',
+   'pe-white_balance', 'pe-exposure_balance', 'pe-window_pull', 'pe-clarity_sharpen',
+   'pe-declutter', 'pe-virtual_staging', 'pe-file'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.disabled = true;
+  });
+  var health = document.getElementById('pe-health');
+  if (health) { health.textContent = '⚠ backend not configured'; health.style.color = '#FFC107'; }
 }
 
 function _peTemplate() {
