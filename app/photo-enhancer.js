@@ -245,3 +245,20 @@ function _peRenderGrid(backend, job) {
       '</div>';
   }).join('');
 }
+
+// ── Self-init safety net ───────────────────────────────────────────
+// The router calls initPhotoEnhancer() on navigation. This wrapper makes the
+// tool initialize even if a stale/cached router.js lacks that call — it wraps
+// the existing navigateTo and is idempotent (guarded by photoEnhancerInitialized).
+(function () {
+  if (typeof window.navigateTo === 'function' && !window._peNavWrapped) {
+    var _origNav = window.navigateTo;
+    window.navigateTo = function (page) {
+      _origNav(page);
+      if (page === 'photo-enhancer' && !photoEnhancerInitialized) {
+        try { initPhotoEnhancer(); } catch (e) { /* never break navigation */ }
+      }
+    };
+    window._peNavWrapped = true;
+  }
+})();
