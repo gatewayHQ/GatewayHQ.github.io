@@ -20,5 +20,9 @@
 window.AI_CONFIG = {
   // Supabase Edge Function — handles Claude, Buffer, and video render (server-side GH_PAT).
   // All API calls route through here when an agent is logged in via ☁ Sync.
-  proxyUrl: 'https://jrtaxhfglcymipncwmvu.supabase.co/functions/v1/gateway-api'
+  proxyUrl: 'https://jrtaxhfglcymipncwmvu.supabase.co/functions/v1/gateway-api',
+
+  // Photo Enhancer FastAPI backend (see photo-enhancer/README.md to deploy).
+  // Set this once the service is live; leave blank otherwise.
+  photoEnhancerUrl: ''
 };

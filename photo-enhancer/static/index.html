@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gateway Photo Enhancer</title>
+<style>
+  :root { --navy:#1E2F39; --blue:#A2B6C0; --cream:#E4E3D4; --gold:#C8A84B; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+         background:var(--navy); color:var(--cream); }
+  header { padding:18px 24px; border-bottom:1px solid #2a4050; font-weight:700; letter-spacing:1px; }
+  main { max-width:900px; margin:0 auto; padding:24px; }
+  .drop { border:2px dashed #3a5464; border-radius:12px; padding:40px; text-align:center;
+          cursor:pointer; transition:border-color .15s,background .15s; }
+  .drop.hot { border-color:var(--gold); background:rgba(200,168,75,.08); }
+  fieldset { border:1px solid #2a4050; border-radius:10px; margin:18px 0; padding:14px 16px; }
+  legend { color:var(--blue); font-size:12px; letter-spacing:1px; text-transform:uppercase; padding:0 6px; }
+  label.row { display:flex; align-items:center; gap:8px; padding:5px 0; font-size:14px; }
+  select, button { font:inherit; }
+  select { background:#122431; color:var(--cream); border:1px solid #2a4050; border-radius:6px; padding:6px 8px; }
+  button.go { background:var(--gold); color:#1a1a1a; border:none; border-radius:8px;
+              padding:12px 22px; font-weight:700; cursor:pointer; }
+  button.go:disabled { opacity:.5; cursor:default; }
+  .warn { background:rgba(255,193,7,.1); border:1px solid rgba(255,193,7,.3); color:#FFC107;
+          border-radius:8px; padding:10px 12px; font-size:13px; margin-top:10px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-top:18px; }
+  .card { background:#122431; border:1px solid #2a4050; border-radius:8px; padding:8px; font-size:12px; }
+  .card img { width:100%; border-radius:5px; display:block; }
+  .status { font-size:11px; color:var(--blue); margin-top:4px; }
+  a { color:var(--gold); }
+</style>
+</head>
+<body>
+<header>GATEWAY · Professional Photo Enhancer</header>
+<main>
+  <div class="drop" id="drop">
+    <p>Drop iPhone photos here, or click to choose (single or batch)</p>
+    <input type="file" id="file" accept="image/jpeg,image/png,image/heic" multiple hidden>
+    <div id="count"></div>
+  </div>
+
+  <fieldset>
+    <legend>House Style</legend>
+    <select id="style"></select>
+  </fieldset>
+
+  <fieldset>
+    <legend>Corrections (MLS-safe, on by default)</legend>
+    <label class="row"><input type="checkbox" id="perspective_correction" checked> Perspective / straighten</label>
+    <label class="row"><input type="checkbox" id="white_balance" checked> Neutral white balance</label>
+    <label class="row"><input type="checkbox" id="exposure_balance" checked> Exposure balance / HDR</label>
+    <label class="row"><input type="checkbox" id="window_pull" checked> Window pull</label>
+    <label class="row"><input type="checkbox" id="clarity_sharpen" checked> Clarity &amp; sharpen</label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Generative (opt-in — disclosed on the photo)</legend>
+    <label class="row">Sky replacement
+      <select id="sky"><option value="none">None</option><option value="blue">Blue</option>
+      <option value="golden_hour">Golden hour</option><option value="dramatic">Dramatic</option></select>
+    </label>
+    <label class="row"><input type="checkbox" id="declutter"> Declutter / remove personal items</label>
+    <label class="row"><input type="checkbox" id="virtual_staging"> Virtually stage empty rooms
+      <select id="staging_style"><option>modern</option><option>transitional</option>
+      <option>farmhouse</option><option>luxury</option></select>
+    </label>
+    <div class="warn" id="disc" style="display:none">
+      Generative edits will be labeled on the delivered image and recorded in an
+      <code>.mls.json</code> sidecar. Confirm your MLS's disclosure rules.
+    </div>
+  </fieldset>
+
+  <button class="go" id="go" disabled>Enhance</button>
+  <div class="grid" id="grid"></div>
+</main>
+
+<script>
+const API = location.origin;            // backend serves this page
+let files = [];
+
+const $ = id => document.getElementById(id);
+const drop = $('drop'), fileInput = $('file');
+
+drop.onclick = () => fileInput.click();
+['dragover','dragenter'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add('hot'); }));
+['dragleave','drop'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove('hot'); }));
+drop.addEventListener('drop', ev => setFiles(ev.dataTransfer.files));
+fileInput.onchange = () => setFiles(fileInput.files);
+
+function setFiles(list) {
+  files = Array.from(list);
+  $('count').textContent = files.length ? `${files.length} photo(s) selected` : '';
+  $('go').disabled = !files.length;
+}
+
+function refreshDisclosure() {
+  const gen = $('sky').value !== 'none' || $('declutter').checked || $('virtual_staging').checked;
+  $('disc').style.display = gen ? 'block' : 'none';
+}
+['sky','declutter','virtual_staging'].forEach(id => $(id).addEventListener('change', refreshDisclosure));
+
+async function loadStyles() {
+  try {
+    const r = await fetch(`${API}/api/styles`);
+    const { styles } = await r.json();
+    $('style').innerHTML = styles.map(s => `<option value="${s.key}">${s.label}</option>`).join('');
+  } catch (e) { $('style').innerHTML = '<option value="gateway_default">Gateway — Clean & Bright</option>'; }
+}
+loadStyles();
+
+function buildOptions() {
+  return {
+    perspective_correction: $('perspective_correction').checked,
+    white_balance: $('white_balance').checked,
+    exposure_balance: $('exposure_balance').checked,
+    window_pull: $('window_pull').checked,
+    clarity_sharpen: $('clarity_sharpen').checked,
+    sky_replacement: $('sky').value,
+    declutter: $('declutter').checked,
+    virtual_staging: $('virtual_staging').checked,
+    staging_style: $('staging_style').value,
+    house_style: $('style').value,
+  };
+}
+
+$('go').onclick = async () => {
+  $('go').disabled = true;
+  const fd = new FormData();
+  files.forEach(f => fd.append('files', f));
+  fd.append('options', JSON.stringify(buildOptions()));
+  try {
+    const r = await fetch(`${API}/api/enhance`, { method:'POST', body: fd });
+    if (!r.ok) throw new Error((await r.json()).detail || r.status);
+    const job = await r.json();
+    poll(job.job_id);
+  } catch (e) {
+    alert('Enhance failed: ' + e.message);
+    $('go').disabled = false;
+  }
+};
+
+function render(job) {
+  $('grid').innerHTML = job.photos.map(p => `
+    <div class="card">
+      ${p.output_url || p.status === 'done'
+        ? `<a href="${API}/output/${p.filename}" target="_blank"><img src="${API}/output/${p.filename}?t=${Date.now()}"></a>`
+        : `<div style="height:120px;display:flex;align-items:center;justify-content:center;color:#5a7484">${p.status}…</div>`}
+      <div>${p.filename}</div>
+      <div class="status">${p.status}${p.room_type ? ' · ' + p.room_type : ''}${p.error ? ' · ⚠ ' + p.error : ''}</div>
+      ${p.disclosure_required ? '<div class="status">🏷 disclosed</div>' : ''}
+    </div>`).join('');
+}
+
+async function poll(id) {
+  try {
+    const r = await fetch(`${API}/api/jobs/${id}`);
+    const job = await r.json();
+    render(job);
+    if (job.state === 'running' || job.state === 'queued') {
+      setTimeout(() => poll(id), 1500);
+    } else {
+      $('go').disabled = false;
+    }
+  } catch (e) { setTimeout(() => poll(id), 2500); }
+}
+</script>
+</body>
+</html>

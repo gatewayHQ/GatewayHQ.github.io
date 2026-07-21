@@ -29,6 +29,7 @@
 <link rel="stylesheet" href="styles/invoice.css">
 <link rel="stylesheet" href="styles/status.css">
 <link rel="stylesheet" href="styles/video.css">
+<link rel="stylesheet" href="styles/photo-enhancer.css">
 <link rel="stylesheet" href="styles/sync.css">
 
 <!-- Supabase JS v2 — defer so it never blocks HTML parsing / first paint -->
@@ -149,6 +150,12 @@
       <div class="tool-icon">🎨</div>
       <h3>Social &amp; Mailer Graphics</h3>
       <p>Create premium branded graphics for Instagram, Facebook, LinkedIn and print mailers — Just Listed, Just Closed, market stats and more</p>
+      <span class="tool-tag new">NEW</span>
+    </div>
+    <div class="tool-card" onclick="navigateTo('photo-enhancer')">
+      <div class="tool-icon">📸</div>
+      <h3>Professional Photo Enhancer</h3>
+      <p>Turn iPhone listing photos into magazine/MLS-ready shots — perspective, HDR window pull, neutral color, sky replacement, declutter &amp; virtual staging, with consistent gallery styling</p>
       <span class="tool-tag new">NEW</span>
     </div>
   </div>
@@ -1738,6 +1745,17 @@
   </div>
 </div>
 
+<!-- ========== PROFESSIONAL PHOTO ENHANCER ========== -->
+<div id="page-photo-enhancer" class="page">
+  <h2 style="text-align:center;font-size:28px;margin-bottom:6px;color:var(--brand-cream)">Professional Photo Enhancer</h2>
+  <p style="text-align:center;color:var(--brand-gray);font-size:13px;margin-bottom:20px">
+    Upload iPhone listing photos → get magazine/MLS-ready JPGs. Corrections are always MLS-safe;
+    generative edits are opt-in and automatically disclosed.
+  </p>
+  <!-- UI is rendered by app/photo-enhancer.js into this container -->
+  <div id="pe-root"></div>
+</div>
+
 <!-- ========== STATUS BAR ========== -->
 <div class="status-bar" id="global-status"></div>
 
@@ -1782,6 +1800,7 @@
 <script src="app/multifamily.js" defer></script>
 <script src="app/invoice.js" defer></script>
 <script src="app/home-valuation.js" defer></script>
+<script src="app/photo-enhancer.js" defer></script>
 <!-- Video Generator: client-side renderer (ES module graph; no build step) -->
 <script type="module" src="app/video/main.js?v=4"></script>
 <!-- Social & Mailer Graphics: client-side renderer (ES module graph) -->
