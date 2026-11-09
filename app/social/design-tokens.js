@@ -56,7 +56,7 @@ export const THEMES = {
     onPhoto: BRAND.textPrimary,
   },
   'ivory': {
-    label: 'Ivory',
+    label: 'Ivory', lightBg: true,          // light background -> dark lockup
     bg1: '#F5F4EF', bg2: '#E8E6DC',
     ink: '#16202A', sub: 'rgba(22,32,42,0.6)', faint: 'rgba(22,32,42,0.3)',
     accent: '#16202A', accentInk: '#F5F4EF',

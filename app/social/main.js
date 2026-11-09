@@ -10,7 +10,7 @@ import { writeCaption } from './ai.js';
 import { slugify } from './format.js';
 
 const $ = (id) => document.getElementById(id);
-const state = { type: 'commercial', photo: null, photoLowRes: false, heads: [null, null], logo: null, ready: false };
+const state = { type: 'commercial', photo: null, photoLowRes: false, heads: [null, null], markLight: null, markDark: null, ready: false };
 const BROKERAGE = 'Gateway Real Estate Advisors';
 
 const SIZE_ORDER = ['ig-portrait', 'square', 'story', 'linkedin', 'landscape', 'postcard-6x4'];
@@ -45,7 +45,10 @@ async function init() {
   fillSelect($('g-theme'), THEME_ORDER.map((id) => [id, THEMES[id].label]));
   fillSelect($('g-size'), SIZE_ORDER.map((id) => [id, SIZES[id].label]));
 
-  if (window.LOGO_ROUND_SUBMARK) { const img = new Image(); img.onload = () => { state.logo = img; preview(); }; img.src = window.LOGO_ROUND_SUBMARK; }
+  // Official horizontal lockups (assets/logos.js): white for dark themes, dark for light.
+  const loadMark = (src, key) => { if (!src) return; const img = new Image(); img.onload = () => { state[key] = img; preview(); }; img.src = src; };
+  loadMark(window.LOGO_PRIMARY_LIGHT, 'markLight');
+  loadMark(window.LOGO_PRIMARY_DARK, 'markDark');
 
   // type toggle
   document.querySelectorAll('.g-type-btn').forEach((b) => b.addEventListener('click', () => {
@@ -166,7 +169,7 @@ function currentOpts() {
   return {
     templateId: $('g-template').value, theme: $('g-theme').value, sizeId: $('g-size').value,
     data: collectData(),
-    assets: { photo: state.photo, headshots: state.heads.filter(Boolean), logo: state.logo },
+    assets: { photo: state.photo, headshots: state.heads.filter(Boolean), markLight: state.markLight, markDark: state.markDark },
   };
 }
 

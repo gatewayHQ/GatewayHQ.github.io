@@ -9,59 +9,21 @@ import {
 } from './draw.js';
 import { formatEventDate, formatTimeRange } from './format.js';
 
-// Shared footer band: up to TWO agents (co-listings) + brokerage left,
-// one or two headshots right. Falls back to single-agent / logo.
-function footer(ctx, W, H, data, theme, assets) {
-  const M = W * 0.07;
+// Shared footer for the classic templates — delegates to agentFooter below.
+// (Lockup right, agent text + optional avatars left, brokerage always shown.)
+function footer(ctx, W, H, data, theme, assets, opts = {}) {
+  // Same footer as the dedicated templates (lockup always visible, brokerage
+  // always printed), at the classic templates' fixed 87% hairline.
+  const f = { landscape: false, u: Math.min(W, H), x0: W * 0.07, x1: W * 0.93 };
+  const plan = footerPlan(ctx, data, assets, f, theme, { compact: true, ...opts });
   const fy = H - H * 0.13;
-  hairline(ctx, M, fy, W - M, fy, theme.hairline, 2);
-
-  const agents = (Array.isArray(data.agents) && data.agents.length)
-    ? data.agents.filter(a => a && a.name)
-    : (data.agent ? [{ name: data.agent, phone: data.phone }] : []);
-  const heads = (Array.isArray(assets.headshots) && assets.headshots.length)
-    ? assets.headshots.filter(Boolean)
-    : (assets.headshot ? [assets.headshot] : []);
-
-  // Headshots on the right (1–2 circles, side by side).
-  const r = W * 0.052, cy = fy + H * 0.052;
-  let rightEdge = W - M;
-  for (let i = heads.length - 1; i >= 0 && i >= heads.length - 2; i--) {
-    circleImage(ctx, heads[i], rightEdge - r, cy, r, theme.accent);
-    rightEdge -= (r * 2 + W * 0.016);
+  // fixed hairline: tighten line spacing (not type size) so the block ends by 96.5% H
+  const room = H * 0.965 - fy - f.u * 0.006;
+  if (plan.height * f.u > room) {
+    const k = room / (plan.height * f.u);
+    plan.lines = plan.lines.map((v) => v * k); plan.height *= k;
   }
-  if (!heads.length && assets.logo) circleImage(ctx, assets.logo, W - M - r, cy, r, theme.hairline);
-
-  // Agent text on the left.
-  const textRight = ((heads.length || assets.logo) ? rightEdge : (W - M)) - W * 0.03;
-  const maxW = textRight - M;
-  const nameY = fy + H * 0.044;
-  const anyTitle = agents.some(a => a.title);
-  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-
-  if (agents.length >= 2) {
-    // Two columns — each agent's title (accent/highlighted) and phone sit
-    // directly under their name, so there's no ambiguity about whose is whose.
-    const colW = (textRight - M) / 2;
-    agents.slice(0, 2).forEach((a, i) => {
-      const cx = M + colW * i, cw = colW - W * 0.025;
-      let yy = nameY;
-      fitLine(ctx, a.name, cx, yy, cw, W * 0.023, 700, theme.ink, 'left'); yy += H * 0.026;
-      if (a.title) { fitLine(ctx, a.title, cx, yy, cw, W * 0.0155, 700, theme.accent, 'left'); yy += H * 0.024; }
-      if (a.phone) { setFont(ctx, W * 0.016, 600); ctx.fillStyle = theme.sub; ctx.textAlign = 'left'; ctx.fillText(a.phone, cx, yy); }
-    });
-    // Brokerage line only when there's vertical room (no titles crowding it).
-    if (data.brokerage && !anyTitle) { setFont(ctx, W * 0.014, 600, 2); ctx.fillStyle = theme.faint || theme.sub; ctx.fillText(data.brokerage.toUpperCase(), M, nameY + H * 0.058); }
-  } else if (agents.length === 1) {
-    const a = agents[0]; let yy = nameY;
-    fitLine(ctx, a.name, M, yy, maxW, W * 0.027, 700, theme.ink, 'left'); yy += H * 0.030;
-    if (a.title) { fitLine(ctx, a.title, M, yy, maxW, W * 0.018, 700, theme.accent, 'left'); yy += H * 0.026; }
-    const line2 = [a.phone, data.brokerage].filter(Boolean).join('   ·   ');
-    if (line2) { setFont(ctx, W * 0.016, 600, 1.2); ctx.fillStyle = theme.sub; ctx.fillText(line2, M, yy); }
-  } else if (data.brokerage) {
-    setFont(ctx, W * 0.02, 600, 2); ctx.fillStyle = theme.sub; ctx.fillText(data.brokerage.toUpperCase(), M, fy + H * 0.055);
-  }
-  try { ctx.letterSpacing = '0px'; } catch {}
+  agentFooter(ctx, f, fy, plan, data, theme);
 }
 
 function bg(ctx, W, H, theme) {
@@ -72,20 +34,24 @@ function bg(ctx, W, H, theme) {
 // detail subtitle -> stat row. Uses a flowing cursor and an adaptive stat-row
 // position so lines never overlap regardless of how long the address is.
 function listingBody(ctx, W, H, data, theme, startY) {
+  const T = Math.min(W, H);   // type unit: = W on portrait/square/story; = H on wide print sizes
   const M = W * 0.07;
-  const hl = wrapFit(ctx, data.title || 'Property Address', W - M * 2, W * 0.060, 800, 2, W * 0.038);
+  const hl = wrapFit(ctx, data.title || 'Property Address', W - M * 2, T * 0.060, 800, 2, T * 0.038);
   let y = drawBlock(ctx, hl.lines, M, startY, hl.px, hl.lineHeight, 800, theme.ink);
-  if (data.city) { y += H * 0.044; fitLine(ctx, data.city, M, y, W - M * 2, W * 0.028, 600, theme.sub, 'left'); }
-  if (data.subtitle) { y += H * 0.036; fitLine(ctx, data.subtitle, M, y, W - M * 2, W * 0.022, 600, theme.faint || theme.sub, 'left'); }
+  if (data.city) { y += H * 0.044; fitLine(ctx, data.city, M, y, W - M * 2, T * 0.028, 600, theme.sub, 'left'); }
+  if (data.subtitle) { y += H * 0.036; fitLine(ctx, data.subtitle, M, y, W - M * 2, T * 0.022, 600, theme.faint || theme.sub, 'left'); }
   const stats = (data.stats || []).slice(0, 3);
   if (stats.length) {
-    const statY = Math.min(H * 0.815, Math.max(H * 0.80, y + H * 0.085));
-    statRow(ctx, stats, M, statY, W - M * 2, theme, { valuePx: W * 0.058, labelPx: W * 0.016 });
+    let statY = Math.min(H * 0.815, Math.max(H * 0.80, y + H * 0.085));
+    // wide print sizes: keep the stat labels above the footer hairline at 87%
+    if (W / H > 1.2) statY = Math.min(statY, H * 0.86 - (T * 0.058 * 0.5 + T * 0.016 * 1.8));
+    statRow(ctx, stats, M, statY, W - M * 2, theme, { valuePx: T * 0.058, labelPx: T * 0.016 });
   }
 }
 
 // ── 1. Just Listed / For Sale (photo-led) ───────────────────────────────────
 function creJustListed(ctx, W, H, data, theme, assets) {
+  const T = Math.min(W, H);   // type unit: = W on portrait/square/story; = H on wide print sizes
   bg(ctx, W, H, theme);
   const M = W * 0.07;
   const photoH = Math.round(H * 0.55);
@@ -97,8 +63,8 @@ function creJustListed(ctx, W, H, data, theme, assets) {
 
   // gold accent bar + kicker
   const ky = photoH + H * 0.05;
-  ctx.fillStyle = theme.accent; ctx.fillRect(M, ky - W * 0.028, W * 0.012, W * 0.034);
-  kicker(ctx, data.kicker || 'For Sale', M + W * 0.028, ky, theme.accent, W * 0.020, 5);
+  ctx.fillStyle = theme.accent; ctx.fillRect(M, ky - T * 0.028, T * 0.012, T * 0.034);
+  kicker(ctx, data.kicker || 'For Sale', M + T * 0.028, ky, theme.accent, T * 0.020, 5);
 
   listingBody(ctx, W, H, data, theme, ky + H * 0.022);
   footer(ctx, W, H, data, theme, assets);
@@ -106,12 +72,13 @@ function creJustListed(ctx, W, H, data, theme, assets) {
 
 // ── 2. Just Closed / Sold (social proof) ────────────────────────────────────
 function creJustClosed(ctx, W, H, data, theme, assets) {
+  const T = Math.min(W, H);   // type unit: = W on portrait/square/story; = H on wide print sizes
   bg(ctx, W, H, theme);
   const M = W * 0.07;
   const photoH = Math.round(H * 0.5);
   if (assets.photo) { blurExtend(ctx, assets.photo, 0, 0, W, photoH); coverInto(ctx, assets.photo, 0, 0, W, photoH); }
   // pill badge
-  const bw = W * 0.46, bh = H * 0.062, bx = M, by = photoH - bh - H * 0.03;
+  const bw = T * 0.46, bh = H * 0.062, bx = M, by = photoH - bh - H * 0.03;
   fillRoundRect(ctx, bx, by, bw, bh, bh / 2, theme.accent);
   setFont(ctx, bh * 0.42, 800, 4); ctx.fillStyle = theme.accentInk; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   ctx.fillText((data.kicker || 'JUST CLOSED').toUpperCase(), bx + bw * 0.08, by + bh / 2);
@@ -125,6 +92,7 @@ function creJustClosed(ctx, W, H, data, theme, assets) {
 
 // ── 3. By the Numbers (data-led market/investment card) ─────────────────────
 function creStats(ctx, W, H, data, theme, assets) {
+  const T = Math.min(W, H);   // type unit: = W on portrait/square/story; = H on wide print sizes
   bg(ctx, W, H, theme);
   const M = W * 0.08;
   // accent corner brackets for an institutional feel
@@ -133,11 +101,11 @@ function creStats(ctx, W, H, data, theme, assets) {
   ctx.beginPath(); ctx.moveTo(W - M, H * 0.94 - 40); ctx.lineTo(W - M, H * 0.94); ctx.lineTo(W - M - 60, H * 0.94); ctx.stroke();
 
   let y = H * 0.16;
-  kicker(ctx, data.kicker || 'By the Numbers', M, y, theme.accent, W * 0.022, 6);
+  kicker(ctx, data.kicker || 'By the Numbers', M, y, theme.accent, T * 0.022, 6);
   y += H * 0.045;
-  const hl = wrapFit(ctx, data.title || 'Market Snapshot', W - M * 2, W * 0.066, 800, 2, W * 0.044);
+  const hl = wrapFit(ctx, data.title || 'Market Snapshot', W - M * 2, T * 0.066, 800, 2, T * 0.044);
   y = drawBlock(ctx, hl.lines, M, y, hl.px, hl.lineHeight, 800, theme.ink);
-  if (data.subtitle) { y += H * 0.04; fitLine(ctx, data.subtitle, M, y, W - M * 2, W * 0.024, 600, theme.sub); }
+  if (data.subtitle) { y += H * 0.04; fitLine(ctx, data.subtitle, M, y, W - M * 2, T * 0.024, 600, theme.sub); }
 
   // 2×2 stat grid
   const stats = (data.stats || []).slice(0, 4);
@@ -146,10 +114,10 @@ function creStats(ctx, W, H, data, theme, assets) {
     const col = i % 2, row = (i / 2) | 0;
     const cx = M + colW * col + colW * 0.5;
     const cyV = gridTop + rowH * row + rowH * 0.46;
-    setFont(ctx, W * 0.10, 800); ctx.fillStyle = theme.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    setFont(ctx, T * 0.10, 800); ctx.fillStyle = theme.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     ctx.fillText(String(it.value || '—'), cx, cyV);
-    setFont(ctx, W * 0.018, 600, 3); ctx.fillStyle = theme.sub;
-    ctx.fillText(String(it.label || '').toUpperCase(), cx, cyV + W * 0.05);
+    setFont(ctx, T * 0.018, 600, 3); ctx.fillStyle = theme.sub;
+    ctx.fillText(String(it.label || '').toUpperCase(), cx, cyV + T * 0.05);
     try { ctx.letterSpacing = '0px'; } catch {}
   });
   // grid hairlines
@@ -161,50 +129,52 @@ function creStats(ctx, W, H, data, theme, assets) {
 
 // ── 4. Testimonial / 5-star review (engagement content) ─────────────────────
 function creTestimonial(ctx, W, H, data, theme, assets) {
+  const T = Math.min(W, H);   // type unit: = W on portrait/square/story; = H on wide print sizes
   bg(ctx, W, H, theme);
   const M = W * 0.09;
   // oversized quotation mark
-  setFont(ctx, W * 0.34, 800); ctx.fillStyle = theme.accent; ctx.globalAlpha = 0.22;
-  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText('“', M - W * 0.01, H * 0.30);
+  setFont(ctx, T * 0.34, 800); ctx.fillStyle = theme.accent; ctx.globalAlpha = 0.22;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText('“', M - T * 0.01, H * 0.30);
   ctx.globalAlpha = 1;
 
   let y = H * 0.16;
-  kicker(ctx, data.kicker || 'Client Review', M, y, theme.accent, W * 0.020, 5);
+  kicker(ctx, data.kicker || 'Client Review', M, y, theme.accent, T * 0.020, 5);
 
   // stars
   y = H * 0.26;
-  stars(ctx, M, y, W * 0.045, 5, theme.accent);
+  stars(ctx, M, y, T * 0.045, 5, theme.accent);
 
   // the quote — large, wraps up to 6 lines, auto-fit
   y += H * 0.03;
-  const q = wrapFit(ctx, data.title || 'They made the whole process effortless and got us a great result.', W - M * 2, W * 0.058, 800, 6, W * 0.03, 1.18);
+  const q = wrapFit(ctx, data.title || 'They made the whole process effortless and got us a great result.', W - M * 2, T * 0.058, 800, 6, T * 0.03, 1.18);
   y = drawBlock(ctx, q.lines, M, y, q.px, q.lineHeight, 800, theme.ink);
 
   // reviewer
-  if (data.subtitle) { y += H * 0.05; fitLine(ctx, '— ' + data.subtitle, M, y, W - M * 2, W * 0.026, 600, theme.sub); }
+  if (data.subtitle) { y += H * 0.05; fitLine(ctx, '— ' + data.subtitle, M, y, W - M * 2, T * 0.026, 600, theme.sub); }
   footer(ctx, W, H, data, theme, assets);
 }
 
 // ── 5. Meet the Advisor (personal brand) ────────────────────────────────────
 function creMeetAgent(ctx, W, H, data, theme, assets) {
+  const T = Math.min(W, H);   // type unit: = W on portrait/square/story; = H on wide print sizes
   bg(ctx, W, H, theme);
   const M = W * 0.08;
   const portrait = (assets.headshots && assets.headshots[0]) || assets.photo;
-  const r = W * 0.21, cx = W / 2, cy = H * 0.30;
+  const r = T * 0.21, cx = W / 2, cy = H * 0.30;
   if (portrait) circleImage(ctx, portrait, cx, cy, r, theme.accent);
   else { ctx.fillStyle = theme.bg2; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill(); }
 
   let y = cy + r + H * 0.06;
-  kicker(ctx, data.kicker || 'Meet Your Advisor', cx, y, theme.accent, W * 0.02, 5, 'center'); y += H * 0.035;
-  const nm = wrapFit(ctx, data.title || (data.agents && data.agents[0] && data.agents[0].name) || 'Your Name', W - M * 2, W * 0.07, 800, 2, W * 0.05);
+  kicker(ctx, data.kicker || 'Meet Your Advisor', cx, y, theme.accent, T * 0.02, 5, 'center'); y += H * 0.035;
+  const nm = wrapFit(ctx, data.title || (data.agents && data.agents[0] && data.agents[0].name) || 'Your Name', W - M * 2, T * 0.07, 800, 2, T * 0.05);
   setFont(ctx, nm.px, 800); ctx.fillStyle = theme.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   nm.lines.forEach((ln, i) => ctx.fillText(ln, cx, y + nm.px + i * nm.lineHeight));
   y += nm.px + (nm.lines.length - 1) * nm.lineHeight + H * 0.012;
-  if (data.subtitle) { fitLine(ctx, data.subtitle, cx, y + W * 0.025, W - M * 2, W * 0.026, 600, theme.sub, 'center'); }
+  if (data.subtitle) { fitLine(ctx, data.subtitle, cx, y + T * 0.025, W - M * 2, T * 0.026, 600, theme.sub, 'center'); }
 
   const stats = (data.stats || []).slice(0, 3);
-  if (stats.length) statRow(ctx, stats, M, H * 0.80, W - M * 2, theme, { valuePx: W * 0.058, labelPx: W * 0.015 });
-  footer(ctx, W, H, data, theme, assets);
+  if (stats.length) statRow(ctx, stats, M, W / H > 1.2 ? Math.min(H * 0.80, H * 0.86 - T * 0.058 * 0.5 - T * 0.015 * 1.8) : H * 0.80, W - M * 2, theme, { valuePx: T * 0.058, labelPx: T * 0.015 });
+  footer(ctx, W, H, data, theme, assets, { noAvatars: true });   // portrait is already the hero
 }
 
 // 5-pointed star row in gold.
@@ -251,13 +221,19 @@ function frameFor(W, H) {
   };
 }
 
+// '#152229' -> 'rgba(21,34,41,0)': fade into the theme background without a grey band
+function clear(hex) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
+  return m ? `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},0)` : 'rgba(13,17,23,0)';
+}
+
 function listingPhoto(ctx, W, H, f, theme, photo, photoBottom) {
   if (f.landscape) {
     if (photo) coverInto(ctx, photo, 0, 0, f.photoW, H);
     else vGradient(ctx, 0, 0, f.photoW, H, [[0, theme.bg2], [1, theme.bg1]]);
     // soft seam into the panel
     const sw = W * 0.08, g = ctx.createLinearGradient(f.photoW - sw, 0, f.photoW, 0);
-    g.addColorStop(0, 'rgba(13,17,23,0)'); g.addColorStop(1, theme.bg1);
+    g.addColorStop(0, clear(theme.bg1)); g.addColorStop(1, theme.bg1);
     ctx.fillStyle = g; ctx.fillRect(f.photoW - sw, 0, sw + 1, H);
     return;
   }
@@ -266,104 +242,143 @@ function listingPhoto(ctx, W, H, f, theme, photo, photoBottom) {
   if (photo) coverInto(ctx, photo, 0, 0, W, ph);
   else vGradient(ctx, 0, 0, W, ph, [[0, theme.bg2], [1, theme.bg1]]);
   const fade = Math.min(H * 0.18, ph);
-  vGradient(ctx, 0, ph - fade, W, fade, [[0, 'rgba(13,17,23,0)'], [1, theme.bg1]]);
+  vGradient(ctx, 0, ph - fade, W, fade, [[0, clear(theme.bg1)], [1, theme.bg1]]);
+}
+
+// ── Brand mark ───────────────────────────────────────────────────────────────
+// The official horizontal lockup (arch + GATEWAY + REAL ESTATE ADVISORS) is the
+// brand mark on every graphic. It replaced the round seal because the seal's
+// ring text renders ~6px tall at footer size (≈2pt on a phone) — unreadable.
+// In the lockup "GATEWAY" is 42% of the image height, so at MARK_H it reads
+// at ≥ 2.2% of the canvas width (24px+ on a 1080 graphic, ≈ 9pt on a phone).
+// Light themes get the dark lockup; dark themes the white one. Never stretched.
+export const MARK_GATEWAY_RATIO = 77 / 183;   // "GATEWAY" cap height / lockup height
+const MARK_H = 0.078;                          // lockup height, in u (GATEWAY ≈ 3.3% of width)
+
+function markFor(theme, assets) {
+  const light = !theme.lightBg;
+  return (light ? assets.markLight : assets.markDark) || null;
+}
+function markSize(img, h) {
+  const iw = img.width || img.naturalWidth, ih = img.height || img.naturalHeight;
+  return { w: h * (iw / ih), h };
+}
+function drawMark(ctx, img, x, y, h) {          // (x,y) = top-left; aspect preserved
+  const m = markSize(img, h);
+  ctx.drawImage(img, x, y, m.w, m.h);
+  return m;
 }
 
 // Footer metrics (heights in u) so the stack can be planned before drawing.
-function footerPlan(data, assets, f) {
+// Layout: [avatar] agent text ........ [Gateway lockup]. Two agents sit in two
+// columns, or one per row ("stacked") when columns would squeeze the names.
+function footerPlan(ctx, data, assets, f, theme, opts = {}) {
+  const u = f.u;
   const agents = (data.agents || []).filter((a) => a && a.name).slice(0, 2);
-  const lines = [];                      // vertical advances after the hairline
-  const stacked = !!(f && f.landscape) && agents.length >= 2;   // narrow panel: one agent per row
-  if (stacked) {
-    lines.push(0.050, 0.030, 0.046, 0.030, 0.036);   // name1, detail1, name2, detail2, brokerage
-  } else if (agents.length >= 2) {
-    lines.push(0.050);                   // names
-    if (agents.some((a) => a.title)) lines.push(0.030); // titles
-    if (agents.some((a) => a.phone)) lines.push(0.030); // phones
-    lines.push(0.034);                   // brokerage (always)
-  } else if (agents.length === 1) {
-    lines.push(0.054);                   // name
-    if (agents[0].title) lines.push(0.031);
-    lines.push(0.0375);                  // phone · brokerage
-  } else {
-    lines.push(0.054);                   // brokerage alone
+  const heads = opts.noAvatars ? [] : (assets.headshots || []).filter(Boolean).slice(0, Math.max(1, agents.length));
+  const mark = f.landscape ? null : markFor(theme, assets);       // landscape: mark sits atop the panel
+  const markW = mark ? markSize(mark, MARK_H * u).w : 0;
+  const textR = f.x1 - (mark ? markW + u * 0.035 : 0);
+  const ra = u * 0.034, avOff = ra * 2 + u * 0.02;                 // avatar radius + text offset
+  const off = (i) => (heads[i] ? avOff : 0);
+
+  let stacked = false;
+  if (agents.length >= 2) {
+    if (f.landscape) stacked = true;
+    else if (!opts.compact) {
+      const colW = (textR - f.x0) / 2;
+      setFont(ctx, u * 0.025 * 0.8, 700);
+      stacked = agents.some((a, i) => ctx.measureText(a.name).width > colW - off(i) - u * 0.025);
+    }
   }
-  return { agents, stacked, lines, height: lines.reduce((s, v) => s + v, 0) };
+  const lines = [];                      // vertical advances after the hairline
+  if (stacked) lines.push(0.050, 0.030, 0.046, 0.030, 0.036);      // name1, detail1, name2, detail2, brokerage
+  else if (agents.length >= 2) {
+    lines.push(0.050);                                             // names
+    if (opts.compact) lines.push(0.030);                           // title · phone
+    else {
+      if (agents.some((a) => a.title)) lines.push(0.030);
+      if (agents.some((a) => a.phone)) lines.push(0.030);
+    }
+    lines.push(0.034);                                             // brokerage (always)
+  } else if (agents.length === 1) {
+    lines.push(0.054);
+    if (agents[0].title) lines.push(0.031);
+    lines.push(0.0375);                                            // phone · brokerage
+  } else lines.push(0.054);                                        // brokerage alone
+  // the footer block is never shorter than the lockup it holds
+  const need = mark ? MARK_H + 0.024 : 0, have = lines.reduce((s, v) => s + v, 0);
+  if (have < need) lines.push(need - have);                        // trailing spacer (no text)
+  return { agents, heads, mark, markW, textR, ra, off, stacked, compact: !!opts.compact, lines, height: lines.reduce((s, v) => s + v, 0) };
 }
 
 // Agent + brokerage footer. The brokerage name is ALWAYS printed next to the
 // agent name(s) (Iowa 193E—10.1 advertising rule) — never dropped for space.
-function agentFooter(ctx, f, fy, plan, data, theme, assets) {
+function agentFooter(ctx, f, fy, plan, data, theme) {
   const { u, x0, x1 } = f;
   const brokerage = data.brokerage || BROKERAGE;
   hairline(ctx, x0, fy, x1, fy, theme.hairline, Math.max(1, u / 540));
-
   const bottomBase = fy + plan.height * u;
-  // one headshot per named agent (a stray 2nd headshot without a co-agent is ignored)
-  const heads = (assets.headshots || []).filter(Boolean).slice(0, Math.max(1, plan.agents.length));
-  const r = u * 0.052;
-  const cy = Math.min((fy + bottomBase) / 2 + u * 0.004, bottomBase + u * 0.01 - r * 0.2);
-  let right = x1;
-  if (plan.stacked && heads.length) {
-    // one smaller circle beside each agent's two-line row
-    const rr = Math.min(r, u * 0.036);
-    let y = fy;
-    plan.agents.forEach((ag, i) => {
-      const top = y; y += (plan.lines[i * 2] + plan.lines[i * 2 + 1]) * u;
-      if (heads[i]) circleImage(ctx, heads[i], x1 - rr, (top + y) / 2 + u * 0.004, rr, theme.accent);
-    });
-    right = x1 - rr * 2;
-  } else if (heads.length) {
-    for (let i = heads.length - 1; i >= 0; i--) { circleImage(ctx, heads[i], right - r, cy, r, theme.accent); right -= r * 2 + u * 0.016; }
-    right += u * 0.016;
-  } else if (assets.logo) {
-    circleImage(ctx, assets.logo, x1 - r, cy, r, theme.hairline);   // Gateway seal
-    right = x1 - r * 2;
-  }
-  const textR = right - u * 0.03, textW = textR - x0;
+  const midY = (fy + bottomBase) / 2 + u * 0.004;
+
+  // lockup: centred on the footer block, never above the hairline
+  if (plan.mark) drawMark(ctx, plan.mark, x1 - plan.markW, Math.max(fy + u * 0.016, midY - (MARK_H * u) / 2), MARK_H * u);
+
+  const { textR, ra, off, agents, heads } = plan;
   const small = u * 0.016, sp = 1.2 * u / 1080;
+  const avatar = (i, x, top, bot) => heads[i] && circleImage(ctx, heads[i], x + ra, (top + bot) / 2 + u * 0.002, Math.min(ra, (bot - top) * 0.48), theme.accent);
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
 
-  const agents = plan.agents;
   if (plan.stacked) {
     let y = fy;
     agents.forEach((a, i) => {
+      const top = y + u * 0.012;
       y += plan.lines[i * 2] * u;
-      fitLine(ctx, a.name, x0, y, textW, u * 0.025, 700, theme.ink, 'left', 6);
+      const tx = x0 + off(i), tw = textR - tx;
+      fitLine(ctx, a.name, tx, y, tw, u * 0.025, 700, theme.ink, 'left', 6);
       y += plan.lines[i * 2 + 1] * u;
       const det = [a.title, a.phone].filter(Boolean).join('  ·  ');
-      if (det) fitLine(ctx, det, x0, y, textW, small, 600, theme.sub, 'left', 6);
+      if (det) fitLine(ctx, det, tx, y, tw, small, 600, theme.sub, 'left', 6);
+      avatar(i, x0, top, y + u * 0.006);
     });
     y += plan.lines[4] * u;
-    fitLine(ctx, brokerage, x0, y, textW, small, 600, theme.sub, 'left', 6);
+    fitLine(ctx, brokerage, x0, y, textR - x0, small, 600, theme.sub, 'left', 6);
   } else if (agents.length >= 2) {
-    const colW = textW / 2;
-    let y = fy + plan.lines[0] * u;
-    agents.forEach((a, i) => fitLine(ctx, a.name, x0 + colW * i, y, colW - u * 0.025, u * 0.025, 700, theme.ink, 'left', 6));
-    let k = 1;
-    if (agents.some((a) => a.title)) {
-      y += plan.lines[k++] * u;
-      agents.forEach((a, i) => a.title && fitLine(ctx, a.title, x0 + colW * i, y, colW - u * 0.025, u * 0.0155, 600, theme.accent, 'left', 6));
+    const colW = (textR - x0) / 2;
+    const yName = fy + plan.lines[0] * u;
+    let y = yName, k = 1;
+    const detailYs = [];
+    if (plan.compact) { y += plan.lines[k++] * u; detailYs.push(['compact', y]); }
+    else {
+      if (agents.some((a) => a.title)) { y += plan.lines[k++] * u; detailYs.push(['title', y]); }
+      if (agents.some((a) => a.phone)) { y += plan.lines[k++] * u; detailYs.push(['phone', y]); }
     }
-    if (agents.some((a) => a.phone)) {
-      y += plan.lines[k++] * u;
-      agents.forEach((a, i) => a.phone && fitLine(ctx, a.phone, x0 + colW * i, y, colW - u * 0.025, small, 600, theme.sub, 'left', 6));
-    }
+    agents.forEach((a, i) => {
+      const tx = x0 + colW * i + off(i), tw = colW - off(i) - u * 0.025;
+      fitLine(ctx, a.name, tx, yName, tw, u * 0.025, 700, theme.ink, 'left', 6);
+      detailYs.forEach(([kind, yy]) => {
+        const t = kind === 'compact' ? [a.title, a.phone].filter(Boolean).join('  ·  ') : a[kind];
+        if (t) fitLine(ctx, t, tx, yy, tw, kind === 'title' ? u * 0.0155 : small, 600, kind === 'title' ? theme.accent : theme.sub, 'left', 6);
+      });
+      avatar(i, x0 + colW * i, fy + u * 0.012, (detailYs.length ? detailYs[detailYs.length - 1][1] : yName) + u * 0.006);
+    });
     y += plan.lines[k] * u;
-    fitLine(ctx, brokerage, x0, y, textW, small, 600, theme.sub, 'left', 6);
+    fitLine(ctx, brokerage, x0, y, textR - x0, small, 600, theme.sub, 'left', 6);
   } else if (agents.length === 1) {
     const a = agents[0];
+    const tx = x0 + off(0), tw = textR - tx;
     let y = fy + plan.lines[0] * u;
-    fitLine(ctx, a.name, x0, y, textW, u * 0.027, 700, theme.ink, 'left', 6);
+    fitLine(ctx, a.name, tx, y, tw, u * 0.027, 700, theme.ink, 'left', 6);
     let k = 1;
-    if (a.title) { y += plan.lines[k++] * u; fitLine(ctx, a.title, x0, y, textW, u * 0.018, 600, theme.accent, 'left', 6); }
+    if (a.title) { y += plan.lines[k++] * u; fitLine(ctx, a.title, tx, y, tw, u * 0.018, 600, theme.accent, 'left', 6); }
     y += plan.lines[k] * u;
     const line = [a.phone, brokerage].filter(Boolean).join('  ·  ');
     let px = small; setFont(ctx, px, 600, sp);
-    while (ctx.measureText(line).width > textW && px > 6) { px -= 1; setFont(ctx, px, 600, sp); }
-    ctx.fillStyle = theme.sub; ctx.fillText(line, x0, y); resetSpacing(ctx);
+    while (ctx.measureText(line).width > tw && px > 6) { px -= 1; setFont(ctx, px, 600, sp); }
+    ctx.fillStyle = theme.sub; ctx.fillText(line, tx, y); resetSpacing(ctx);
+    avatar(0, x0, fy + u * 0.014, y + u * 0.006);
   } else {
-    fitLine(ctx, brokerage, x0, fy + plan.lines[0] * u, textW, u * 0.022, 700, theme.sub, 'left', 6);
+    fitLine(ctx, brokerage, x0, fy + plan.lines[0] * u, textR - x0, u * 0.022, 700, theme.sub, 'left', 6);
   }
 }
 
@@ -398,13 +413,9 @@ function keyRow(ctx, f, y, items, theme, emphasis = -1) {
 
 // Landscape sizing guard: at unit u, do the agent names fit at >= 80% of their
 // nominal size? (Key values auto-fit per column on their own.)
-function widthsFit(ctx, u, f, data, plan, assets) {
-  const w = f.x1 - f.x0;
-  const nHeads = (assets.headshots || []).filter(Boolean).slice(0, Math.max(1, plan.agents.length)).length || (assets.logo ? 1 : 0);
-  const textW = w - nHeads * (u * 0.104 + u * 0.016) - u * 0.03;
-  const colW = (plan.agents.length >= 2 && !plan.stacked ? textW / 2 : textW) - u * 0.025;
+function widthsFit(ctx, u, f, data, plan) {
   setFont(ctx, u * 0.025 * 0.8, 700);
-  return plan.agents.every((a) => ctx.measureText(a.name).width <= colW);
+  return plan.agents.every((a, i) => ctx.measureText(a.name).width <= (f.x1 - f.x0) - (plan.heads[i] ? u * 0.088 : 0));
 }
 
 // Shared photo-led listing layout: status label → address → city → key row →
@@ -413,7 +424,11 @@ function listingStack(ctx, W, H, data, theme, assets, { label, row, emphasis }) 
   const f = frameFor(W, H);
   vGradient(ctx, 0, 0, W, H, [[0, theme.bg1], [0.55, theme.bg2], [1, theme.bg1]]);
 
-  const plan = footerPlan(data, assets, f);
+  // landscape: the Gateway lockup sits at the top of the navy panel
+  const lmark = f.landscape ? markFor(theme, assets) : null;
+  const lmarkH = W * 0.024 / MARK_GATEWAY_RATIO;     // "GATEWAY" = 2.4% of width
+  if (lmark) f.top = H * 0.06 + lmarkH + H * 0.05;
+  let plan = footerPlan(ctx, data, assets, f, theme);
   const plan_ = (u) => {
     const tw = f.x1 - f.x0;
     const hl = wrapFit(ctx, data.address || data.title || '123 Example St', tw, u * 0.060, 800, 2, u * 0.038);
@@ -432,7 +447,7 @@ function listingStack(ctx, W, H, data, theme, assets, { label, row, emphasis }) 
     // grow the type to use the panel height, but never past the safe area
     for (let u = (f.x1 - f.x0) / 0.5; u > f.u; u -= 8) {
       const T = plan_(u);
-      if (T.top >= f.top && widthsFit(ctx, u, f, data, plan, assets)) { f.u = u; L = T; break; }
+      if (T.top >= f.top && widthsFit(ctx, u, f, data, plan)) { f.u = u; L = T; break; }
     }
     // centre the stack vertically in the panel's safe area
     const slack = L.top - f.top;
@@ -443,6 +458,8 @@ function listingStack(ctx, W, H, data, theme, assets, { label, row, emphasis }) 
   }
 
   listingPhoto(ctx, W, H, f, theme, assets.photo, L.photoBottom);
+  if (lmark) drawMark(ctx, lmark, f.x0, H * 0.06, lmarkH);
+  if (f.landscape) plan = footerPlan(ctx, data, assets, f, theme);   // re-plan at the final u
 
   const { u, x0 } = f;
   // status label: solid accent bar + letterspaced caps
@@ -453,7 +470,7 @@ function listingStack(ctx, W, H, data, theme, assets, { label, row, emphasis }) 
   if (data.city) fitLine(ctx, data.city, x0, L.cityY, f.x1 - x0, u * 0.028, 600, theme.sub, 'left', u * 0.018);
   const items = (row || []).filter((it) => it && String(it.value || '').trim());
   if (items.length) keyRow(ctx, f, L.rowY, items, theme, emphasis ? emphasis(items) : -1);
-  agentFooter(ctx, f, L.fy, plan, data, theme, assets);
+  agentFooter(ctx, f, L.fy, plan, data, theme);
 }
 
 // ── Open House (dedicated) ──────────────────────────────────────────────────
