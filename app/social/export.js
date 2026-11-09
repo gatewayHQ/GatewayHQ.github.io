@@ -24,11 +24,14 @@ function toBlob(canvas, type, q) {
 export async function exportPNG(opts, baseName) {
   const c = renderToCanvas(opts);
   const blob = await toBlob(c, 'image/png');
-  downloadBlob(blob, `${baseName || 'graphic'}_${opts.sizeId}.png`);
+  downloadBlob(blob, `${baseName || 'graphic'}_${dims(opts.sizeId)}.png`);
 }
 
-export async function exportAllSocial(opts, baseName) {
-  const social = Object.keys(SIZES).filter((k) => SIZES[k].kind === 'social');
+const dims = (sizeId) => { const s = SIZES[sizeId] || {}; return `${s.w}x${s.h}`; };
+
+// sizeIds: the template's own size list; defaults to the original social set.
+export async function exportAllSocial(opts, baseName, sizeIds) {
+  const social = sizeIds || Object.keys(SIZES).filter((k) => SIZES[k].kind === 'social' && k !== 'landscape');
   if (!window.JSZip) { // fallback: export each individually
     for (const sizeId of social) await exportPNG({ ...opts, sizeId }, baseName);
     return;
@@ -36,7 +39,7 @@ export async function exportAllSocial(opts, baseName) {
   const zip = new window.JSZip();
   for (const sizeId of social) {
     const blob = await toBlob(renderToCanvas({ ...opts, sizeId }), 'image/png');
-    zip.file(`${baseName || 'graphic'}_${sizeId}.png`, blob);
+    zip.file(`${baseName || 'graphic'}_${dims(sizeId)}.png`, blob);
   }
   const out = await zip.generateAsync({ type: 'blob' });
   downloadBlob(out, `${baseName || 'graphics'}_all-sizes.zip`);

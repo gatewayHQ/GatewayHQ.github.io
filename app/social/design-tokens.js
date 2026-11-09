@@ -6,12 +6,14 @@
 
 export const FONT = 'Montserrat, system-ui, -apple-system, sans-serif';
 
-// Weights we vendored as woff2 (assets/fonts/montserrat-*.woff2).
+// Weights we vendored as woff2 (assets/fonts/montserrat-*.woff2): 400/600/700/800.
+// Same Google Fonts static latin files the site CSS loads, so canvas exports match.
 export async function loadFonts(base = '') {
   if (typeof FontFace === 'undefined') return;
   const defs = [
     ['400', base + 'assets/fonts/montserrat-400.woff2'],
     ['600', base + 'assets/fonts/montserrat-600.woff2'],
+    ['700', base + 'assets/fonts/montserrat-700.woff2'],
     ['800', base + 'assets/fonts/montserrat-800.woff2'],
   ];
   await Promise.all(defs.map(async ([weight, url]) => {
@@ -58,5 +60,6 @@ export const SIZES = {
   'square':      { w: 1080, h: 1080, label: 'Square — FB/IG/LinkedIn', kind: 'social' },
   'story':       { w: 1080, h: 1920, label: 'Story / Reel (9:16)', kind: 'social' },
   'linkedin':    { w: 1200, h: 1200, label: 'LinkedIn', kind: 'social' },
+  'landscape':   { w: 1200, h: 628,  label: 'Facebook / LinkedIn feed (1200×628)', kind: 'social' },
   'postcard-6x4':{ w: 1875, h: 1275, label: 'Postcard 6×4 (print, 300dpi)', kind: 'print', dpi: 300, bleed: 37 },
 };

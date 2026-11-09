@@ -7,6 +7,7 @@ import {
   setFont, coverInto, blurExtend, vGradient, hairline, kicker,
   fitLine, wrapFit, drawBlock, circleImage, statRow, fillRoundRect,
 } from './draw.js';
+import { formatEventDate, formatTimeRange } from './format.js';
 
 // Shared footer band: up to TWO agents (co-listings) + brokerage left,
 // one or two headshots right. Falls back to single-agent / logo.
@@ -222,10 +223,263 @@ function stars(ctx, x, y, size, n, color) {
   }
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// Dedicated listing templates (v2). Bottom-up "stack" layout: the footer sits on
+// the bottom safe line, the key-number row sits on the footer, the address block
+// sits on the row, and the photo takes whatever height is left. Every size is
+// derived from one type unit `u` (= canvas width for portrait/square/story), so
+// 1080×1350 reproduces the approved Open House geometry and other sizes scale.
+// ════════════════════════════════════════════════════════════════════════════
+
+const BROKERAGE = 'Gateway Real Estate Advisors';
+
+function resetSpacing(ctx) { try { ctx.letterSpacing = '0px'; } catch { /* older engines */ } }
+
+// Frame geometry per size. Text stays inside a 6% safe area on every side; the
+// 9:16 story also keeps the top 14% and bottom 20% clear for IG/FB UI overlays.
+function frameFor(W, H) {
+  if (W / H > 1.4) {
+    // Landscape (1200×628): photo left 55%, navy panel right with the same stack.
+    const photoW = Math.round(W * 0.55);
+    const x0 = photoW + W * 0.045, x1 = W - W * 0.06;
+    return { landscape: true, photoW, x0, x1, u: (x1 - x0) / 0.7, top: H * 0.06, bottom: H * 0.94 };
+  }
+  const story = H / W > 1.6;
+  return {
+    landscape: false, x0: W * 0.07, x1: W * 0.93, u: W,
+    top: story ? H * 0.14 : H * 0.06, bottom: story ? H * 0.80 : H * 0.94,
+  };
+}
+
+function listingPhoto(ctx, W, H, f, theme, photo, photoBottom) {
+  if (f.landscape) {
+    if (photo) coverInto(ctx, photo, 0, 0, f.photoW, H);
+    else vGradient(ctx, 0, 0, f.photoW, H, [[0, theme.bg2], [1, theme.bg1]]);
+    // soft seam into the panel
+    const sw = W * 0.08, g = ctx.createLinearGradient(f.photoW - sw, 0, f.photoW, 0);
+    g.addColorStop(0, 'rgba(13,17,23,0)'); g.addColorStop(1, theme.bg1);
+    ctx.fillStyle = g; ctx.fillRect(f.photoW - sw, 0, sw + 1, H);
+    return;
+  }
+  const ph = Math.max(0, Math.round(photoBottom));
+  if (!ph) return;
+  if (photo) coverInto(ctx, photo, 0, 0, W, ph);
+  else vGradient(ctx, 0, 0, W, ph, [[0, theme.bg2], [1, theme.bg1]]);
+  const fade = Math.min(H * 0.18, ph);
+  vGradient(ctx, 0, ph - fade, W, fade, [[0, 'rgba(13,17,23,0)'], [1, theme.bg1]]);
+}
+
+// Footer metrics (heights in u) so the stack can be planned before drawing.
+function footerPlan(data, assets, f) {
+  const agents = (data.agents || []).filter((a) => a && a.name).slice(0, 2);
+  const lines = [];                      // vertical advances after the hairline
+  const stacked = !!(f && f.landscape) && agents.length >= 2;   // narrow panel: one agent per row
+  if (stacked) {
+    lines.push(0.050, 0.030, 0.046, 0.030, 0.036);   // name1, detail1, name2, detail2, brokerage
+  } else if (agents.length >= 2) {
+    lines.push(0.050);                   // names
+    if (agents.some((a) => a.title)) lines.push(0.030); // titles
+    if (agents.some((a) => a.phone)) lines.push(0.030); // phones
+    lines.push(0.034);                   // brokerage (always)
+  } else if (agents.length === 1) {
+    lines.push(0.054);                   // name
+    if (agents[0].title) lines.push(0.031);
+    lines.push(0.0375);                  // phone · brokerage
+  } else {
+    lines.push(0.054);                   // brokerage alone
+  }
+  return { agents, stacked, lines, height: lines.reduce((s, v) => s + v, 0) };
+}
+
+// Agent + brokerage footer. The brokerage name is ALWAYS printed next to the
+// agent name(s) (Iowa 193E—10.1 advertising rule) — never dropped for space.
+function agentFooter(ctx, f, fy, plan, data, theme, assets) {
+  const { u, x0, x1 } = f;
+  const brokerage = data.brokerage || BROKERAGE;
+  hairline(ctx, x0, fy, x1, fy, theme.hairline, Math.max(1, u / 540));
+
+  const bottomBase = fy + plan.height * u;
+  // one headshot per named agent (a stray 2nd headshot without a co-agent is ignored)
+  const heads = (assets.headshots || []).filter(Boolean).slice(0, Math.max(1, plan.agents.length));
+  const r = u * 0.052;
+  const cy = Math.min((fy + bottomBase) / 2 + u * 0.004, bottomBase + u * 0.01 - r * 0.2);
+  let right = x1;
+  if (plan.stacked && heads.length) {
+    // one smaller circle beside each agent's two-line row
+    const rr = Math.min(r, u * 0.036);
+    let y = fy;
+    plan.agents.forEach((ag, i) => {
+      const top = y; y += (plan.lines[i * 2] + plan.lines[i * 2 + 1]) * u;
+      if (heads[i]) circleImage(ctx, heads[i], x1 - rr, (top + y) / 2 + u * 0.004, rr, theme.accent);
+    });
+    right = x1 - rr * 2;
+  } else if (heads.length) {
+    for (let i = heads.length - 1; i >= 0; i--) { circleImage(ctx, heads[i], right - r, cy, r, theme.accent); right -= r * 2 + u * 0.016; }
+    right += u * 0.016;
+  } else if (assets.logo) {
+    circleImage(ctx, assets.logo, x1 - r, cy, r, theme.hairline);   // Gateway seal
+    right = x1 - r * 2;
+  }
+  const textR = right - u * 0.03, textW = textR - x0;
+  const small = u * 0.016, sp = 1.2 * u / 1080;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+
+  const agents = plan.agents;
+  if (plan.stacked) {
+    let y = fy;
+    agents.forEach((a, i) => {
+      y += plan.lines[i * 2] * u;
+      fitLine(ctx, a.name, x0, y, textW, u * 0.025, 700, theme.ink, 'left', 6);
+      y += plan.lines[i * 2 + 1] * u;
+      const det = [a.title, a.phone].filter(Boolean).join('  ·  ');
+      if (det) fitLine(ctx, det, x0, y, textW, small, 600, theme.sub, 'left', 6);
+    });
+    y += plan.lines[4] * u;
+    fitLine(ctx, brokerage, x0, y, textW, small, 600, theme.sub, 'left', 6);
+  } else if (agents.length >= 2) {
+    const colW = textW / 2;
+    let y = fy + plan.lines[0] * u;
+    agents.forEach((a, i) => fitLine(ctx, a.name, x0 + colW * i, y, colW - u * 0.025, u * 0.025, 700, theme.ink, 'left', 6));
+    let k = 1;
+    if (agents.some((a) => a.title)) {
+      y += plan.lines[k++] * u;
+      agents.forEach((a, i) => a.title && fitLine(ctx, a.title, x0 + colW * i, y, colW - u * 0.025, u * 0.0155, 600, theme.accent, 'left', 6));
+    }
+    if (agents.some((a) => a.phone)) {
+      y += plan.lines[k++] * u;
+      agents.forEach((a, i) => a.phone && fitLine(ctx, a.phone, x0 + colW * i, y, colW - u * 0.025, small, 600, theme.sub, 'left', 6));
+    }
+    y += plan.lines[k] * u;
+    fitLine(ctx, brokerage, x0, y, textW, small, 600, theme.sub, 'left', 6);
+  } else if (agents.length === 1) {
+    const a = agents[0];
+    let y = fy + plan.lines[0] * u;
+    fitLine(ctx, a.name, x0, y, textW, u * 0.027, 700, theme.ink, 'left', 6);
+    let k = 1;
+    if (a.title) { y += plan.lines[k++] * u; fitLine(ctx, a.title, x0, y, textW, u * 0.018, 600, theme.accent, 'left', 6); }
+    y += plan.lines[k] * u;
+    const line = [a.phone, brokerage].filter(Boolean).join('  ·  ');
+    let px = small; setFont(ctx, px, 600, sp);
+    while (ctx.measureText(line).width > textW && px > 6) { px -= 1; setFont(ctx, px, 600, sp); }
+    ctx.fillStyle = theme.sub; ctx.fillText(line, x0, y); resetSpacing(ctx);
+  } else {
+    fitLine(ctx, brokerage, x0, fy + plan.lines[0] * u, textW, u * 0.022, 700, theme.sub, 'left', 6);
+  }
+}
+
+// Key-number row: up to 3 columns, values auto-fit per column, labels below,
+// hairline dividers between. `emphasis` (index) is kept the largest value.
+function keyRow(ctx, f, y, items, theme, emphasis = -1) {
+  const { u, x0, x1 } = f;
+  const n = items.length; if (!n) return;
+  const w = x1 - x0, cellW = w / n, pad = cellW * 0.08;
+  const v0 = u * 0.058, l0 = u * 0.016, lsp = 2 * u / 1080;
+  const fit = items.map((it) => {
+    let px = v0; setFont(ctx, px, 800);
+    while (ctx.measureText(String(it.value)).width > cellW - pad * 2 && px > 6) { px -= 1; setFont(ctx, px, 800); }
+    return px;
+  });
+  if (emphasis >= 0 && emphasis < n) {
+    const cap = fit[emphasis] * 0.86;            // others stay visibly smaller
+    fit.forEach((px, i) => { if (i !== emphasis) fit[i] = Math.min(px, cap); });
+  }
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  items.forEach((it, i) => {
+    const cx = x0 + cellW * (i + 0.5);
+    setFont(ctx, fit[i], 800); ctx.fillStyle = theme.ink; ctx.fillText(String(it.value), cx, y);
+    const lab = String(it.label || '').toUpperCase();
+    let lpx = l0; setFont(ctx, lpx, 600, lsp);
+    while (ctx.measureText(lab).width > cellW - pad && lpx > 6) { lpx -= 1; setFont(ctx, lpx, 600, lsp); }
+    ctx.fillStyle = theme.sub; ctx.fillText(lab, cx, y + v0 * 0.5 + l0 * 1.5); resetSpacing(ctx);
+    if (i > 0) hairline(ctx, x0 + cellW * i, y - v0 * 0.72, x0 + cellW * i, y + l0 * 0.6, theme.hairline, Math.max(1, u / 540));
+  });
+  ctx.textAlign = 'left';
+}
+
+// Landscape sizing guard: at unit u, do the agent names fit at >= 80% of their
+// nominal size? (Key values auto-fit per column on their own.)
+function widthsFit(ctx, u, f, data, plan, assets) {
+  const w = f.x1 - f.x0;
+  const nHeads = (assets.headshots || []).filter(Boolean).slice(0, Math.max(1, plan.agents.length)).length || (assets.logo ? 1 : 0);
+  const textW = w - nHeads * (u * 0.104 + u * 0.016) - u * 0.03;
+  const colW = (plan.agents.length >= 2 && !plan.stacked ? textW / 2 : textW) - u * 0.025;
+  setFont(ctx, u * 0.025 * 0.8, 700);
+  return plan.agents.every((a) => ctx.measureText(a.name).width <= colW);
+}
+
+// Shared photo-led listing layout: status label → address → city → key row →
+// agent/brokerage footer. Used by Open House now; Slice 2 templates reuse it.
+function listingStack(ctx, W, H, data, theme, assets, { label, row, emphasis }) {
+  const f = frameFor(W, H);
+  vGradient(ctx, 0, 0, W, H, [[0, theme.bg1], [0.55, theme.bg2], [1, theme.bg1]]);
+
+  const plan = footerPlan(data, assets, f);
+  const plan_ = (u) => {
+    const tw = f.x1 - f.x0;
+    const hl = wrapFit(ctx, data.address || data.title || '123 Example St', tw, u * 0.060, 800, 2, u * 0.038);
+    const addrH = hl.px + (hl.lines.length - 1) * hl.lineHeight;
+    const fy = f.bottom - u * 0.006 - plan.height * u;   // leave room for descenders
+    const rowY = fy - u * 0.0875;
+    const cityY = rowY - u * 0.108;
+    const addrLast = data.city ? cityY - u * 0.055 : rowY - u * 0.11;
+    const addrTop = addrLast - addrH;
+    const kickY = addrTop - u * 0.0275;
+    const photoBottom = kickY - u * 0.0625;
+    return { hl, fy, rowY, cityY, addrTop, kickY, photoBottom, top: kickY - u * 0.03 };
+  };
+  let L = plan_(f.u);
+  if (f.landscape) {
+    // grow the type to use the panel height, but never past the safe area
+    for (let u = (f.x1 - f.x0) / 0.5; u > f.u; u -= 8) {
+      const T = plan_(u);
+      if (T.top >= f.top && widthsFit(ctx, u, f, data, plan, assets)) { f.u = u; L = T; break; }
+    }
+    // centre the stack vertically in the panel's safe area
+    const slack = L.top - f.top;
+    if (slack > 0) {
+      const d = slack / 2;
+      L = { ...L, fy: L.fy - d, rowY: L.rowY - d, cityY: L.cityY - d, addrTop: L.addrTop - d, kickY: L.kickY - d };
+    }
+  }
+
+  listingPhoto(ctx, W, H, f, theme, assets.photo, L.photoBottom);
+
+  const { u, x0 } = f;
+  // status label: solid accent bar + letterspaced caps
+  ctx.fillStyle = theme.accent; ctx.fillRect(x0, L.kickY - u * 0.028, u * 0.012, u * 0.034);
+  kicker(ctx, label, x0 + u * 0.028, L.kickY, theme.accent, u * 0.020, 5 * u / 1080);
+
+  drawBlock(ctx, L.hl.lines, x0, L.addrTop, L.hl.px, L.hl.lineHeight, 800, theme.ink);
+  if (data.city) fitLine(ctx, data.city, x0, L.cityY, f.x1 - x0, u * 0.028, 600, theme.sub, 'left', u * 0.018);
+  const items = (row || []).filter((it) => it && String(it.value || '').trim());
+  if (items.length) keyRow(ctx, f, L.rowY, items, theme, emphasis ? emphasis(items) : -1);
+  agentFooter(ctx, f, L.fy, plan, data, theme, assets);
+}
+
+// ── Open House (dedicated) ──────────────────────────────────────────────────
+// data: { address, city, dateText|date, timeText|start+end, price, agents[], brokerage }
+function openHouse(ctx, W, H, data, theme, assets) {
+  const dateText = data.dateText || formatEventDate(data.date);
+  const timeText = data.timeText || formatTimeRange(data.start, data.end);
+  listingStack(ctx, W, H, data, theme, assets, {
+    label: 'Open House',
+    row: [
+      { value: dateText, label: 'Date' },
+      { value: timeText, label: 'Time' },
+      { value: data.price, label: 'Price' },
+    ],
+    emphasis: (items) => items.findIndex((it) => it.label === 'Price'),
+  });
+}
+
+export const LISTING_SIZES = ['ig-portrait', 'square', 'story', 'landscape'];
+
 export const TEMPLATES = {
+  'open-house':       { name: 'Open House', kind: 'photo', render: openHouse, sizes: LISTING_SIZES,
+                        defaults: { type: 'residential', theme: 'slate', sizeId: 'ig-portrait' } },
   'cre-just-listed':  { name: 'Just Listed — For Sale', kind: 'photo', render: creJustListed },
   'cre-just-closed':  { name: 'Just Closed — Sold/Leased', kind: 'photo', render: creJustClosed },
-  'cre-open-house':   { name: 'Open House', kind: 'photo', render: creJustListed },
+  'cre-open-house':   { name: 'Open House (classic stats)', kind: 'photo', render: creJustListed },
   'cre-for-lease':    { name: 'For Lease', kind: 'photo', render: creJustListed },
   'cre-coming-soon':  { name: 'Coming Soon', kind: 'photo', render: creJustListed },
   'cre-stats':        { name: 'By the Numbers — Market', kind: 'data', render: creStats },
@@ -233,6 +487,6 @@ export const TEMPLATES = {
   'cre-meet-agent':   { name: 'Meet the Advisor', kind: 'agent', render: creMeetAgent },
 };
 export const TEMPLATE_ORDER = [
-  'cre-just-listed', 'cre-just-closed', 'cre-open-house', 'cre-for-lease',
+  'open-house', 'cre-just-listed', 'cre-just-closed', 'cre-open-house', 'cre-for-lease',
   'cre-coming-soon', 'cre-stats', 'cre-testimonial', 'cre-meet-agent',
 ];

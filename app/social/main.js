@@ -7,20 +7,24 @@ import { renderTemplate, TEMPLATE_ORDER, TEMPLATES, THEME_ORDER, THEMES, SIZES }
 import { loadFonts } from './design-tokens.js';
 import { exportPNG, exportAllSocial } from './export.js';
 import { writeCaption } from './ai.js';
+import { slugify } from './format.js';
 
 const $ = (id) => document.getElementById(id);
-const state = { type: 'commercial', photo: null, heads: [null, null], logo: null, ready: false };
+const state = { type: 'commercial', photo: null, photoLowRes: false, heads: [null, null], logo: null, ready: false };
+const BROKERAGE = 'Gateway Real Estate Advisors';
 
-const SIZE_ORDER = ['ig-portrait', 'square', 'story', 'linkedin', 'postcard-6x4'];
+const SIZE_ORDER = ['ig-portrait', 'square', 'story', 'linkedin', 'landscape', 'postcard-6x4'];
 
 // Default kicker + stat labels per template, by property type. Values start
 // empty; the agent fills them. Switching template/type resets the labels.
 const KICKER = {
+  'open-house': 'Open House',
   'cre-just-listed': 'For Sale', 'cre-just-closed': 'Just Closed', 'cre-open-house': 'Open House',
   'cre-for-lease': 'For Lease', 'cre-coming-soon': 'Coming Soon', 'cre-stats': 'By the Numbers',
   'cre-testimonial': 'Client Review', 'cre-meet-agent': 'Meet Your Advisor',
 };
 const STAT_LABELS = {
+  'open-house':      { commercial: [], residential: [] },   // dedicated fields instead
   'cre-just-listed': { commercial: ['Price', 'Building SF', 'Cap Rate'], residential: ['Price', 'Beds', 'Baths'] },
   'cre-just-closed': { commercial: ['Sale Price', 'Building SF', 'Cap Rate'], residential: ['Sale Price', 'Beds', 'Days on Mkt'] },
   'cre-open-house':  { commercial: ['Date', 'Time', 'Building SF'], residential: ['Date', 'Time', 'Price'] },
@@ -50,12 +54,22 @@ async function init() {
     resetStatLabels(); preview();
   }));
 
-  $('g-template').addEventListener('change', () => { $('g-kicker').value = KICKER[$('g-template').value] || ''; resetStatLabels(); preview(); });
+  $('g-template').addEventListener('change', () => { applyTemplate(); preview(); });
   ['g-theme', 'g-size'].forEach((id) => $(id).addEventListener('change', preview));
-  ['g-title', 'g-city', 'g-subtitle', 'g-kicker', 'g-brokerage', 'g-a1n', 'g-a1t', 'g-a1p', 'g-a2n', 'g-a2t', 'g-a2p']
+  ['g-oh-date', 'g-oh-start', 'g-oh-end'].forEach((id) => $(id) && $(id).addEventListener('change', preview));
+  ['g-title', 'g-city', 'g-subtitle', 'g-kicker', 'g-brokerage', 'g-a1n', 'g-a1t', 'g-a1p', 'g-a2n', 'g-a2t', 'g-a2p', 'g-oh-price']
     .forEach((id) => $(id) && $(id).addEventListener('input', debounce(preview, 200)));
 
-  wireImage('g-photo', 'g-photo-clear', (img) => { state.photo = img; }, 'g-photo-label');
+  wireImage('g-photo', 'g-photo-clear', (img, natural) => {
+    state.photo = img;
+    // Low-res check on the ORIGINAL pixels (before any downscale): short side < 1080.
+    state.photoLowRes = !!(img && natural && Math.min(natural.w, natural.h) < 1080);
+    const warn = $('g-photo-warn');
+    if (warn) {
+      warn.hidden = !state.photoLowRes;
+      warn.textContent = state.photoLowRes ? `⚠ Low-res photo (${natural.w}×${natural.h}). Use one at least 1080px on the short side so it stays sharp.` : '';
+    }
+  }, 'g-photo-label');
   wireImage('g-head1', 'g-head1-clear', (img) => { state.heads[0] = img; }, 'g-head1-label');
   wireImage('g-head2', 'g-head2-clear', (img) => { state.heads[1] = img; }, 'g-head2-label');
 
@@ -66,11 +80,45 @@ async function init() {
     const t = $('g-cap-out'); t.select(); navigator.clipboard?.writeText(t.value).then(() => { $('g-cap-status').textContent = 'Copied!'; }).catch(() => {});
   });
 
-  $('g-kicker').value = KICKER['cre-just-listed'];
-  resetStatLabels();
+  applyTemplate();
   await loadFonts('');               // sharp, consistent type before first paint
   state.ready = true;
   preview();
+}
+
+// Show the right fields for the chosen template and apply its defaults
+// (Open House -> Residential, Slate, 1080×1350) so it takes zero setup.
+function applyTemplate() {
+  const id = $('g-template').value;
+  const tpl = TEMPLATES[id] || {};
+  const dedicated = id === 'open-house';
+  if (tpl.defaults) {
+    if (tpl.defaults.type) setType(tpl.defaults.type);
+    if (tpl.defaults.theme) $('g-theme').value = tpl.defaults.theme;
+  }
+  // sizes this template supports
+  const sizes = tpl.sizes || SIZE_ORDER.filter((k) => k !== 'landscape');
+  const keep = $('g-size').value;
+  fillSelect($('g-size'), sizes.map((k) => [k, `${SIZES[k].label}`]));
+  $('g-size').value = sizes.includes(keep) ? keep : sizes[0];
+  if (tpl.defaults && tpl.defaults.sizeId) $('g-size').value = tpl.defaults.sizeId;
+
+  $('g-oh').hidden = !dedicated;
+  $('g-generic-text').hidden = dedicated;
+  $('g-stats-wrap').hidden = dedicated;
+  $('g-title-label').textContent = dedicated ? 'Address' : 'Headline';
+  $('g-title').placeholder = dedicated ? '123 Example St' : '2600 Dodge Street';
+  $('g-city').placeholder = dedicated ? 'City, State ZIP — Sioux City, IA 51106' : 'City, State — Sioux City, IA';
+  const brk = $('g-brokerage');
+  if (dedicated) { brk.value = BROKERAGE; brk.readOnly = true; brk.title = 'Required on every graphic (Iowa 193E—10.1)'; }
+  else { brk.readOnly = false; brk.title = ''; }
+  $('g-kicker').value = KICKER[id] || '';
+  resetStatLabels();
+}
+
+function setType(type) {
+  state.type = type;
+  document.querySelectorAll('.g-type-btn').forEach((x) => x.classList.toggle('on', x.dataset.type === type));
 }
 
 function fillSelect(sel, pairs) {
@@ -100,7 +148,18 @@ function collectData() {
     { name: v('g-a1n'), title: v('g-a1t'), phone: v('g-a1p') },
     { name: v('g-a2n'), title: v('g-a2t'), phone: v('g-a2p') },
   ].filter((a) => a.name);
-  return { kicker: v('g-kicker'), title: v('g-title'), city: v('g-city'), subtitle: v('g-subtitle'), stats, agents, brokerage: v('g-brokerage') || 'Gateway Real Estate Advisors' };
+  const base = { kicker: v('g-kicker'), title: v('g-title'), city: v('g-city'), subtitle: v('g-subtitle'), stats, agents, brokerage: v('g-brokerage') || BROKERAGE };
+  if ($('g-template').value === 'open-house') {
+    return { ...base, address: v('g-title'), date: v('g-oh-date'), start: v('g-oh-start'), end: v('g-oh-end'), price: formatPrice(v('g-oh-price')), brokerage: BROKERAGE };
+  }
+  return base;
+}
+
+// '184900' -> '$184,900'; anything already formatted is left alone.
+function formatPrice(p) {
+  if (!p) return '';
+  if (/^\d+$/.test(p.replace(/[,\s]/g, ''))) return '$' + Number(p.replace(/[,\s]/g, '')).toLocaleString('en-US');
+  return p;
 }
 
 function currentOpts() {
@@ -117,12 +176,17 @@ function preview() {
 }
 
 async function doExport(all) {
-  const status = $('g-status'); status.textContent = all ? 'Building all sizes…' : 'Exporting…';
-  const base = (collectData().title || 'gateway-graphic').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'graphic';
+  const status = $('g-status');
+  if ($('g-template').value === 'open-house' && !state.photo) { status.textContent = 'Add a listing photo first — it is required for Open House.'; $('g-photo').focus(); return; }
+  status.textContent = all ? 'Building all sizes…' : 'Exporting…';
+  // gateway_<template>_<address-slug>  (+ _<W>x<H>.png added per size)
+  const tplSlug = $('g-template').value.replace(/^cre-/, '');
+  const base = `gateway_${tplSlug}_${slugify(collectData().title, 'graphic')}`;
+  const sizes = (TEMPLATES[$('g-template').value] || {}).sizes;
   try {
-    if (all) await exportAllSocial(currentOpts(), base);
+    if (all) await exportAllSocial(currentOpts(), base, sizes);
     else await exportPNG(currentOpts(), base);
-    status.textContent = '✓ Downloaded';
+    status.textContent = '✓ Downloaded' + (state.photoLowRes ? ' — note: photo is low-res' : '');
   } catch (e) { status.textContent = 'Export failed: ' + (e.message || e); }
 }
 
@@ -159,10 +223,10 @@ function wireImage(inputId, clearId, set, labelId) {
   const inp = $(inputId); if (!inp) return;
   inp.addEventListener('change', async (e) => {
     const f = e.target.files[0]; if (!f) return;
-    try { set(await loadImage(f)); $(labelId).textContent = f.name; preview(); }
+    try { const img = await loadImage(f); set(img, img.__natural); $(labelId).textContent = f.name; preview(); }
     catch { $(labelId).textContent = 'Could not read that image.'; }
   });
-  $(clearId) && $(clearId).addEventListener('click', () => { set(null); inp.value = ''; $(labelId).textContent = ''; preview(); });
+  $(clearId) && $(clearId).addEventListener('click', () => { set(null, null); inp.value = ''; $(labelId).textContent = ''; preview(); });
 }
 function loadImage(file) {
   return new Promise((resolve, reject) => {
@@ -171,10 +235,13 @@ function loadImage(file) {
       URL.revokeObjectURL(url);
       const max = Math.max(img.naturalWidth, img.naturalHeight);
       if (!max) return reject(new Error('empty'));
-      if (max <= 1920) return resolve(img);
-      const s = 1920 / max, w = Math.round(img.naturalWidth * s), h = Math.round(img.naturalHeight * s);
+      const natural = { w: img.naturalWidth, h: img.naturalHeight };
+      // Keep the short side >= 1920 so the largest export (1080×1920 story) is never upscaled.
+      const short = Math.min(natural.w, natural.h);
+      if (short <= 1920) { img.__natural = natural; return resolve(img); }
+      const s = 1920 / short, w = Math.round(natural.w * s), h = Math.round(natural.h * s);
       const c = document.createElement('canvas'); c.width = w; c.height = h;
-      c.getContext('2d').drawImage(img, 0, 0, w, h); resolve(c);
+      c.getContext('2d').drawImage(img, 0, 0, w, h); c.__natural = natural; resolve(c);
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('decode failed')); };
     img.src = url;
