@@ -24,6 +24,17 @@ export async function loadFonts(base = '') {
   }));
 }
 
+// Official Gateway colors — keep in sync with brand/brand.json (single source
+// for the brand package). Themes reference these instead of raw hex.
+export const BRAND = {
+  background: '#1E2F39',      // navy
+  backgroundDark: '#152229',  // dark navy
+  accent: '#C8A84B',          // gold
+  textPrimary: '#FFFFFF',
+  textSecondary: '#E4E3D4',   // cream
+  textMuted: '#A2B6C0',       // steel blue
+};
+
 // Curated themes. Each is a complete, tested palette — agents pick one.
 export const THEMES = {
   'luxe-dark': {
@@ -34,13 +45,15 @@ export const THEMES = {
     hairline: 'rgba(200,168,75,0.45)', panel: 'rgba(13,17,23,0.96)',
     onPhoto: '#F5F5F3',
   },
+  // Slate = the official Gateway palette (brand/brand.json), exact hex values.
   'slate': {
     label: 'Slate',
-    bg1: '#1B2A33', bg2: '#243945',
-    ink: '#F5F5F3', sub: 'rgba(245,245,243,0.62)', faint: 'rgba(245,245,243,0.30)',
-    accent: '#9BB4C0', accentInk: '#0D1117',
-    hairline: 'rgba(155,180,192,0.5)', panel: 'rgba(13,17,23,0.96)',
-    onPhoto: '#F5F5F3',
+    bg1: BRAND.backgroundDark, bg2: BRAND.background,
+    ink: BRAND.textPrimary, sub: BRAND.textSecondary, faint: BRAND.textMuted,
+    accent: BRAND.textMuted, accentInk: BRAND.backgroundDark,
+    hairline: 'rgba(162,182,192,0.5)',            // brand blue #A2B6C0 at 50%
+    panel: 'rgba(21,34,41,0.96)',                 // brand dark navy #152229
+    onPhoto: BRAND.textPrimary,
   },
   'ivory': {
     label: 'Ivory',
