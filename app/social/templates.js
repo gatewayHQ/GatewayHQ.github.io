@@ -98,7 +98,8 @@ function creStats(ctx, W, H, data, theme, assets) {
   // accent corner brackets for an institutional feel
   ctx.strokeStyle = theme.hairline; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(M, H * 0.06 + 40); ctx.lineTo(M, H * 0.06); ctx.lineTo(M + 60, H * 0.06); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(W - M, H * 0.94 - 40); ctx.lineTo(W - M, H * 0.94); ctx.lineTo(W - M - 60, H * 0.94); ctx.stroke();
+  // second bracket top-right (bottom-right now holds the Gateway lockup — keep it clear)
+  ctx.beginPath(); ctx.moveTo(W - M, H * 0.06 + 40); ctx.lineTo(W - M, H * 0.06); ctx.lineTo(W - M - 60, H * 0.06); ctx.stroke();
 
   let y = H * 0.16;
   kicker(ctx, data.kicker || 'By the Numbers', M, y, theme.accent, T * 0.022, 6);
