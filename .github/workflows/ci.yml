@@ -30,8 +30,8 @@ jobs:
               FAILED=1
             fi
           done
-          # Video Generator modules are ES modules — check as modules (works on Node 20+/22).
-          for f in app/video/*.js; do
+          # Video Generator + Social Graphics modules are ES modules — check as modules (works on Node 20+/22).
+          for f in app/video/*.js app/social/*.js; do
             [ -f "$f" ] || continue
             if node --check --input-type=module < "$f" 2>&1; then
               echo "  ✓ $f (esm)"

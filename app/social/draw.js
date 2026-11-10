@@ -85,7 +85,13 @@ export function wrapFit(ctx, text, maxW, startPx, weight, maxLines = 2, minPx = 
     setFont(ctx, px, weight);
     const lines = wrapLines(ctx, text, maxW);
     if (lines.length <= maxLines || px <= minPx) {
-      return { lines: lines.slice(0, maxLines), px, lineHeight: px * lineRatio };
+      const out = lines.slice(0, maxLines);
+      if (lines.length > maxLines) {               // never drop text silently: end with an ellipsis
+        let last = out[maxLines - 1] + '…';
+        while (ctx.measureText(last).width > maxW && last.length > 2) last = last.replace(/\s*\S?…$/, '…');
+        out[maxLines - 1] = last;
+      }
+      return { lines: out, px, lineHeight: px * lineRatio };
     }
     px -= 3;
   }

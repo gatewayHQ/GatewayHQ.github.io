@@ -1605,6 +1605,18 @@
     #page-graphics .g-btn.ghost{background:rgba(255,255,255,0.06);border:1px solid rgba(162,182,192,0.25);color:var(--brand-cream)}
     #page-graphics .g-mini{display:flex;gap:8px;align-items:center;margin-bottom:4px}
     #page-graphics .g-note{font-size:11px;color:var(--brand-gray);margin-top:6px}
+    #page-graphics .g-warn{color:#E8B04B}
+    #page-graphics [hidden]{display:none!important}
+    #page-graphics .g-in[readonly]{opacity:.7;cursor:not-allowed}
+    #page-graphics .g-seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+    #page-graphics .g-seg button{flex:1;min-width:70px;background:rgba(255,255,255,0.05);border:1px solid rgba(162,182,192,0.25);color:var(--brand-cream);border-radius:8px;padding:8px 6px;cursor:pointer;font-size:12px;font-weight:600}
+    #page-graphics .g-seg button.on{background:rgba(162,182,192,0.18);border-color:#A2B6C0;color:#fff}
+    #page-graphics .g-check{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--brand-cream);margin:10px 0}
+    #page-graphics .g-pair{display:flex;gap:8px}
+    #page-graphics .g-pair>.g-in:first-child{flex:0 0 40%}
+    #page-graphics .g-req{color:#E8B04B;margin-left:4px}
+    #page-graphics .g-missing{border-color:#E8B04B!important}
+    #page-graphics optgroup{color:#1E2F39}
   </style>
 
   <div class="g-wrap">
@@ -1613,34 +1625,47 @@
 
     <div class="g-grid">
       <div>
+        <div class="g-row">
+          <div><label class="g-label" for="g-template">Template</label><select id="g-template" class="g-in"></select></div>
+          <div><label class="g-label" for="g-theme">Theme</label><select id="g-theme" class="g-in"></select></div>
+        </div>
+        <label class="g-label" for="g-size">Output size</label>
+        <select id="g-size" class="g-in"></select>
+        <div id="g-tpl-note" class="g-note" hidden></div>
+
+        <!-- Dedicated fields for the chosen template (built by app/social/main.js) -->
+        <div id="g-fields"></div>
+
+        <!-- Classic layouts only: property type + generic headline/stats -->
+        <div id="g-legacy" hidden>
         <label class="g-label">Property type</label>
         <div class="g-row">
           <button type="button" class="g-type-btn on" data-type="commercial">Commercial</button>
           <button type="button" class="g-type-btn" data-type="residential">Residential</button>
         </div>
-
-        <div class="g-row">
-          <div><label class="g-label">Template</label><select id="g-template" class="g-in"></select></div>
-          <div><label class="g-label">Theme</label><select id="g-theme" class="g-in"></select></div>
-        </div>
-        <label class="g-label">Output size</label>
-        <select id="g-size" class="g-in"></select>
-
-        <label class="g-label">Headline</label>
+        <label class="g-label" id="g-title-label">Headline</label>
         <input id="g-title" class="g-in" placeholder="2600 Dodge Street">
         <input id="g-city" class="g-in" placeholder="City, State — Sioux City, IA">
-        <input id="g-subtitle" class="g-in" placeholder="Class A Office · 48,000 SF · Downtown">
-        <input id="g-kicker" class="g-in" placeholder="Badge — For Sale">
+        <div id="g-generic-text">
+          <input id="g-subtitle" class="g-in" placeholder="Class A Office · 48,000 SF · Downtown">
+          <input id="g-kicker" class="g-in" placeholder="Badge — For Sale">
+        </div>
 
-        <label class="g-label">Photo</label>
+        <div id="g-stats-wrap">
+          <label class="g-label">Stats</label>
+          <div id="g-stats"></div>
+        </div>
+        </div>
+
+        <div id="g-photo-wrap">
+        <label class="g-label" id="g-photo-title">Photo</label>
         <div class="g-mini">
           <input id="g-photo" type="file" accept="image/*" class="g-in" style="margin-bottom:0;padding:6px">
           <button id="g-photo-clear" class="g-btn ghost" type="button" style="width:auto;margin:0;padding:8px 12px">Clear</button>
         </div>
         <div id="g-photo-label" class="g-note"></div>
-
-        <label class="g-label">Stats</label>
-        <div id="g-stats"></div>
+        <div id="g-photo-warn" class="g-note g-warn" hidden></div>
+        </div>
 
         <label class="g-label">Agent 1</label>
         <div class="g-row"><input id="g-a1n" class="g-in" placeholder="Agent name"><input id="g-a1p" class="g-in" placeholder="Phone"></div>
