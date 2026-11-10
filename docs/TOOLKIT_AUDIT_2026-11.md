@@ -96,3 +96,23 @@ Not exercised on purpose: Buffer (`/api/buffer*` was blocked in the test browser
 4. `brand.json` accent (`#C8A84B`) differs from the Slate accent (`#9BB4C0`) in tokens. Documented, intentional per theme. `brand/brand.json:5`
 5. The Builder's Buffer bar sits above the form on every visit, even when Buffer isn't connected. `index.html:171`
 6. The ci.yml secret scan embeds the literal password it searches for. Move to a hash or regex when auth changes. `.github/workflows/ci.yml`
+
+## 5. Progress log
+
+### Slice 1: Open House (done)
+A dedicated `open-house` template with date/time fields; vendored Montserrat 700; Slate set to the exact brand hex values; a readable Gateway lockup on every template (it replaces the seal, whose ring text rendered at about 2pt on a phone); the brokerage name always printed (fixes **3e**).
+
+### Slice 2: Starter template set (done)
+- **Residential:** Open House, Just Listed / Coming Soon, Under Contract / Pending, Just Sold (represented Seller/Buyer/Both), Price Improvement (old price struck through).
+- **Commercial / Investment:** Just Listed – Offering (3–4 picked metrics, optional OM line), Just Closed – Deal Tombstone (photo optional; navy tombstone card without one), Market Snapshot (required source line).
+- **Brand:** Testimonial and Meet the Advisor, rebuilt (initials monogram instead of a listing photo; no overlapping quote mark).
+- The original templates stay selectable under **Classic layouts** and render exactly as before.
+- Code: layout engine in `app/social/stack.js`; templates and their field lists in `app/social/templates-v2.js`. The form is built from those lists, and address/city/price carry over between templates. Download names the missing required fields.
+- AI caption prompt (`app/social/ai.js`) now carries the Fair Housing, no-superlatives and brokerage-name rules. It was not called during testing (no API spend).
+- Small text is at least 1.5% of the canvas width (16px at 1080 wide, 18px at 1200). At 1200×628 the key numbers become a labelled list so they stay readable at phone size.
+
+**Verification:** 2,856 renders of the new templates (10 templates × 4 sizes × min/typical/max data × 3 themes × 6 agent setups × headshots/photo on and off) have 0 text overlaps, 0 safe-area violations, 0 logo collisions, the brokerage name present every time, and a readable lockup (GATEWAY ≥ 2.3% of width). The 1,980 classic renders still pass, and the classic templates and Open House portrait are pixel-identical to Slice 1. An independent visual review of 102 images ran with adversarial verification, and its confirmed findings were fixed and re-checked.
+
+**Known tolerance:** at 1200×628 only, the densest combinations (two titled agents plus 4 figures, or very long agent titles with headshots) step the smallest text down to 16–17px, and to 14px in the most extreme test. They never overlap.
+
+**Punch-list items still open:** P0-3 agent profile, P0-4 one home for social, P0-6 auth recommendation, P1-1 mobile, P1-5 freshness tags, P1-6 Builder square crop, P2 items. These are Slice 3 and Step 5.

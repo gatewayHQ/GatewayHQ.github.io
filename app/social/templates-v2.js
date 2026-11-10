@@ -12,7 +12,7 @@
 
 import { setFont, vGradient, hairline, kicker, wrapFit, drawBlock, circleImage, fitLine } from './draw.js';
 import {
-  BROKERAGE, MIN_PX, resetSpacing, frameFor, listingStack, statusLabel, drawSubLine, keyRow,
+  BROKERAGE, MIN_PX, resetSpacing, frameFor, listingStack, statusLabel, drawSubLine, keyRow, keyList,
   footerPlan, agentFooter, markFor, drawMark, MARK_GATEWAY_RATIO,
 } from './stack.js';
 import { formatEventDate, formatTimeRange } from './format.js';
@@ -224,31 +224,46 @@ function marketSnapshot(ctx, W, H, d, theme, assets) {
     const label = ['Market Snapshot', d.period].filter(Boolean).join('  ·  ');
     const source = d.source ? `Source: ${d.source}${(d.sourceDate || d.period) ? ', ' + (d.sourceDate || d.period) : ''}` : 'Source required';
 
-    const head = (x0, x1, y0) => {           // label + market name + source; returns bottom y
-      let y = y0 + u * 0.075;
+    // label + market name; returns the bottom y. `tight` = smaller/2-line headline
+    // (used when a long name would squeeze the figure grid).
+    const headFit = (x0, x1, tight) => wrapFit(ctx, d.market || 'Market Name', x1 - x0, u * (tight ? 0.052 : 0.066), 800, tight ? 2 : 3, u * 0.036);
+    const headBottom = (y0, hl) => y0 + u * 0.075 + u * 0.03 + hl.px + (hl.lines.length - 1) * hl.lineHeight;
+    const head = (x0, x1, y0, hl) => {
+      const y = y0 + u * 0.075;
       statusLabel(ctx, x0, y, u, label, theme, 'left', x1 - x0);
-      const hl = wrapFit(ctx, d.market || 'Market Name', x1 - x0, u * 0.066, 800, 2, u * 0.042);
-      y = drawBlock(ctx, hl.lines, x0, y + u * 0.03, hl.px, hl.lineHeight, 800, theme.ink);
-      return y;
+      return drawBlock(ctx, hl.lines, x0, y + u * 0.03, hl.px, hl.lineHeight, 800, theme.ink);
     };
     const grid = (x0, x1, top, bottom) => {
       if (!metrics.length) return;
       const cols = metrics.length === 1 ? 1 : 2, rows = Math.ceil(metrics.length / cols);
+      // few figures: a compact block centred in the space; one figure becomes a hero number
+      const want = rows * u * (metrics.length === 1 ? 0.42 : metrics.length === 2 ? 0.3 : 0.24);
+      if (bottom - top > want) { const mid = (top + bottom) / 2; top = mid - want / 2; bottom = mid + want / 2; }
       const cw = (x1 - x0) / cols, rh = (bottom - top) / rows;
+      // label block height (up to 2 lines) is reserved first, so dividers never cross labels
+      const lp = Math.max(u * 0.017, MIN_PX), labBlock = lp * 2.2 + lp * 1.3 + lp * 0.6;
+      const vmax = metrics.length === 1 ? 0.2 : metrics.length === 2 ? 0.13 : 0.095;
       // one value size for the whole grid: the largest that fits every cell
-      let vpx = Math.min(u * 0.095, rh * 0.42); setFont(ctx, vpx, 800);
+      let vpx = Math.max(6, Math.min(u * vmax, rh * 0.42, (rh * 0.84 - labBlock) / 0.95)); setFont(ctx, vpx, 800);
       while (metrics.some((m) => ctx.measureText(String(m.value)).width > cw * 0.84) && vpx > 6) { vpx -= 1; setFont(ctx, vpx, 800); }
-      let lpx = Math.max(u * 0.017, MIN_PX); const lsp = 3 * u / 1080;
+      let lpx = Math.max(u * 0.017, MIN_PX); const lsp = 2 * u / 1080;
       setFont(ctx, lpx, 600, lsp);
-      while (metrics.some((m) => ctx.measureText(String(m.label || '').toUpperCase()).width > cw * 0.9) && lpx > 6) { lpx -= 1; setFont(ctx, lpx, 600, lsp); }
+      while (metrics.some((m) => ctx.measureText(String(m.label || '').toUpperCase()).width > cw * 0.9) && lpx - 1 >= MIN_PX) { lpx -= 1; setFont(ctx, lpx, 600, lsp); }
+      const wrapLab = (t) => {               // still too wide at the floor: two lines
+        t = String(t || '').toUpperCase(); if (ctx.measureText(t).width <= cw * 0.9) return [t];
+        const ws = t.split(/\s+/); let a = '';
+        while (ws.length && ctx.measureText(a ? a + ' ' + ws[0] : ws[0]).width <= cw * 0.9) a = a ? a + ' ' + ws.shift() : ws.shift();
+        return [a, ws.join(' ')].filter(Boolean);
+      };
       resetSpacing(ctx);
       metrics.forEach((m, i) => {
         const col = i % cols, row = (i / cols) | 0;
-        const cx = x0 + cw * (col + 0.5), cy = top + rh * row + rh / 2;
+        // value + labels as one block, centred in the cell
+        const cx = x0 + cw * (col + 0.5), cy = top + rh * row + rh / 2 - labBlock * 0.35;
         setFont(ctx, vpx, 800); ctx.fillStyle = theme.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
         ctx.fillText(String(m.value), cx, cy + vpx * 0.2);
         setFont(ctx, lpx, 600, lsp); ctx.fillStyle = theme.sub;
-        ctx.fillText(String(m.label || '').toUpperCase(), cx, cy + vpx * 0.2 + lpx * 2.2);
+        wrapLab(m.label).forEach((ln, k) => ctx.fillText(ln, cx, cy + vpx * 0.2 + lpx * 2.2 + k * lpx * 1.3));
         resetSpacing(ctx);
       });
       const lw = Math.max(1, u / 540);
@@ -256,18 +271,28 @@ function marketSnapshot(ctx, W, H, d, theme, assets) {
       for (let r = 1; r < rows; r++) hairline(ctx, x0 + cw * 0.08, top + rh * r, x1 - cw * 0.08, top + rh * r, theme.hairline, lw);
       ctx.textAlign = 'left';
     };
-    const srcLine = (x0, x1, y) => drawSubLine(ctx, { text: source, kind: 'meta' }, x0, y, x1 - x0, u, theme);
+    const srcLine = (x0, x1, y) => {         // bottom-anchored; wraps to 2 lines at the floor size
+      const px = Math.max(u * 0.022, MIN_PX);
+      const sl = wrapFit(ctx, source, x1 - x0, px, 600, 2, px, 1.3);
+      setFont(ctx, sl.px, 600); ctx.fillStyle = theme.sub; ctx.textAlign = 'left';
+      sl.lines.forEach((ln, i) => ctx.fillText(ln, x0, y - (sl.lines.length - 1 - i) * sl.lineHeight));
+      return (sl.lines.length - 1) * sl.lineHeight;
+    };
 
     if (c.landscape) {
       const mid = c.x0 + (c.x1 - c.x0) * 0.46;
-      head(c.x0, mid - u * 0.03, c.top);
-      srcLine(c.x0, mid - u * 0.03, c.bodyBottom - u * 0.01);
+      head(c.x0, mid - u * 0.03, c.top, headFit(c.x0, mid - u * 0.03, false));
+      srcLine(c.x0, mid - u * 0.03, c.bodyBottom - u * 0.01);   // (left column, under the headline)
       grid(mid + u * 0.02, c.x1, c.top + u * 0.02, c.bodyBottom);
     } else {
-      const y = head(c.x0, c.x1, c.top);
       const srcY = c.bodyBottom - u * 0.01;
-      grid(c.x0, c.x1, y + u * 0.06, srcY - u * 0.06);
-      srcLine(c.x0, c.x1, srcY);
+      const rows = metrics.length > 2 ? 2 : 1;
+      let hl = headFit(c.x0, c.x1, false);
+      // keep ≥ 0.2u per grid row; otherwise use the tighter headline
+      if (srcY - u * 0.13 - u * 0.06 - headBottom(c.top, hl) < rows * u * 0.2) hl = headFit(c.x0, c.x1, true);
+      const y = head(c.x0, c.x1, c.top, hl);
+      const extra = srcLine(c.x0, c.x1, srcY);
+      grid(c.x0, c.x1, y + u * 0.06, srcY - extra - u * 0.07);
     }
   });
 }
@@ -285,7 +310,7 @@ function testimonial(ctx, W, H, d, theme, assets) {
       out.push({ h: u * 0.03, draw: (y) => statusLabel(ctx, c.x0, y + u * 0.03, u, d.kicker || 'Client Review', theme, 'left', w) });
       if (n) out.push({ gap: u * 0.05, h: u * 0.05, draw: (y) => stars(ctx, c.x0, y + u * 0.025, u * 0.025, n, theme.accent) });
       out.push({ gap: u * 0.04, h: u * 0.09, draw: (y) => { setFont(ctx, u * 0.16, 800); ctx.fillStyle = theme.accent; ctx.textAlign = 'left'; ctx.fillText('“', c.x0, y + u * 0.13); } });
-      const q = wrapFit(ctx, d.quote || 'Client quote goes here — use their exact, approved words.', w, u * 0.056, 800, 7, u * 0.03, 1.2);
+      const q = wrapFit(ctx, d.quote || 'Client quote goes here — use their exact, approved words.', w, u * 0.056, 800, 12, u * 0.022, 1.2);
       out.push({ gap: u * 0.015, h: q.px + (q.lines.length - 1) * q.lineHeight, draw: (y) => drawBlock(ctx, q.lines, c.x0, y, q.px, q.lineHeight, 800, theme.ink) });
       if (who) out.push({ gap: u * 0.05, h: u * 0.03, draw: (y) => drawSubLine(ctx, { text: '— ' + who, kind: 'city' }, c.x0, y + u * 0.028, w, u, theme) });
       return out;
@@ -307,12 +332,15 @@ function meetAdvisor(ctx, W, H, d, theme, assets) {
       if (a.title) out.push({ gap: u * 0.03, h: u * 0.03, draw: (y) => drawSubLine(ctx, { text: a.title, kind: 'city' }, cx, y + u * 0.028, w, u, theme, align) });
       if (d.license) out.push({ gap: u * 0.035, h: u * 0.02, draw: (y) => drawSubLine(ctx, { text: d.license, kind: 'caps' }, cx, y + u * 0.018, w, u, theme, align) });
       if (d.bio) {
-        const b = wrapFit(ctx, d.bio, w, u * 0.024, 600, 3, u * 0.016, 1.35);
+        const b = wrapFit(ctx, d.bio, w, Math.max(u * 0.024, MIN_PX), 600, 4, MIN_PX, 1.35);
         out.push({ gap: u * 0.04, h: b.px + (b.lines.length - 1) * b.lineHeight, draw: (y) => { setFont(ctx, b.px, 600); ctx.fillStyle = theme.sub; ctx.textAlign = align; b.lines.forEach((ln, i) => ctx.fillText(ln, cx, y + b.px + i * b.lineHeight)); ctx.textAlign = 'left'; } });
       }
       if (stats.length) {
         const rf = { u, x0, x1 };
-        out.push({ gap: u * 0.06, h: u * 0.058 + u * 0.045, draw: (y) => keyRow(ctx, rf, y + u * 0.058, stats, theme, -1, true) });
+        if (align === 'left') {          // landscape text column: labelled list (full width per value)
+          const adv = Math.max(u * 0.042, MIN_PX * 1.45) * 1.5;
+          out.push({ gap: u * 0.05, h: adv * stats.length, draw: (y) => keyList(ctx, rf, y + adv * 0.72, stats, theme, -1) });
+        } else out.push({ gap: u * 0.06, h: u * 0.058 + u * 0.06, draw: (y) => keyRow(ctx, rf, y + u * 0.058, stats, theme, -1, true) });
       }
       return out;
     };
@@ -455,7 +483,7 @@ export const V2_TEMPLATES = {
   },
   'testimonial': {
     name: 'Testimonial', group: 'Brand', render: testimonial, sizes: LISTING_SIZES, defaults: { theme: 'slate', sizeId: 'ig-portrait' }, photo: 'none',
-    fields: [{ id: 'quote', label: 'Client quote (their exact, approved words)', type: 'textarea', required: true, placeholder: 'Paste the review exactly as the client wrote it.' },
+    fields: [{ id: 'quote', label: 'Client quote (their exact, approved words)', type: 'textarea', required: true, placeholder: 'Paste the review exactly as the client wrote it.', note: 'Reads best under ~250 characters.' },
       { id: 'reviewer', label: 'Client name', type: 'text', placeholder: 'First name + last initial', half: true },
       { id: 'context', label: 'Context', type: 'text', placeholder: 'Home seller, Sioux City', half: true },
       { id: 'stars', label: 'Star rating', type: 'segmented', options: ['5 stars', 'None'], default: '5 stars', note: 'Only show stars if the client actually left a 5-star review.' },
@@ -467,7 +495,7 @@ export const V2_TEMPLATES = {
     fields: [{ id: 'kicker', label: 'Label', type: 'text', default: 'Meet Your Advisor' },
       { id: 'license', label: 'License line', type: 'text', placeholder: 'Licensed in IA, SD, NE' },
       { id: 'bio', label: 'Short bio (1–2 sentences)', type: 'textarea', placeholder: 'What you focus on and where you work.' },
-      { id: 'pairs', label: 'Figures (optional — only verifiable facts)', type: 'pairs', count: 3,
+      { id: 'pairs', label: 'Figures (optional — only verifiable facts)', type: 'pairs', count: 3, note: 'Keep labels short (2–3 words). No “#1” or “top” claims unless you can cite the source.',
         placeholders: [['12', 'Years in Real Estate'], ['IA · SD · NE', 'Licensed'], ['Multifamily', 'Focus']] }],
   },
 };

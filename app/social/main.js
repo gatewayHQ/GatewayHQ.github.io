@@ -23,6 +23,8 @@ const state = {
 const BROKERAGE = 'Gateway Real Estate Advisors';
 const SIZE_ORDER = ['ig-portrait', 'square', 'story', 'linkedin', 'landscape', 'postcard-6x4'];
 const CLASSIC_SIZES = ['ig-portrait', 'square', 'story', 'linkedin', 'postcard-6x4'];
+// Property facts that carry over between dedicated templates (see key()).
+const SHARED_FIELDS = new Set(['address', 'city', 'price', 'beds', 'baths', 'sf', 'propName', 'assetType', 'size', 'capRate']);
 
 // Classic layouts: default kicker + stat labels per template, by property type.
 const KICKER = {
@@ -151,8 +153,9 @@ function fillSelect(sel, pairs) {
 }
 
 // ── Dedicated fields ─────────────────────────────────────────────────────────
-// Scalars are stored by field id (shared); list-type fields per template.
-function key(tplId, fd) { return (fd.type === 'metrics' || fd.type === 'pairs') ? `${tplId}:${fd.id}` : fd.id; }
+// Property facts carry over between templates (Just Listed -> Under Contract
+// keeps the address); everything else (status, labels, lists) is per template.
+function key(tplId, fd) { return SHARED_FIELDS.has(fd.id) ? fd.id : `${tplId}:${fd.id}`; }
 
 function buildFields(tpl, tplId) {
   const wrap = $('g-fields'); wrap.innerHTML = '';
@@ -346,7 +349,7 @@ async function doExport(all) {
   const opts = currentOpts();
   if (TEMPLATES[opts.templateId].photo === 'none') opts.assets.photo = null;
   // gateway_<template>_<subject>  (+ _<W>x<H>.png added per size)
-  const tplSlug = opts.templateId.replace(/^cre-(?=just|open|for|coming|stats|testimonial|meet)/, '');
+  const tplSlug = TEMPLATES[opts.templateId].classic ? opts.templateId + '-classic' : opts.templateId;
   const base = `gateway_${tplSlug}_${slugify(subjectOf(opts.data), 'graphic')}`;
   const sizes = (TEMPLATES[opts.templateId] || {}).sizes;
   try {
@@ -381,8 +384,11 @@ async function aiCaption() {
   try {
     const usePhoto = state.photo && TEMPLATES[$('g-template').value].photo !== 'none';
     const photoDataUrl = usePhoto ? toJpegDataUrl(state.photo, 640) : null;
+    const tpl = TEMPLATES[$('g-template').value];
+    const type = !isDedicated($('g-template').value) ? state.type
+      : ({ Residential: 'residential', 'Commercial / Investment': 'commercial investment', Brand: 'agent brand' })[tpl.group] || 'real estate';
     const text = await writeCaption({
-      platform: $('g-cap-platform').value, type: state.type, data: collectData(), facts: captionFacts(), photoDataUrl,
+      platform: $('g-cap-platform').value, type, data: collectData(), facts: captionFacts(), photoDataUrl,
     });
     $('g-cap-out').value = text;
     status.textContent = text ? 'Done — review & copy.' : 'No caption returned.';
