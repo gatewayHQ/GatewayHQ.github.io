@@ -3243,8 +3243,13 @@ function downloadSocialSquare() {
   sqCanvas.width = 1080;
   sqCanvas.height = 1080;
   var sqCtx = sqCanvas.getContext('2d');
-  // Draw center-cropped
-  sqCtx.drawImage(srcCanvas, 0, 135, 1080, 1080, 0, 0, 1080, 1080);
+  // Fit the WHOLE portrait graphic inside the square (no cropping of the header
+  // or footer — audit bug 3d) on brand dark navy, centred and never stretched.
+  sqCtx.fillStyle = '#152229';
+  sqCtx.fillRect(0, 0, 1080, 1080);
+  var s = Math.min(1080 / srcCanvas.width, 1080 / srcCanvas.height);
+  var dw = Math.round(srcCanvas.width * s), dh = Math.round(srcCanvas.height * s);
+  sqCtx.drawImage(srcCanvas, 0, 0, srcCanvas.width, srcCanvas.height, Math.round((1080 - dw) / 2), Math.round((1080 - dh) / 2), dw, dh);
   var link = document.createElement('a');
   var heading = document.getElementById('sm-heading').value.replace(/\s+/g, '_');
   link.download = 'Gateway_' + heading + '_Square.png';

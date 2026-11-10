@@ -4,7 +4,7 @@ var homeValuationInitialized = false;
 var videoInitialized = false;
 var pageNames = {
   landing: 'Home',
-  social: 'Social Media Builder',
+  social: 'Classic Social Builder',
   multifamily: 'Multifamily OM Builder',
   leasing: 'Leasing OM Builder',
   valuation: 'Valuation Tool',

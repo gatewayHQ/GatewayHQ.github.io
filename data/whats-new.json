@@ -1,0 +1,26 @@
+{
+  "_readme": "Landing-page freshness signals. 'updated' = month each tool last changed (YYYY-MM); a card shows 'Updated Mon YYYY' only while that is within the last 4 months. 'items' feed the 'New this month' row: add a template with ONE line. 'seasonal' is reserved for seasonal template drops (same shape as items, plus optional 'from'/'to' YYYY-MM-DD).",
+  "updated": {
+    "graphics": "2026-11",
+    "social": "2026-11",
+    "multifamily": "2026-07",
+    "leasing": "2026-05",
+    "valuation": "2026-05",
+    "invoice": "2026-05",
+    "home-valuation": "2026-05",
+    "video": "2026-07",
+    "photo-enhancer": "2026-07"
+  },
+  "items": [
+    { "month": "2026-11", "title": "Open House", "detail": "Date + time, zero setup", "tool": "graphics", "template": "open-house" },
+    { "month": "2026-11", "title": "Just Listed / Coming Soon", "tool": "graphics", "template": "just-listed" },
+    { "month": "2026-11", "title": "Under Contract", "tool": "graphics", "template": "under-contract" },
+    { "month": "2026-11", "title": "Just Sold", "tool": "graphics", "template": "just-sold" },
+    { "month": "2026-11", "title": "Price Improvement", "tool": "graphics", "template": "price-improvement" },
+    { "month": "2026-11", "title": "CRE Offering", "tool": "graphics", "template": "cre-offering" },
+    { "month": "2026-11", "title": "Deal Tombstone", "tool": "graphics", "template": "cre-tombstone" },
+    { "month": "2026-11", "title": "Market Snapshot", "tool": "graphics", "template": "market-snapshot" },
+    { "month": "2026-11", "title": "Saved agent profile", "detail": "Your name, phone & headshot fill in automatically", "tool": "graphics" }
+  ],
+  "seasonal": []
+}
