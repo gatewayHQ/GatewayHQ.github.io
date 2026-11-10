@@ -21,6 +21,12 @@ function toBlob(canvas, type, q) {
   return new Promise((res) => canvas.toBlob(res, type, q));
 }
 
+// Render one size to a PNG blob (used by the iPhone/iPad "open the image" path).
+export async function renderPNGBlob(opts) {
+  return toBlob(renderToCanvas(opts), 'image/png');
+}
+export function pngName(opts, baseName) { return `${baseName || 'graphic'}_${dims(opts.sizeId)}.png`; }
+
 export async function exportPNG(opts, baseName) {
   const c = renderToCanvas(opts);
   const blob = await toBlob(c, 'image/png');

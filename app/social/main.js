@@ -9,7 +9,7 @@
 
 import { renderTemplate, TEMPLATE_ORDER, TEMPLATES, TEMPLATE_GROUPS, THEME_ORDER, THEMES, SIZES } from './renderer.js';
 import { loadFonts } from './design-tokens.js';
-import { exportPNG, exportAllSocial } from './export.js';
+import { exportPNG, exportAllSocial, renderPNGBlob, pngName } from './export.js';
 import { writeCaption } from './ai.js';
 import { slugify } from './format.js';
 import { formatFields, fmtPrice } from './templates-v2.js';
@@ -24,6 +24,9 @@ const BROKERAGE = 'Gateway Real Estate Advisors';
 const SIZE_ORDER = ['ig-portrait', 'square', 'story', 'linkedin', 'landscape', 'postcard-6x4'];
 const CLASSIC_SIZES = ['ig-portrait', 'square', 'story', 'linkedin', 'postcard-6x4'];
 // Property facts that carry over between dedicated templates (see key()).
+// Saved agent profile (localStorage) + team roster picks — see initProfile().
+const PROFILE_KEY = 'gw_graphics_profile_v1';
+let roster = [];
 const SHARED_FIELDS = new Set(['address', 'city', 'price', 'beds', 'baths', 'sf', 'propName', 'assetType', 'size', 'capRate']);
 
 // Classic layouts: default kicker + stat labels per template, by property type.
@@ -63,9 +66,9 @@ async function init() {
     setType(b.dataset.type); resetStatLabels(); preview();
   }));
 
-  $('g-template').addEventListener('change', () => { applyTemplate(); preview(); });
+  $('g-template').addEventListener('change', () => { applyTemplate(); preview(); focusFirstEmpty(); });
   ['g-theme', 'g-size'].forEach((id) => $(id).addEventListener('change', preview));
-  ['g-title', 'g-city', 'g-subtitle', 'g-kicker', 'g-brokerage', 'g-a1n', 'g-a1t', 'g-a1p', 'g-a2n', 'g-a2t', 'g-a2p']
+  ['g-title', 'g-city', 'g-subtitle', 'g-kicker', 'g-brokerage', 'g-a1n', 'g-a1t', 'g-a1p', 'g-a1l', 'g-a2n', 'g-a2t', 'g-a2p']
     .forEach((id) => $(id) && $(id).addEventListener('input', debounce(preview, 200)));
 
   wireImage('g-photo', 'g-photo-clear', (img, natural) => {
@@ -78,7 +81,7 @@ async function init() {
       warn.textContent = state.photoLowRes ? `⚠ Low-res photo (${natural.w}×${natural.h}). Use one at least 1080px on the short side so it stays sharp.` : '';
     }
   }, 'g-photo-label');
-  wireImage('g-head1', 'g-head1-clear', (img) => { state.heads[0] = img; }, 'g-head1-label');
+  wireImage('g-head1', 'g-head1-clear', (img) => { state.heads[0] = img; state.head1FromProfile = false; }, 'g-head1-label');
   wireImage('g-head2', 'g-head2-clear', (img) => { state.heads[1] = img; }, 'g-head2-label');
 
   $('g-download').addEventListener('click', () => doExport(false));
@@ -89,6 +92,13 @@ async function init() {
   });
 
   applyTemplate();
+  initProfile();
+  initMobilePreview();
+  // Landing "New this month" chips and links can open a specific template.
+  window.gwGraphicsPick = (id) => {
+    if (!TEMPLATES[id]) return;
+    $('g-template').value = id; applyTemplate(); preview(); focusFirstEmpty();
+  };
   await loadFonts('');               // sharp, consistent type before first paint
   state.ready = true;
   preview();
@@ -307,7 +317,12 @@ function collectData() {
     { name: v('g-a2n'), title: v('g-a2t'), phone: v('g-a2p') },
   ].filter((a) => a.name);
   const id = $('g-template').value;
-  if (isDedicated(id)) return { ...dedicatedValues(id), agents, brokerage: BROKERAGE };
+  if (isDedicated(id)) {
+    const d = { ...dedicatedValues(id), agents, brokerage: BROKERAGE };
+    // Meet the Advisor: license line defaults to the agent's profile ("Licensed in IA, SD, NE")
+    if (id === 'meet-advisor' && !d.license && v('g-a1l')) d.license = licenseLine(v('g-a1l'));
+    return d;
+  }
   const stats = [...$('g-stats').querySelectorAll('.g-stat-row')]
     .map((r) => ({ value: r.querySelector('.g-sv').value.trim(), label: r.querySelector('.g-sl').value.trim() }))
     .filter((s) => s.value || s.label);
@@ -327,6 +342,24 @@ function preview() {
   const opts = currentOpts();
   if (TEMPLATES[opts.templateId] && TEMPLATES[opts.templateId].photo === 'none') opts.assets.photo = null;
   renderTemplate($('g-canvas'), opts);
+  updateDownloadHint();
+}
+
+// The Download button says what is still needed (e.g. "needs Photo, Street address").
+function updateDownloadHint() {
+  const btn = $('g-download'); if (!btn) return;
+  const miss = missingRequired();
+  btn.classList.toggle('needs', miss.length > 0);
+  btn.textContent = miss.length
+    ? '⬇️ Download PNG — still needed: ' + miss.map((m) => m.label).join(', ')
+    : '⬇️ Download PNG (current size)';
+}
+
+// After picking a template, put the cursor in the first empty required field.
+function focusFirstEmpty() {
+  const miss = missingRequired().filter((m) => m.id !== 'photo');
+  const el = miss.length ? $('g-f-' + miss[0].id) : null;
+  if (el && el.focus) el.focus({ preventScroll: false });
 }
 
 // File-name subject: the address / property / market / reviewer.
@@ -352,8 +385,25 @@ async function doExport(all) {
   const tplSlug = TEMPLATES[opts.templateId].classic ? opts.templateId + '-classic' : opts.templateId;
   const base = `gateway_${tplSlug}_${slugify(subjectOf(opts.data), 'graphic')}`;
   const sizes = (TEMPLATES[opts.templateId] || {}).sizes;
+  // iPhone/iPad: a PNG "download" lands in Files, not Photos, so open the image in
+  // a new tab instead (opened now, inside the tap, so Safari doesn't block it).
+  const iosWin = !all && isIOS() ? window.open('', '_blank') : null;
   try {
     if (all) await exportAllSocial(opts, base, sizes);
+    else if (iosWin) {
+      const blob = await renderPNGBlob(opts);
+      const url = URL.createObjectURL(blob);
+      iosWin.document.title = pngName(opts, base);
+      iosWin.document.body.style.cssText = 'margin:0;background:#152229;font-family:-apple-system,sans-serif;color:#E4E3D4;text-align:center';
+      iosWin.document.body.innerHTML = '<p style="padding:14px 12px;margin:0;font-size:15px">Press and hold the image, then tap <b>Save to Photos</b>.</p>';
+      const im = iosWin.document.createElement('img'); im.src = url; im.alt = pngName(opts, base); im.style.cssText = 'max-width:100%;height:auto';
+      iosWin.document.body.appendChild(im);
+      status.textContent = '✓ Opened in a new tab — press and hold the image to save it to Photos.';
+      return;
+    } else if (!all && isIOS()) {
+      // pop-up blocked: fall back to a normal download (Files app)
+      await exportPNG(opts, base);
+    }
     else await exportPNG(opts, base);
     status.textContent = '✓ Downloaded' + (state.photoLowRes && opts.assets.photo ? ' — note: photo is low-res' : '');
   } catch (e) { status.textContent = 'Export failed: ' + (e.message || e); }
@@ -441,3 +491,103 @@ function loadImage(file) {
 
 function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+// ── iOS detection (iPadOS reports as Mac + touch) ───────────────────────────
+function isIOS() {
+  const ua = navigator.userAgent || '';
+  return /iP(hone|ad|od)/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+}
+
+// ── Agent profile ────────────────────────────────────────────────────────────
+// Saved once per device (localStorage) and pre-filled into Agent 1 on every
+// template. The team roster (data/agents.json) gives one-click picks. Nothing
+// is invented: agents not on the roster type their own details and save them.
+
+function readProfile() {
+  try { return JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null'); } catch { return null; }
+}
+function writeProfile(p) {
+  try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); return true; } catch { return false; }
+}
+function licenseLine(l) {
+  l = String(l || '').trim(); if (!l) return '';
+  return /^licensed/i.test(l) ? l : 'Licensed ' + (/^in\b/i.test(l) ? l : 'in ' + l);
+}
+
+function applyProfile(p) {
+  if (!p) return;
+  const set = (id, v) => { const el = $(id); if (el && v !== undefined) el.value = v || ''; };
+  set('g-a1n', p.name); set('g-a1t', p.title); set('g-a1p', p.phone); set('g-a1e', p.email);
+  set('g-a1l', String(p.license || '').replace(/^licensed\s+/i, '').replace(/^in\s+/i, ''));
+  if (p.headshot) {
+    const img = new Image();
+    img.onload = () => { state.heads[0] = img; state.head1FromProfile = true; $('g-head1-label').textContent = 'Headshot from your profile'; preview(); };
+    img.src = p.headshot;
+  } else if (state.head1FromProfile) { state.heads[0] = null; state.head1FromProfile = false; $('g-head1-label').textContent = ''; }
+  preview();
+}
+
+function headshotDataUrl() {
+  const img = state.heads[0]; if (!img) return '';
+  const iw = img.width || img.naturalWidth, ih = img.height || img.naturalHeight;
+  const s = Math.min(1, 480 / Math.min(iw, ih));            // circle crops a square: 480px is plenty
+  const c = document.createElement('canvas'); c.width = Math.round(iw * s); c.height = Math.round(ih * s);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.85);
+}
+
+function fillProfilePicker() {
+  const sel = $('g-profile-pick'); if (!sel) return;
+  const mine = readProfile();
+  sel.innerHTML = '';
+  const add = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); };
+  add('', mine ? 'Pick a profile…' : 'Pick your name…');
+  if (mine && mine.name) add('mine', `My profile — ${mine.name}`);
+  roster.forEach((a, i) => { if (a && a.name) add('r' + i, a.name + (a.title ? ` — ${a.title}` : '')); });
+  add('new', 'Not listed — enter my details below');
+  if (mine && mine.name) sel.value = 'mine';
+}
+
+async function initProfile() {
+  const mine = readProfile();
+  if (mine) applyProfile(mine);
+  try {
+    const r = await fetch('data/agents.json', { cache: 'no-cache' });
+    if (r.ok) roster = ((await r.json()).agents || []).filter((a) => a && a.name);
+  } catch { /* offline: saved profile still works */ }
+  fillProfilePicker();
+  $('g-profile-pick').addEventListener('change', () => {
+    const v = $('g-profile-pick').value;
+    if (v === 'mine') applyProfile(readProfile());
+    else if (v.startsWith('r')) {
+      const a = roster[+v.slice(1)];
+      applyProfile({ name: a.name, title: a.title, phone: a.phone, email: a.email, license: a.license, headshot: /^data:image\//.test(a.photo || '') ? a.photo : '' });
+      $('g-profile-note').textContent = 'Filled from the team roster. Add your headshot below, then tap Save to keep it on this device.';
+    } else if (v === 'new') {
+      ['g-a1n', 'g-a1t', 'g-a1p', 'g-a1e', 'g-a1l'].forEach((id) => { $(id).value = ''; });
+      if (state.head1FromProfile) { state.heads[0] = null; state.head1FromProfile = false; $('g-head1-label').textContent = ''; }
+      $('g-a1n').focus(); preview();
+    }
+  });
+  $('g-profile-save').addEventListener('click', () => {
+    const v = (id) => ($(id)?.value || '').trim();
+    if (!v('g-a1n')) { $('g-profile-note').textContent = 'Enter your name in Agent 1 first.'; $('g-a1n').focus(); return; }
+    const p = { name: v('g-a1n'), title: v('g-a1t'), phone: v('g-a1p'), email: v('g-a1e'), license: v('g-a1l'), headshot: headshotDataUrl(), savedAt: new Date().toISOString() };
+    let ok = writeProfile(p);
+    if (!ok && p.headshot) { p.headshot = ''; ok = writeProfile(p); }   // storage full: keep the text details
+    $('g-profile-note').textContent = ok
+      ? `✓ Saved on this device${p.headshot ? ' (with headshot)' : ''}. It fills in automatically next time.`
+      : 'Could not save on this device (private browsing?). Your details still work for this session.';
+    fillProfilePicker();
+  });
+}
+
+// ── Mobile: preview first + floating "Preview" button ───────────────────────
+function initMobilePreview() {
+  const btn = $('g-preview-jump'), wrap = document.querySelector('#page-graphics .g-canvas-wrap');
+  if (!btn || !wrap) return;
+  btn.addEventListener('click', () => wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(([e]) => { btn.hidden = e.isIntersecting; }, { threshold: 0.15 }).observe(wrap);
+  } else btn.hidden = false;
+}

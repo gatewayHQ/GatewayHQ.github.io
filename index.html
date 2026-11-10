@@ -98,65 +98,70 @@
     <h1>Agent Toolkit</h1>
     <p>Select a tool to get started</p>
   </div>
+  <!-- New this month — populated by app/whats-new.js from data/whats-new.json -->
+  <div id="landing-new" hidden>
+    <div class="landing-new-head" id="landing-new-title">New this month</div>
+    <div id="landing-new-list" class="landing-new-list"></div>
+  </div>
   <!-- Recently Used — populated by router.js on each visit -->
   <div id="landing-recent" style="display:none;max-width:880px;margin:0 auto 28px;padding:0 24px">
     <div style="font-size:10px;color:var(--brand-gray);letter-spacing:2px;font-weight:700;text-transform:uppercase;margin-bottom:10px">Recently Used</div>
     <div id="landing-recent-list" style="display:flex;gap:10px;flex-wrap:wrap"></div>
   </div>
   <div class="tools-grid">
-    <div class="tool-card" onclick="navigateTo('social')">
-      <div class="tool-icon">📱</div>
-      <h3>Social Media Builder</h3>
-      <p>Create branded Just Listed, Just Sold, Under Contract & For Sale social media graphics</p>
-      <span class="tool-tag new">NEW</span>
+    <div class="tool-card" data-tool="graphics" onclick="navigateTo('graphics')">
+      <div class="tool-icon">🎨</div>
+      <h3>Social &amp; Mailer Graphics</h3>
+      <p>The main social tool: Open House, Just Listed, Under Contract, Just Sold, Price Improvement, CRE offerings, deal tombstones &amp; market snapshots — every size, branded, in about a minute</p>
+      <span class="tool-tag updated" hidden></span>
     </div>
-    <div class="tool-card" onclick="navigateTo('multifamily')">
+    <div class="tool-card" data-tool="multifamily" onclick="navigateTo('multifamily')">
       <div class="tool-icon">🏢</div>
       <h3>Multifamily OM Builder</h3>
       <p>Build professional Offering Memorandums with market data, financials & branded PPTX export</p>
-      <span class="tool-tag ready">READY</span>
+      <span class="tool-tag updated" hidden></span>
     </div>
-    <div class="tool-card" onclick="navigateTo('leasing')">
+    <div class="tool-card" data-tool="leasing" onclick="navigateTo('leasing')">
       <div class="tool-icon">🔑</div>
       <h3>Leasing OM Builder</h3>
       <p>Create leasing packages for retail, office & industrial properties with branded output</p>
-      <span class="tool-tag new">NEW</span>
+      <span class="tool-tag updated" hidden></span>
     </div>
-    <div class="tool-card" onclick="navigateTo('valuation')">
+    <div class="tool-card" data-tool="valuation" onclick="navigateTo('valuation')">
       <div class="tool-icon">📊</div>
       <h3>Valuation Tool</h3>
       <p>Analyze T-12 financials, rent rolls & comps to estimate property values</p>
-      <span class="tool-tag new">NEW</span>
+      <span class="tool-tag updated" hidden></span>
     </div>
-    <div class="tool-card" onclick="navigateTo('invoice')">
-      <div class="tool-icon">🧾</div>
-      <h3>Invoice Generator</h3>
-      <p>Create, save & print professional invoices tied to properties and jobs</p>
-      <span class="tool-tag new">NEW</span>
-    </div>
-    <div class="tool-card" onclick="navigateTo('home-valuation')">
+    <div class="tool-card" data-tool="home-valuation" onclick="navigateTo('home-valuation')">
       <div class="tool-icon">🏡</div>
       <h3>Home Valuation Generator</h3>
       <p>Pull Rentcast comps, apply condition/upgrade adjustments, and export branded PDF & PPTX valuation reports</p>
-      <span class="tool-tag new">NEW</span>
+      <span class="tool-tag updated" hidden></span>
     </div>
-    <div class="tool-card" onclick="navigateTo('video')">
+    <div class="tool-card" data-tool="invoice" onclick="navigateTo('invoice')">
+      <div class="tool-icon">🧾</div>
+      <h3>Invoice Generator</h3>
+      <p>Create, save & print professional invoices tied to properties and jobs</p>
+      <span class="tool-tag updated" hidden></span>
+    </div>
+    <div class="tool-card" data-tool="video" onclick="navigateTo('video')">
       <div class="tool-icon">🎬</div>
       <h3>Video Generator</h3>
       <p>Upload photos, enter property details, and generate a branded 30-second promo video for residential, multifamily, or commercial listings</p>
-      <span class="tool-tag new">NEW</span>
+      <span class="tool-tag updated" hidden></span>
     </div>
-    <div class="tool-card" onclick="navigateTo('graphics')">
-      <div class="tool-icon">🎨</div>
-      <h3>Social &amp; Mailer Graphics</h3>
-      <p>Create premium branded graphics for Instagram, Facebook, LinkedIn and print mailers — Just Listed, Just Closed, market stats and more</p>
-      <span class="tool-tag new">NEW</span>
-    </div>
-    <div class="tool-card" onclick="navigateTo('photo-enhancer')">
+    <div class="tool-card" data-tool="photo-enhancer" onclick="navigateTo('photo-enhancer')">
       <div class="tool-icon">📸</div>
       <h3>Professional Photo Enhancer</h3>
       <p>Turn iPhone listing photos into magazine/MLS-ready shots — perspective, HDR window pull, neutral color, sky replacement, declutter &amp; virtual staging, with consistent gallery styling</p>
-      <span class="tool-tag new">NEW</span>
+      <span class="tool-tag updated" hidden></span>
+    </div>
+    <div class="tool-card" data-tool="social" onclick="navigateTo('social')">
+      <div class="tool-icon">📱</div>
+      <h3>Classic Social Builder</h3>
+      <p>The original builder — saved presets, QR codes, mailers, unit-mix tables &amp; Buffer scheduling. For everyday posts, use Social &amp; Mailer Graphics</p>
+      <span class="tool-tag updated" hidden></span>
     </div>
   </div>
   <div class="landing-footer">
@@ -166,6 +171,11 @@
 
 <!-- ========== SOCIAL MEDIA BUILDER ========== -->
 <div id="page-social" class="page">
+  <div class="classic-banner" style="max-width:1100px;margin:0 auto 12px;padding:10px 16px;border:1px solid rgba(162,182,192,0.25);border-radius:10px;background:rgba(162,182,192,0.06);font-size:13px;color:var(--brand-cream)">
+    <strong>Classic builder.</strong> For everyday posts, the new
+    <a href="#" onclick="navigateTo('graphics');return false" style="color:var(--brand-blue)">Social &amp; Mailer Graphics</a>
+    has dedicated Open House, Just Listed, Under Contract, Just Sold &amp; CRE templates. This builder stays for presets, QR codes, mailers &amp; unit mix.
+  </div>
 
   <!-- ── Buffer Connection Bar ── -->
   <div class="buffer-bar" id="buffer-bar">
@@ -1617,14 +1627,28 @@
     #page-graphics .g-req{color:#E8B04B;margin-left:4px}
     #page-graphics .g-missing{border-color:#E8B04B!important}
     #page-graphics optgroup{color:#1E2F39}
+    #page-graphics .g-link{color:var(--brand-blue);text-decoration:none;border-bottom:1px solid rgba(162,182,192,0.35)}
+    #page-graphics .g-profile{background:rgba(162,182,192,0.06);border:1px solid rgba(162,182,192,0.18);border-radius:10px;padding:2px 12px 10px;margin:14px 0 4px}
+    #page-graphics #g-download.needs{background:rgba(255,255,255,0.08);color:var(--brand-cream);border:1px dashed #E8B04B}
+    #page-graphics #g-preview-jump{display:none}
+    #page-graphics .g-canvas-wrap{scroll-margin-top:72px}
+    /* Phones/tablets: preview first (compact), form below, and a floating "Preview" button */
+    @media(max-width:860px){
+      #page-graphics .g-wrap{padding:8px 16px 72px}
+      #page-graphics .g-preview-col{order:-1}
+      #page-graphics #g-canvas{max-height:46vh}
+      #page-graphics #g-preview-jump{display:block;position:fixed;right:16px;bottom:16px;z-index:900;border:none;border-radius:24px;padding:12px 18px;font-weight:700;font-size:13px;background:linear-gradient(135deg,#C8A84B,#a8893a);color:#0D1117;box-shadow:0 6px 20px rgba(0,0,0,0.4)}
+      #page-graphics #g-preview-jump[hidden]{display:none}
+    }
   </style>
 
   <div class="g-wrap">
     <h2 style="text-align:center;font-size:28px;margin-bottom:6px;color:var(--brand-cream)">Social &amp; Mailer Graphics</h2>
-    <p style="text-align:center;color:var(--brand-gray);font-size:13px;margin-bottom:20px">Premium branded graphics for Instagram, Facebook, LinkedIn &amp; print mailers — built in your browser.</p>
+    <p style="text-align:center;color:var(--brand-gray);font-size:13px;margin-bottom:6px">Premium branded graphics for Instagram, Facebook, LinkedIn &amp; print mailers — built in your browser.</p>
+    <p style="text-align:center;font-size:12px;margin-bottom:20px"><a href="#" id="g-classic-link" class="g-link" onclick="navigateTo('social');return false">Need saved presets, QR codes or mailers? Open the Classic builder →</a></p>
 
     <div class="g-grid">
-      <div>
+      <div class="g-form-col">
         <div class="g-row">
           <div><label class="g-label" for="g-template">Template</label><select id="g-template" class="g-in"></select></div>
           <div><label class="g-label" for="g-theme">Theme</label><select id="g-theme" class="g-in"></select></div>
@@ -1667,9 +1691,20 @@
         <div id="g-photo-warn" class="g-note g-warn" hidden></div>
         </div>
 
+        <!-- Saved agent profile (localStorage on this device) + team roster picks -->
+        <div class="g-profile" id="g-profile">
+          <label class="g-label" for="g-profile-pick">Your profile</label>
+          <div class="g-mini">
+            <select id="g-profile-pick" class="g-in" style="margin-bottom:0"><option value="">Pick your name…</option></select>
+            <button id="g-profile-save" class="g-btn ghost" type="button" style="width:auto;margin:0;padding:9px 12px;white-space:nowrap">💾 Save as my profile</button>
+          </div>
+          <div id="g-profile-note" class="g-note">Not on the list? Fill in Agent 1 below and tap Save — it’s remembered on this device and fills in every template.</div>
+        </div>
+
         <label class="g-label">Agent 1</label>
-        <div class="g-row"><input id="g-a1n" class="g-in" placeholder="Agent name"><input id="g-a1p" class="g-in" placeholder="Phone"></div>
+        <div class="g-row"><input id="g-a1n" class="g-in" placeholder="Agent name" autocomplete="name"><input id="g-a1p" class="g-in" placeholder="Phone" inputmode="tel" autocomplete="tel"></div>
         <input id="g-a1t" class="g-in" placeholder="Title — Managing Partner">
+        <div class="g-row"><input id="g-a1e" class="g-in" placeholder="Email (profile only)" inputmode="email" autocomplete="email"><input id="g-a1l" class="g-in" placeholder="Licensed in — IA, SD, NE"></div>
         <div class="g-mini">
           <input id="g-head1" type="file" accept="image/*" class="g-in" style="margin-bottom:0;padding:6px" title="Headshot">
           <button id="g-head1-clear" class="g-btn ghost" type="button" style="width:auto;margin:0;padding:8px 12px">Clear</button>
@@ -1689,7 +1724,7 @@
         <input id="g-brokerage" class="g-in" value="Gateway Real Estate Advisors">
       </div>
 
-      <div>
+      <div class="g-preview-col" id="g-preview-col">
         <label class="g-label">Preview</label>
         <div class="g-canvas-wrap"><canvas id="g-canvas" width="1080" height="1350"></canvas></div>
         <button id="g-download" class="g-btn primary" type="button">⬇️ Download PNG (current size)</button>
@@ -1711,6 +1746,7 @@
       </div>
     </div>
   </div>
+  <button id="g-preview-jump" type="button" hidden>👁 Preview</button>
 </div>
 
 <!-- ========== SYNC MODAL ========== -->
@@ -1819,6 +1855,7 @@
 <script src="app/api.js" defer></script>
 <script src="app/core.js" defer></script>
 <script src="app/router.js" defer></script>
+<script src="app/whats-new.js" defer></script>
 <script src="app/social.js" defer></script>
 <script src="app/leasing.js" defer></script>
 <script src="app/valuation.js" defer></script>

@@ -38,3 +38,14 @@
 }
 .top-nav .home-btn:hover { background: var(--brand-blue); color: var(--brand-navy); }
 
+
+/* ========== SMALL SCREENS (phones) ========== */
+/* At 390px the full nav was 527px wide. Keep logo + AI + Sync + Home on one row. */
+@media (max-width: 600px) {
+  .top-nav { padding: 10px 12px; gap: 8px; }
+  .top-nav img.nav-logo { height: 26px; }
+  .top-nav .nav-title, .top-nav .nav-breadcrumb { display: none; }
+  .top-nav .home-btn { padding: 6px 10px; font-size: 0; margin-left: 0; }   /* "← Back to Home" -> "← Home" */
+  .top-nav .home-btn::before { content: '← Home'; font-size: 12px; }
+  #ai-status-badge { margin-left: auto; }
+}

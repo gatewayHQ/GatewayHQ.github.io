@@ -115,4 +115,13 @@ A dedicated `open-house` template with date/time fields; vendored Montserrat 700
 
 **Known tolerance:** at 1200×628 only, the densest combinations (two titled agents plus 4 figures, or very long agent titles with headshots) step the smallest text down to 16–17px, and to 14px in the most extreme test. They never overlap.
 
-**Punch-list items still open:** P0-3 agent profile, P0-4 one home for social, P0-6 auth recommendation, P1-1 mobile, P1-5 freshness tags, P1-6 Builder square crop, P2 items. These are Slice 3 and Step 5.
+### Slice 3: Freshness and UX (done)
+- **Agent profile (P0-3):** the Graphics page has a "Your profile" card. Team-roster agents from `data/agents.json` are one-click picks; agents not on the roster type their own details. "Save as my profile" keeps name, title, phone, email, license states and headshot in `localStorage` on that device, and they fill in on every template. `agents.json` itself is unchanged, because it is the shared roster the OM Builder publishes to and placeholder rows would pollute it.
+- **One home for social (P0-4):** Social & Mailer Graphics is the first landing card and the main social tool. The old Builder is now "Classic Social Builder", with a banner pointing to the new tool and a link back from Graphics. It is still fully available.
+- **Builder square export (bug 3d / P1-6):** the whole portrait graphic now fits inside 1080×1080 on brand navy instead of being centre-cropped.
+- **Freshness (P1-5):** the blanket NEW/READY tags are removed. Cards show "Updated Mon YYYY" for 4 months after a change, otherwise nothing. A "New this month" row is driven by `data/whats-new.json`; adding a template there is one line, and a `seasonal` list is reserved. Chips open the template directly.
+- **Mobile (P1-1):** the nav fits at 390px on all 10 pages. Graphics puts a compact preview above the form, with a floating "Preview" button. On iPhone/iPad, Download opens the PNG in a new tab with "Press and hold → Save to Photos" (zip downloads normally).
+- **Fast path:** picking a template focuses its first empty required field, and the Download button lists what is still needed.
+- **Acceptance (scripted, human pacing):** an agent with a saved profile goes from toolkit open to a finished Open House PNG in **26.2 s over 10 steps** (target < 60 s).
+
+**Still open:** P0-6 auth recommendation and the P2 items (Step 5). There is one new P1: on phones the Multifamily, Valuation and Invoice forms are wider than the screen (page widths 461, 470 and 658px at 390px). This is pre-existing and not part of the social work.
